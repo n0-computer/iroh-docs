@@ -296,7 +296,7 @@ impl LiveEvent {
 /// engine. Changing the default author will not be persisted.
 ///
 /// If set to `Persistent`, the default author will be loaded from and persisted to the specified
-/// path (as base32 encoded string of the author's public key).
+/// path (as hex encoded string of the author's public key).
 #[derive(Debug)]
 pub enum DefaultAuthorStorage {
     /// Memory storage.

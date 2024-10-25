@@ -64,6 +64,7 @@ tokio = { version = "1", features = ["sync", "macros"] }
 proptest = "1.2.0"
 tempfile = "3.4"
 test-strategy = "0.3.1"
+data-encoding = "2.6.0"
 
 [features]
 default = ["net", "metrics", "engine"]
