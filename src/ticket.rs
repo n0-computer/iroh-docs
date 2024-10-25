@@ -89,7 +89,14 @@ mod tests {
             nodes: vec![NodeAddr::from_parts(node_id, None, [])],
         };
         let s = ticket.to_string();
-        let base32 = data_encoding::BASE32_NOPAD.decode(s.strip_prefix("doc").unwrap().to_ascii_uppercase().as_bytes()).unwrap();
+        let base32 = data_encoding::BASE32_NOPAD
+            .decode(
+                s.strip_prefix("doc")
+                    .unwrap()
+                    .to_ascii_uppercase()
+                    .as_bytes(),
+            )
+            .unwrap();
         let expected = parse_hexdump("
             00 # variant
             01 # capability discriminator, 1 = read
