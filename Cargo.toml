@@ -40,6 +40,7 @@ iroh-blobs = { version = "0.27.0", optional = true, features = ["downloader"] }
 iroh-gossip = { version = "0.27.0", optional = true }
 iroh-metrics = { version = "0.27.0", default-features = false }
 iroh-net = { version = "0.27.0", optional = true }
+iroh-router = { version = "0.27.0", optional = true }
 lru = "0.12"
 num_enum = "0.7"
 postcard = { version = "1", default-features = false, features = ["alloc", "use-std", "experimental-derive"] }
@@ -69,8 +70,15 @@ test-strategy = "0.3.1"
 default = ["net", "metrics", "engine"]
 net = ["dep:iroh-net", "tokio/io-util", "dep:tokio-stream", "dep:tokio-util"]
 metrics = ["iroh-metrics/metrics"]
-engine = ["net", "dep:iroh-gossip", "dep:iroh-blobs"]
+engine = ["net", "dep:iroh-gossip", "dep:iroh-blobs", "dep:iroh-router"]
 
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "iroh_docsrs"]
+
+[patch.crates-io]
+iroh-router = { git = "https://github.com/n0-computer/iroh", branch = "main" }
+iroh-net = { git = "https://github.com/n0-computer/iroh", branch = "main" }
+iroh-metrics = { git = "https://github.com/n0-computer/iroh", branch = "main" }
+iroh-base = { git = "https://github.com/n0-computer/iroh", branch = "main" }
+iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs", branch = "main" }

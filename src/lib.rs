@@ -38,6 +38,9 @@ pub mod metrics;
 #[cfg(feature = "net")]
 #[cfg_attr(iroh_docsrs, doc(cfg(feature = "net")))]
 pub mod net;
+#[cfg(feature = "engine")]
+#[cfg_attr(iroh_docsrs, doc(cfg(feature = "engine")))]
+pub mod protocol;
 #[cfg(feature = "net")]
 #[cfg_attr(iroh_docsrs, doc(cfg(feature = "net")))]
 mod ticket;
