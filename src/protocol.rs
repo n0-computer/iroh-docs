@@ -16,7 +16,7 @@ impl ProtocolHandler for Engine {
 
     fn shutdown(self: Arc<Self>) -> BoxedFuture<()> {
         Box::pin(async move {
-            if let Err(err) = (&*self).shutdown().await {
+            if let Err(err) = (*self).shutdown().await {
                 tracing::warn!("shutdown error: {:?}", err);
             }
         })
