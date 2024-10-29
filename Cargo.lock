@@ -1609,7 +1609,7 @@ checksum = "ddc24109865250148c2e0f3d25d4f0f479571723792d3802153c60922a4fb708"
 [[package]]
 name = "iroh-base"
 version = "0.27.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#30f3e03cde8a58af3b84a5f11134fb970ec3efa1"
+source = "git+https://github.com/n0-computer/iroh?branch=main#fe684c23e60fc8c35d3ec02bf088f36e1e248c50"
 dependencies = [
  "aead",
  "anyhow",
@@ -1776,7 +1776,7 @@ dependencies = [
 [[package]]
 name = "iroh-metrics"
 version = "0.27.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#30f3e03cde8a58af3b84a5f11134fb970ec3efa1"
+source = "git+https://github.com/n0-computer/iroh?branch=main#fe684c23e60fc8c35d3ec02bf088f36e1e248c50"
 dependencies = [
  "anyhow",
  "erased_set",
@@ -1796,7 +1796,7 @@ dependencies = [
 [[package]]
 name = "iroh-net"
 version = "0.27.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#30f3e03cde8a58af3b84a5f11134fb970ec3efa1"
+source = "git+https://github.com/n0-computer/iroh?branch=main#fe684c23e60fc8c35d3ec02bf088f36e1e248c50"
 dependencies = [
  "anyhow",
  "backoff",
@@ -1921,7 +1921,7 @@ dependencies = [
 [[package]]
 name = "iroh-router"
 version = "0.27.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#30f3e03cde8a58af3b84a5f11134fb970ec3efa1"
+source = "git+https://github.com/n0-computer/iroh?branch=main#fe684c23e60fc8c35d3ec02bf088f36e1e248c50"
 dependencies = [
  "anyhow",
  "futures-buffered",
