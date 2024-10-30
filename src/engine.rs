@@ -11,7 +11,9 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use futures_lite::{Stream, StreamExt};
-use iroh_blobs::{downloader::Downloader, store::EntryStatus, Hash};
+use iroh_blobs::{
+    downloader::Downloader, store::EntryStatus, util::local_pool::LocalPoolHandle, Hash,
+};
 use iroh_gossip::net::Gossip;
 use iroh_net::{key::PublicKey, Endpoint, NodeAddr};
 use serde::{Deserialize, Serialize};
@@ -52,6 +54,7 @@ pub struct Engine {
     actor_handle: Arc<AbortOnDropHandle<()>>,
     #[debug("ContentStatusCallback")]
     content_status_cb: ContentStatusCallback,
+    local_pool_handle: LocalPoolHandle,
 }
 
 impl Engine {
@@ -66,6 +69,7 @@ impl Engine {
         bao_store: B,
         downloader: Downloader,
         default_author_storage: DefaultAuthorStorage,
+        local_pool_handle: LocalPoolHandle,
     ) -> anyhow::Result<Self> {
         let (live_actor_tx, to_live_actor_recv) = mpsc::channel(ACTOR_CHANNEL_CAP);
         let me = endpoint.node_id().fmt_short();
@@ -111,6 +115,7 @@ impl Engine {
             actor_handle: Arc::new(AbortOnDropHandle::new(actor_handle)),
             content_status_cb,
             default_author: Arc::new(default_author),
+            local_pool_handle,
         })
     }
 
@@ -204,6 +209,10 @@ impl Engine {
             .await?;
         reply_rx.await?;
         Ok(())
+    }
+
+    pub(crate) fn local_pool_handle(&self) -> &LocalPoolHandle {
+        &self.local_pool_handle
     }
 }
 
