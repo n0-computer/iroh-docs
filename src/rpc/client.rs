@@ -49,7 +49,12 @@ where
     S: quic_rpc::Service,
     C: quic_rpc::ServiceConnection<S>,
 {
-    /// Creates a new document.
+    /// Creates a new docs client.
+    pub fn new(rpc: quic_rpc::RpcClient<RpcService, C, S>) -> Self {
+        Self { rpc }
+    }
+
+    /// Creates a client.
     pub async fn create(&self) -> Result<Doc<S, C>> {
         let res = self.rpc.rpc(CreateRequest {}).await??;
         let doc = Doc::new(self.rpc.clone(), res.id);
