@@ -23,9 +23,11 @@ use quic_rpc::{client::BoxedServiceConnection, message::RpcMsg};
 use serde::{Deserialize, Serialize};
 
 use super::proto::{
-    CloseRequest, CreateRequest, DelRequest, DelResponse, DocListRequest, DocSubscribeRequest,
-    DropRequest, ExportFileRequest, GetDownloadPolicyRequest, GetExactRequest, GetManyRequest,
-    GetSyncPeersRequest, ImportFileRequest, ImportRequest, LeaveRequest, OpenRequest, RpcService,
+    AuthorCreateRequest, AuthorDeleteRequest, AuthorExportRequest, AuthorGetDefaultRequest,
+    AuthorImportRequest, AuthorListRequest, AuthorSetDefaultRequest, CloseRequest, CreateRequest,
+    DelRequest, DelResponse, DocListRequest, DocSubscribeRequest, DropRequest, ExportFileRequest,
+    GetDownloadPolicyRequest, GetExactRequest, GetManyRequest, GetSyncPeersRequest,
+    ImportFileRequest, ImportRequest, LeaveRequest, OpenRequest, RpcService,
     SetDownloadPolicyRequest, SetHashRequest, SetRequest, ShareRequest, StartSyncRequest,
     StatusRequest,
 };
@@ -34,8 +36,8 @@ pub use crate::engine::{Origin, SyncEvent, SyncReason};
 use crate::{
     actor::OpenState,
     store::{DownloadPolicy, Query},
-    AuthorId, Capability, CapabilityKind, ContentStatus, DocTicket, NamespaceId, PeerIdBytes,
-    RecordIdentifier,
+    Author, AuthorId, Capability, CapabilityKind, ContentStatus, DocTicket, NamespaceId,
+    PeerIdBytes, RecordIdentifier,
 };
 
 /// Iroh docs client.
@@ -119,6 +121,75 @@ where
         self.rpc.rpc(OpenRequest { doc_id: id }).await??;
         let doc = Doc::new(self.rpc.clone(), id);
         Ok(Some(doc))
+    }
+
+    /// Creates a new document author.
+    ///
+    /// You likely want to save the returned [`AuthorId`] somewhere so that you can use this author
+    /// again.
+    ///
+    /// If you need only a single author, use [`Self::default`].
+    pub async fn author_create(&self) -> Result<AuthorId> {
+        let res = self.rpc.rpc(AuthorCreateRequest).await??;
+        Ok(res.author_id)
+    }
+
+    /// Returns the default document author of this node.
+    ///
+    /// On persistent nodes, the author is created on first start and its public key is saved
+    /// in the data directory.
+    ///
+    /// The default author can be set with [`Self::set_default`].
+    pub async fn author_default(&self) -> Result<AuthorId> {
+        let res = self.rpc.rpc(AuthorGetDefaultRequest).await??;
+        Ok(res.author_id)
+    }
+
+    /// Sets the node-wide default author.
+    ///
+    /// If the author does not exist, an error is returned.
+    ///
+    /// On a persistent node, the author id will be saved to a file in the data directory and
+    /// reloaded after a restart.
+    pub async fn author_set_default(&self, author_id: AuthorId) -> Result<()> {
+        self.rpc
+            .rpc(AuthorSetDefaultRequest { author_id })
+            .await??;
+        Ok(())
+    }
+
+    /// Lists document authors for which we have a secret key.
+    ///
+    /// It's only possible to create writes from authors that we have the secret key of.
+    pub async fn author_list(&self) -> Result<impl Stream<Item = Result<AuthorId>>> {
+        let stream = self.rpc.server_streaming(AuthorListRequest {}).await?;
+        Ok(flatten(stream).map(|res| res.map(|res| res.author_id)))
+    }
+
+    /// Exports the given author.
+    ///
+    /// Warning: The [`Author`] struct contains sensitive data.
+    pub async fn author_export(&self, author: AuthorId) -> Result<Option<Author>> {
+        let res = self.rpc.rpc(AuthorExportRequest { author }).await??;
+        Ok(res.author)
+    }
+
+    /// Imports the given author.
+    ///
+    /// Warning: The [`Author`] struct contains sensitive data.
+    pub async fn author_import(&self, author: Author) -> Result<()> {
+        self.rpc.rpc(AuthorImportRequest { author }).await??;
+        Ok(())
+    }
+
+    /// Deletes the given author by id.
+    ///
+    /// Warning: This permanently removes this author.
+    ///
+    /// Returns an error if attempting to delete the default author.
+    pub async fn author_delete(&self, author: AuthorId) -> Result<()> {
+        self.rpc.rpc(AuthorDeleteRequest { author }).await??;
+        Ok(())
     }
 }
 
@@ -782,15 +853,17 @@ mod tests {
     use tokio::io::AsyncWriteExt;
     use tracing::warn;
 
+    use super::*;
     use crate::{
         engine::{DefaultAuthorStorage, Engine},
         net::DOCS_ALPN,
     };
 
-    use super::*;
-
-    async fn setup_router() -> Result<(Client, iroh_router::Router, tokio::task::JoinHandle<anyhow::Result<()>>)>
-    {
+    async fn setup_router() -> Result<(
+        Client,
+        iroh_router::Router,
+        tokio::task::JoinHandle<anyhow::Result<()>>,
+    )> {
         let endpoint = iroh_net::Endpoint::builder().bind().await?;
         let local_pool = LocalPool::single();
         let mut router = iroh_router::Router::builder(endpoint.clone());
@@ -984,6 +1057,180 @@ mod tests {
     //         .await
     //         .context("tokio read")?;
     //     assert_eq!(buf, got_bytes);
+
+    //     Ok(())
+    // }
+
+    // #[tokio::test]
+    // async fn test_authors() -> Result<()> {
+    //     let node = Node::memory().enable_docs().spawn().await?;
+
+    //     // default author always exists
+    //     let authors: Vec<_> = node.authors().list().await?.try_collect().await?;
+    //     assert_eq!(authors.len(), 1);
+    //     let default_author = node.authors().default().await?;
+    //     assert_eq!(authors, vec![default_author]);
+
+    //     let author_id = node.authors().create().await?;
+
+    //     let authors: Vec<_> = node.authors().list().await?.try_collect().await?;
+    //     assert_eq!(authors.len(), 2);
+
+    //     let author = node
+    //         .authors()
+    //         .export(author_id)
+    //         .await?
+    //         .expect("should have author");
+    //     node.authors().delete(author_id).await?;
+    //     let authors: Vec<_> = node.authors().list().await?.try_collect().await?;
+    //     assert_eq!(authors.len(), 1);
+
+    //     node.authors().import(author).await?;
+
+    //     let authors: Vec<_> = node.authors().list().await?.try_collect().await?;
+    //     assert_eq!(authors.len(), 2);
+
+    //     assert!(node.authors().default().await? != author_id);
+    //     node.authors().set_default(author_id).await?;
+    //     assert_eq!(node.authors().default().await?, author_id);
+
+    //     Ok(())
+    // }
+
+    // #[tokio::test]
+    // async fn test_default_author_memory() -> Result<()> {
+    //     let iroh = Node::memory().enable_docs().spawn().await?;
+    //     let author = iroh.authors().default().await?;
+    //     assert!(iroh.authors().export(author).await?.is_some());
+    //     assert!(iroh.authors().delete(author).await.is_err());
+    //     Ok(())
+    // }
+
+    // #[cfg(feature = "fs-store")]
+    // #[tokio::test]
+    // async fn test_default_author_persist() -> Result<()> {
+    //     use crate::util::path::IrohPaths;
+
+    //     let _guard = iroh_test::logging::setup();
+
+    //     let iroh_root_dir = tempfile::TempDir::new().unwrap();
+    //     let iroh_root = iroh_root_dir.path();
+
+    //     // check that the default author exists and cannot be deleted.
+    //     let default_author = {
+    //         let iroh = Node::persistent(iroh_root)
+    //             .await
+    //             .unwrap()
+    //             .enable_docs()
+    //             .spawn()
+    //             .await
+    //             .unwrap();
+    //         let author = iroh.authors().default().await.unwrap();
+    //         assert!(iroh.authors().export(author).await.unwrap().is_some());
+    //         assert!(iroh.authors().delete(author).await.is_err());
+    //         iroh.shutdown().await.unwrap();
+    //         author
+    //     };
+
+    //     // check that the default author is persisted across restarts.
+    //     {
+    //         let iroh = Node::persistent(iroh_root)
+    //             .await
+    //             .unwrap()
+    //             .enable_docs()
+    //             .spawn()
+    //             .await
+    //             .unwrap();
+    //         let author = iroh.authors().default().await.unwrap();
+    //         assert_eq!(author, default_author);
+    //         assert!(iroh.authors().export(author).await.unwrap().is_some());
+    //         assert!(iroh.authors().delete(author).await.is_err());
+    //         iroh.shutdown().await.unwrap();
+    //     };
+
+    //     // check that a new default author is created if the default author file is deleted
+    //     // manually.
+    //     let default_author = {
+    //         tokio::fs::remove_file(IrohPaths::DefaultAuthor.with_root(iroh_root))
+    //             .await
+    //             .unwrap();
+    //         let iroh = Node::persistent(iroh_root)
+    //             .await
+    //             .unwrap()
+    //             .enable_docs()
+    //             .spawn()
+    //             .await
+    //             .unwrap();
+    //         let author = iroh.authors().default().await.unwrap();
+    //         assert!(author != default_author);
+    //         assert!(iroh.authors().export(author).await.unwrap().is_some());
+    //         assert!(iroh.authors().delete(author).await.is_err());
+    //         iroh.shutdown().await.unwrap();
+    //         author
+    //     };
+
+    //     // check that the node fails to start if the default author is missing from the docs store.
+    //     {
+    //         let mut docs_store = iroh_docs::store::fs::Store::persistent(
+    //             IrohPaths::DocsDatabase.with_root(iroh_root),
+    //         )
+    //         .unwrap();
+    //         docs_store.delete_author(default_author).unwrap();
+    //         docs_store.flush().unwrap();
+    //         drop(docs_store);
+    //         let iroh = Node::persistent(iroh_root)
+    //             .await
+    //             .unwrap()
+    //             .enable_docs()
+    //             .spawn()
+    //             .await;
+    //         assert!(iroh.is_err());
+
+    //         // somehow the blob store is not shutdown correctly (yet?) on macos.
+    //         // so we give it some time until we find a proper fix.
+    //         #[cfg(target_os = "macos")]
+    //         tokio::time::sleep(Duration::from_secs(1)).await;
+
+    //         tokio::fs::remove_file(IrohPaths::DefaultAuthor.with_root(iroh_root))
+    //             .await
+    //             .unwrap();
+    //         drop(iroh);
+    //         let iroh = Node::persistent(iroh_root)
+    //             .await
+    //             .unwrap()
+    //             .enable_docs()
+    //             .spawn()
+    //             .await;
+    //         assert!(iroh.is_ok());
+    //         iroh.unwrap().shutdown().await.unwrap();
+    //     }
+
+    //     // check that the default author can be set manually and is persisted.
+    //     let default_author = {
+    //         let iroh = Node::persistent(iroh_root)
+    //             .await
+    //             .unwrap()
+    //             .enable_docs()
+    //             .spawn()
+    //             .await
+    //             .unwrap();
+    //         let author = iroh.authors().create().await.unwrap();
+    //         iroh.authors().set_default(author).await.unwrap();
+    //         assert_eq!(iroh.authors().default().await.unwrap(), author);
+    //         iroh.shutdown().await.unwrap();
+    //         author
+    //     };
+    //     {
+    //         let iroh = Node::persistent(iroh_root)
+    //             .await
+    //             .unwrap()
+    //             .enable_docs()
+    //             .spawn()
+    //             .await
+    //             .unwrap();
+    //         assert_eq!(iroh.authors().default().await.unwrap(), default_author);
+    //         iroh.shutdown().await.unwrap();
+    //     }
 
     //     Ok(())
     // }
