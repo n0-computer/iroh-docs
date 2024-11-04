@@ -39,7 +39,7 @@ iroh-base = "0.28.0"
 iroh-blobs = { version = "0.27.0", optional = true, features = ["downloader"] }
 iroh-gossip = { version = "0.27.0", optional = true }
 iroh-metrics = { version = "0.28.0", default-features = false }
-iroh-net = { version = "0.27.0", optional = true }
+iroh-net = { version = "0.28.0", optional = true }
 iroh-router = { version = "0.27.0", optional = true }
 lru = "0.12"
 num_enum = "0.7"
@@ -82,3 +82,4 @@ iroh-net = { git = "https://github.com/n0-computer/iroh", branch = "main" }
 iroh-metrics = { git = "https://github.com/n0-computer/iroh", branch = "main" }
 iroh-base = { git = "https://github.com/n0-computer/iroh", branch = "main" }
 iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs", branch = "main" }
+iroh-gossip = { git = "https://github.com/n0-computer/iroh-gossip", branch = "main" }
