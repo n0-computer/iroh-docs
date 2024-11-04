@@ -1767,7 +1767,7 @@ checksum = "ddc24109865250148c2e0f3d25d4f0f479571723792d3802153c60922a4fb708"
 [[package]]
 name = "iroh-base"
 version = "0.28.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#2073bf40176789c36a607d10a6bbaef38b16846b"
+source = "git+https://github.com/n0-computer/iroh?branch=main#5437dbb4e409200f66c3d97d9b277be14a2b6b33"
 dependencies = [
  "aead",
  "anyhow",
@@ -1807,7 +1807,7 @@ dependencies = [
 [[package]]
 name = "iroh-blobs"
 version = "0.27.0"
-source = "git+https://github.com/n0-computer/iroh-blobs?branch=main#74b2b33c94d8431cbdb2977bd8416e46e8d5eefb"
+source = "git+https://github.com/n0-computer/iroh-blobs?branch=main#f2c948b9281b480a3e7d713c31169f8632635760"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -1893,7 +1893,7 @@ dependencies = [
 [[package]]
 name = "iroh-gossip"
 version = "0.27.0"
-source = "git+https://github.com/n0-computer/iroh-gossip?branch=main#d452bb95d69d70a532ddaad08c21ff2d9e6ee76d"
+source = "git+https://github.com/n0-computer/iroh-gossip?branch=main#f525b8e5efb5741c6e3dce7ddea389b6b9ab84b5"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -1939,7 +1939,7 @@ dependencies = [
 [[package]]
 name = "iroh-metrics"
 version = "0.28.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#2073bf40176789c36a607d10a6bbaef38b16846b"
+source = "git+https://github.com/n0-computer/iroh?branch=main#5437dbb4e409200f66c3d97d9b277be14a2b6b33"
 dependencies = [
  "anyhow",
  "erased_set",
@@ -1959,7 +1959,7 @@ dependencies = [
 [[package]]
 name = "iroh-net"
 version = "0.28.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#2073bf40176789c36a607d10a6bbaef38b16846b"
+source = "git+https://github.com/n0-computer/iroh?branch=main#5437dbb4e409200f66c3d97d9b277be14a2b6b33"
 dependencies = [
  "anyhow",
  "backoff",
@@ -2085,8 +2085,8 @@ dependencies = [
 
 [[package]]
 name = "iroh-router"
-version = "0.27.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#2073bf40176789c36a607d10a6bbaef38b16846b"
+version = "0.28.0"
+source = "git+https://github.com/n0-computer/iroh?branch=main#5437dbb4e409200f66c3d97d9b277be14a2b6b33"
 dependencies = [
  "anyhow",
  "futures-buffered",
@@ -2429,7 +2429,7 @@ dependencies = [
 [[package]]
 name = "netwatch"
 version = "0.1.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#2073bf40176789c36a607d10a6bbaef38b16846b"
+source = "git+https://github.com/n0-computer/iroh?branch=main#5437dbb4e409200f66c3d97d9b277be14a2b6b33"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2939,7 +2939,7 @@ checksum = "cc9c68a3f6da06753e9335d63e27f6b9754dd1920d941135b7ea8224f141adb2"
 [[package]]
 name = "portmapper"
 version = "0.1.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#2073bf40176789c36a607d10a6bbaef38b16846b"
+source = "git+https://github.com/n0-computer/iroh?branch=main#5437dbb4e409200f66c3d97d9b277be14a2b6b33"
 dependencies = [
  "anyhow",
  "base64",
