@@ -6,6 +6,7 @@ use iroh_blobs::{
     export::ExportProgress,
     store::ImportProgress,
     util::progress::{AsyncChannelProgressSender, ProgressSender},
+    BlobFormat,
 };
 
 use super::{
@@ -33,7 +34,7 @@ use crate::{engine::Engine, Author, DocTicket, NamespaceSecret};
 /// Capacity for the flume channels to forward sync store iterators to async RPC streams.
 const ITER_CHANNEL_CAP: usize = 64;
 
-impl Engine {
+impl<D: iroh_blobs::store::Store> Engine<D> {
     pub(super) async fn author_create(
         self,
         _req: AuthorCreateRequest,
@@ -283,30 +284,29 @@ impl Engine {
     }
 
     pub(super) async fn doc_set(self, req: SetRequest) -> RpcResult<SetResponse> {
-        todo!()
-        // let blobs_store = self.blobs_store();
-        // let SetRequest {
-        //     doc_id,
-        //     author_id,
-        //     key,
-        //     value,
-        // } = req;
-        // let len = value.len();
-        // let tag = blobs_store
-        //     .import_bytes(value, BlobFormat::Raw)
-        //     .await
-        //     .map_err(|e| RpcError::new(&e))?;
-        // self.sync
-        //     .insert_local(doc_id, author_id, key.clone(), *tag.hash(), len as u64)
-        //     .await
-        //     .map_err(|e| RpcError::new(&*e))?;
-        // let entry = self
-        //     .sync
-        //     .get_exact(doc_id, author_id, key, false)
-        //     .await
-        //     .map_err(|e| RpcError::new(&*e))?
-        //     .ok_or_else(|| RpcError::new(&*anyhow!("failed to get entry after insertion")))?;
-        // Ok(SetResponse { entry })
+        let blobs_store = self.blob_store();
+        let SetRequest {
+            doc_id,
+            author_id,
+            key,
+            value,
+        } = req;
+        let len = value.len();
+        let tag = blobs_store
+            .import_bytes(value, BlobFormat::Raw)
+            .await
+            .map_err(|e| RpcError::new(&e))?;
+        self.sync
+            .insert_local(doc_id, author_id, key.clone(), *tag.hash(), len as u64)
+            .await
+            .map_err(|e| RpcError::new(&*e))?;
+        let entry = self
+            .sync
+            .get_exact(doc_id, author_id, key, false)
+            .await
+            .map_err(|e| RpcError::new(&*e))?
+            .ok_or_else(|| RpcError::new(&*anyhow!("failed to get entry after insertion")))?;
+        Ok(SetResponse { entry })
     }
 
     pub(super) async fn doc_del(self, req: DelRequest) -> RpcResult<DelResponse> {

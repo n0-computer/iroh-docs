@@ -460,7 +460,7 @@ pub struct GetSyncPeersResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AuthorListRequest {}
 
-/// Response for [`ListRequest`]
+/// Response for [`AuthorListRequest`]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AuthorListResponse {
     /// The author id
@@ -471,7 +471,7 @@ pub struct AuthorListResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AuthorCreateRequest;
 
-/// Response for [`CreateRequest`]
+/// Response for [`AuthorCreateRequest`]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AuthorCreateResponse {
     /// The id of the created author
@@ -482,7 +482,7 @@ pub struct AuthorCreateResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AuthorGetDefaultRequest;
 
-/// Response for [`GetDefaultRequest`]
+/// Response for [`AuthorGetDefaultRequest`]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AuthorGetDefaultResponse {
     /// The id of the author
@@ -496,7 +496,7 @@ pub struct AuthorSetDefaultRequest {
     pub author_id: AuthorId,
 }
 
-/// Response for [`GetDefaultRequest`]
+/// Response for [`AuthorSetDefaultRequest`]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AuthorSetDefaultResponse;
 
@@ -507,7 +507,7 @@ pub struct AuthorDeleteRequest {
     pub author: AuthorId,
 }
 
-/// Response for [`DeleteRequest`]
+/// Response for [`AuthorDeleteRequest`]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AuthorDeleteResponse;
 
@@ -518,7 +518,7 @@ pub struct AuthorExportRequest {
     pub author: AuthorId,
 }
 
-/// Response for [`ExportRequest`]
+/// Response for [`AuthorExportRequest`]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AuthorExportResponse {
     /// The author

@@ -1,9 +1,6 @@
 //! API for document management.
 //!
 //! The main entry point is the [`Client`].
-//!
-//! You obtain a [`Client`] via [`Iroh::docs()`](crate::client::Iroh::docs).
-
 use std::{
     path::{Path, PathBuf},
     pin::Pin,
@@ -124,7 +121,7 @@ impl<C: Connector<RpcService>> Client<C> {
     /// You likely want to save the returned [`AuthorId`] somewhere so that you can use this author
     /// again.
     ///
-    /// If you need only a single author, use [`Self::default`].
+    /// If you need only a single author, use [`Self::author_default`].
     pub async fn author_create(&self) -> Result<AuthorId> {
         let res = self.rpc.rpc(AuthorCreateRequest).await??;
         Ok(res.author_id)
@@ -135,7 +132,7 @@ impl<C: Connector<RpcService>> Client<C> {
     /// On persistent nodes, the author is created on first start and its public key is saved
     /// in the data directory.
     ///
-    /// The default author can be set with [`Self::set_default`].
+    /// The default author can be set with [`Self::author_set_default`].
     pub async fn author_default(&self) -> Result<AuthorId> {
         let res = self.rpc.rpc(AuthorGetDefaultRequest).await??;
         Ok(res.author_id)

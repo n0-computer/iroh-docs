@@ -13,7 +13,7 @@ mod docs_handle_request;
 type RpcError = serde_error::Error;
 type RpcResult<T> = std::result::Result<T, RpcError>;
 
-impl Engine {
+impl<D: iroh_blobs::store::Store> Engine<D> {
     /// Handle a docs request from the RPC server.
     pub async fn handle_rpc_request<C: ChannelTypes<RpcService>>(
         &self,
