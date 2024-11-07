@@ -19,7 +19,7 @@ use iroh_base::{key::PublicKey, node_addr::AddrInfoOptions};
 use iroh_blobs::{export::ExportProgress, store::ExportMode, Hash};
 use iroh_net::NodeAddr;
 use portable_atomic::{AtomicBool, Ordering};
-use quic_rpc::{client::BoxedServiceConnection, message::RpcMsg};
+use quic_rpc::{client::BoxedConnector, message::RpcMsg, Connector};
 use serde::{Deserialize, Serialize};
 
 use super::proto::{
@@ -42,22 +42,18 @@ use crate::{
 
 /// Iroh docs client.
 #[derive(Debug, Clone)]
-pub struct Client<S = RpcService, C = BoxedServiceConnection<S>> {
-    pub(super) rpc: quic_rpc::RpcClient<RpcService, C, S>,
+pub struct Client<C = BoxedConnector<RpcService>> {
+    pub(super) rpc: quic_rpc::RpcClient<RpcService, C>,
 }
 
-impl<S, C> Client<S, C>
-where
-    S: quic_rpc::Service,
-    C: quic_rpc::ServiceConnection<S>,
-{
+impl<C: Connector<RpcService>> Client<C> {
     /// Creates a new docs client.
-    pub fn new(rpc: quic_rpc::RpcClient<RpcService, C, S>) -> Self {
+    pub fn new(rpc: quic_rpc::RpcClient<RpcService, C>) -> Self {
         Self { rpc }
     }
 
     /// Creates a client.
-    pub async fn create(&self) -> Result<Doc<S, C>> {
+    pub async fn create(&self) -> Result<Doc<C>> {
         let res = self.rpc.rpc(CreateRequest {}).await??;
         let doc = Doc::new(self.rpc.clone(), res.id);
         Ok(doc)
@@ -76,14 +72,14 @@ where
     /// Imports a document from a namespace capability.
     ///
     /// This does not start sync automatically. Use [`Doc::start_sync`] to start sync.
-    pub async fn import_namespace(&self, capability: Capability) -> Result<Doc<S, C>> {
+    pub async fn import_namespace(&self, capability: Capability) -> Result<Doc<C>> {
         let res = self.rpc.rpc(ImportRequest { capability }).await??;
         let doc = Doc::new(self.rpc.clone(), res.doc_id);
         Ok(doc)
     }
 
     /// Imports a document from a ticket and joins all peers in the ticket.
-    pub async fn import(&self, ticket: DocTicket) -> Result<Doc<S, C>> {
+    pub async fn import(&self, ticket: DocTicket) -> Result<Doc<C>> {
         let DocTicket { capability, nodes } = ticket;
         let doc = self.import_namespace(capability).await?;
         doc.start_sync(nodes).await?;
@@ -99,7 +95,7 @@ where
     pub async fn import_and_subscribe(
         &self,
         ticket: DocTicket,
-    ) -> Result<(Doc<S, C>, impl Stream<Item = anyhow::Result<LiveEvent>>)> {
+    ) -> Result<(Doc<C>, impl Stream<Item = anyhow::Result<LiveEvent>>)> {
         let DocTicket { capability, nodes } = ticket;
         let res = self.rpc.rpc(ImportRequest { capability }).await??;
         let doc = Doc::new(self.rpc.clone(), res.doc_id);
@@ -117,7 +113,7 @@ where
     /// Returns a [`Doc`] client for a single document.
     ///
     /// Returns None if the document cannot be found.
-    pub async fn open(&self, id: NamespaceId) -> Result<Option<Doc<S, C>>> {
+    pub async fn open(&self, id: NamespaceId) -> Result<Option<Doc<C>>> {
         self.rpc.rpc(OpenRequest { doc_id: id }).await??;
         let doc = Doc::new(self.rpc.clone(), id);
         Ok(Some(doc))
@@ -195,44 +191,29 @@ where
 
 /// Document handle
 #[derive(Debug, Clone)]
-pub struct Doc<S = RpcService, C = BoxedServiceConnection<S>>(Arc<DocInner<S, C>>)
+pub struct Doc<C: Connector<RpcService> = BoxedConnector<RpcService>>(Arc<DocInner<C>>)
 where
-    S: quic_rpc::Service,
-    C: quic_rpc::ServiceConnection<S>;
+    C: quic_rpc::Connector<RpcService>;
 
-impl<S, C> PartialEq for Doc<S, C>
-where
-    S: quic_rpc::Service,
-    C: quic_rpc::ServiceConnection<S>,
-{
+impl<C: Connector<RpcService>> PartialEq for Doc<C> {
     fn eq(&self, other: &Self) -> bool {
         self.0.id == other.0.id
     }
 }
 
-impl<S, C> Eq for Doc<S, C>
-where
-    S: quic_rpc::Service,
-    C: quic_rpc::ServiceConnection<S>,
-{
-}
+impl<C: Connector<RpcService>> Eq for Doc<C> {}
 
 #[derive(Debug)]
-struct DocInner<S = RpcService, C = BoxedServiceConnection<S>>
-where
-    S: quic_rpc::Service,
-    C: quic_rpc::ServiceConnection<S>,
-{
+struct DocInner<C: Connector<RpcService> = BoxedConnector<RpcService>> {
     id: NamespaceId,
-    rpc: quic_rpc::RpcClient<RpcService, C, S>,
+    rpc: quic_rpc::RpcClient<RpcService, C>,
     closed: AtomicBool,
     rt: tokio::runtime::Handle,
 }
 
-impl<S, C> Drop for DocInner<S, C>
+impl<C> Drop for DocInner<C>
 where
-    S: quic_rpc::Service,
-    C: quic_rpc::ServiceConnection<S>,
+    C: quic_rpc::Connector<RpcService>,
 {
     fn drop(&mut self) {
         let doc_id = self.id;
@@ -245,12 +226,8 @@ where
     }
 }
 
-impl<S, C> Doc<S, C>
-where
-    S: quic_rpc::Service,
-    C: quic_rpc::ServiceConnection<S>,
-{
-    fn new(rpc: quic_rpc::RpcClient<RpcService, C, S>, id: NamespaceId) -> Self {
+impl<C: Connector<RpcService>> Doc<C> {
+    fn new(rpc: quic_rpc::RpcClient<RpcService, C>, id: NamespaceId) -> Self {
         Self(Arc::new(DocInner {
             rpc,
             id,
@@ -516,12 +493,11 @@ where
     }
 }
 
-impl<'a, S, C> From<&'a Doc<S, C>> for &'a quic_rpc::RpcClient<RpcService, C, S>
+impl<'a, C> From<&'a Doc<C>> for &'a quic_rpc::RpcClient<RpcService, C>
 where
-    S: quic_rpc::Service,
-    C: quic_rpc::ServiceConnection<S>,
+    C: quic_rpc::Connector<RpcService>,
 {
-    fn from(doc: &'a Doc<S, C>) -> &'a quic_rpc::RpcClient<RpcService, C, S> {
+    fn from(doc: &'a Doc<C>) -> &'a quic_rpc::RpcClient<RpcService, C> {
         &doc.0.rpc
     }
 }
@@ -890,6 +866,7 @@ mod tests {
             local_pool.handle().clone(),
             Default::default(),
             downloader.clone(),
+            endpoint.clone(),
         );
         router = router.accept(iroh_blobs::protocol::ALPN.to_vec(), Arc::new(blobs));
 
@@ -914,10 +891,9 @@ mod tests {
         let router = router.spawn().await?;
 
         // Setup RPC
-        let (internal_rpc, controller) =
-            quic_rpc::transport::flume::service_connection::<RpcService>(32);
-        let controller = quic_rpc::transport::boxed::Connection::new(controller);
-        let internal_rpc = quic_rpc::transport::boxed::ServerEndpoint::new(internal_rpc);
+        let (internal_rpc, controller) = quic_rpc::transport::flume::channel(32);
+        let controller = quic_rpc::transport::boxed::BoxedConnector::new(controller);
+        let internal_rpc = quic_rpc::transport::boxed::BoxedListener::new(internal_rpc);
         let internal_rpc = quic_rpc::RpcServer::new(internal_rpc);
 
         let rpc_server_task = tokio::task::spawn(async move {

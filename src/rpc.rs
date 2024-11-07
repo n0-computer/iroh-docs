@@ -1,5 +1,8 @@
 //! Quic RPC implemenation for docs.
 
+use proto::RpcService;
+use quic_rpc::server::{ChannelTypes, RpcChannel};
+
 use crate::engine::Engine;
 
 pub mod client;
@@ -12,10 +15,10 @@ type RpcResult<T> = std::result::Result<T, RpcError>;
 
 impl Engine {
     /// Handle a docs request from the RPC server.
-    pub async fn handle_rpc_request<S: quic_rpc::Service, C: quic_rpc::ServiceEndpoint<S>>(
+    pub async fn handle_rpc_request<C: ChannelTypes<RpcService>>(
         &self,
         msg: crate::rpc::proto::Request,
-        chan: quic_rpc::server::RpcChannel<crate::rpc::proto::RpcService, C, S>,
+        chan: RpcChannel<RpcService, C>,
     ) -> Result<(), quic_rpc::server::RpcServerError<C>> {
         use crate::rpc::proto::Request::*;
 

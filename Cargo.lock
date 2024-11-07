@@ -1828,8 +1828,8 @@ dependencies = [
  "pin-project",
  "portable-atomic",
  "postcard",
- "quic-rpc 0.15.0",
- "quic-rpc-derive 0.15.0",
+ "quic-rpc",
+ "quic-rpc-derive",
  "rand",
  "range-collections",
  "redb 1.5.1",
@@ -1877,8 +1877,8 @@ dependencies = [
  "portable-atomic",
  "postcard",
  "proptest",
- "quic-rpc 0.13.0",
- "quic-rpc-derive 0.13.0",
+ "quic-rpc",
+ "quic-rpc-derive",
  "rand",
  "rand_chacha",
  "rand_core",
@@ -1918,8 +1918,8 @@ dependencies = [
  "iroh-router",
  "nested_enum_utils",
  "postcard",
- "quic-rpc 0.15.0",
- "quic-rpc-derive 0.15.0",
+ "quic-rpc",
+ "quic-rpc-derive",
  "rand",
  "rand_core",
  "serde",
@@ -3173,27 +3173,6 @@ dependencies = [
 
 [[package]]
 name = "quic-rpc"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b0ea1bd0b3124538bb71ed8cedbe92608fd1cf227e4f5ff53fb28746737b794"
-dependencies = [
- "anyhow",
- "derive_more",
- "educe",
- "flume",
- "futures-lite 2.4.0",
- "futures-sink",
- "futures-util",
- "hex",
- "pin-project",
- "serde",
- "slab",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "quic-rpc"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61e131f594054d27d077162815db3b5e9ddd76a28fbb9091b68095971e75c286"
@@ -3215,24 +3194,12 @@ dependencies = [
 
 [[package]]
 name = "quic-rpc-derive"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94b91a3f7a42657cbfbd0c2499c1f037738eff45bb7f59c6ce3d3d9e890d141c"
-dependencies = [
- "proc-macro2",
- "quic-rpc 0.13.0",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "quic-rpc-derive"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cbef4c942978f74ef296ae40d43d4375c9d730b65a582688a358108cfd5c0cf7"
 dependencies = [
  "proc-macro2",
- "quic-rpc 0.15.0",
+ "quic-rpc",
  "quote",
  "syn 1.0.109",
 ]
