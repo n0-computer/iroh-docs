@@ -1,4 +1,4 @@
-//! Quic RPC implemenation for docs.
+//! Quic RPC implementation for docs.
 
 use proto::RpcService;
 use quic_rpc::server::{ChannelTypes, RpcChannel};
