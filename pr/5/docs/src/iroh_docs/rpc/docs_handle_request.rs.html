@@ -545,18 +545,15 @@
 <a href="#545" id="545">545</a>
 <a href="#546" id="546">546</a>
 <a href="#547" id="547">547</a>
-<a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::{Arc, Mutex};
 
 <span class="kw">use </span>anyhow::anyhow;
 <span class="kw">use </span>futures_lite::{Stream, StreamExt};
 <span class="kw">use </span>iroh_blobs::{
     export::ExportProgress,
-    store::ImportProgress,
+    store::{ExportFormat, ImportProgress},
     util::progress::{AsyncChannelProgressSender, ProgressSender},
-    BlobFormat,
+    BlobFormat, HashAndFormat,
 };
 
 <span class="kw">use super</span>::{
@@ -1028,27 +1025,25 @@
             <span class="bool-val">false </span>=&gt; ImportMode::Copy,
         };
 
-        <span class="macro">todo!</span>()
-        <span class="comment">// let blobs = self.blobs();
-        // let (temp_tag, size) = blobs
-        //     .store()
-        //     .import_file(root, import_mode, BlobFormat::Raw, import_progress)
-        //     .await?;
+        <span class="kw">let </span>blobs = <span class="self">self</span>.blob_store();
+        <span class="kw">let </span>(temp_tag, size) = blobs
+            .import_file(root, import_mode, BlobFormat::Raw, import_progress)
+            .<span class="kw">await</span><span class="question-mark">?</span>;
 
-        // let hash_and_format = temp_tag.inner();
-        // let HashAndFormat { hash, .. } = *hash_and_format;
-        // self.doc_set_hash(SetHashRequest {
-        //     doc_id,
-        //     author_id,
-        //     key: key.clone(),
-        //     hash,
-        //     size,
-        // })
-        // .await?;
-        // drop(temp_tag);
-        // progress.send(DocImportProgress::AllDone { key }).await?;
-        // Ok(())
-    </span>}
+        <span class="kw">let </span>hash_and_format = temp_tag.inner();
+        <span class="kw">let </span>HashAndFormat { hash, .. } = <span class="kw-2">*</span>hash_and_format;
+        <span class="self">self</span>.doc_set_hash(SetHashRequest {
+            doc_id,
+            author_id,
+            key: key.clone(),
+            hash,
+            size,
+        })
+        .<span class="kw">await</span><span class="question-mark">?</span>;
+        drop(temp_tag);
+        progress.send(DocImportProgress::AllDone { key }).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
 
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>doc_export_file(
         <span class="self">self</span>,
@@ -1083,19 +1078,18 @@
             x
         });
 
-        <span class="macro">todo!</span>()
-        <span class="comment">// let blobs = self.blobs();
-        // iroh_blobs::export::export(
-        //     blobs.store(),
-        //     entry.content_hash(),
-        //     path,
-        //     ExportFormat::Blob,
-        //     mode,
-        //     export_progress,
-        // )
-        // .await?;
-        // progress.send(ExportProgress::AllDone).await?;
-        // Ok(())
-    </span>}
+        <span class="kw">let </span>blobs = <span class="self">self</span>.blob_store();
+        iroh_blobs::export::export(
+            blobs,
+            entry.content_hash(),
+            path,
+            ExportFormat::Blob,
+            mode,
+            export_progress,
+        )
+        .<span class="kw">await</span><span class="question-mark">?</span>;
+        progress.send(ExportProgress::AllDone).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
 }
 </code></pre></div></section></main></body></html>

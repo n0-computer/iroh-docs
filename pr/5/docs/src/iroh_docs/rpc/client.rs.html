@@ -2032,9 +2032,9 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>iroh_blobs::util::local_pool::LocalPool;
     <span class="kw">use </span>iroh_gossip::net::GOSSIP_ALPN;
-    <span class="kw">use </span>rand::RngCore;
-    <span class="kw">use </span>tokio::io::AsyncWriteExt;
-    <span class="kw">use </span>tracing::warn;
+    <span class="comment">// use rand::RngCore;
+    // use tokio::io::AsyncWriteExt;
+    </span><span class="kw">use </span>tracing::warn;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use crate</span>::{
