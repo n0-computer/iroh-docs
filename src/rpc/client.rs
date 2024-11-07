@@ -822,8 +822,8 @@ where
 mod tests {
     use iroh_blobs::util::local_pool::LocalPool;
     use iroh_gossip::net::GOSSIP_ALPN;
-    use rand::RngCore;
-    use tokio::io::AsyncWriteExt;
+    // use rand::RngCore;
+    // use tokio::io::AsyncWriteExt;
     use tracing::warn;
 
     use super::*;

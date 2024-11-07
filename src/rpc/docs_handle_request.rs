@@ -4,9 +4,9 @@ use anyhow::anyhow;
 use futures_lite::{Stream, StreamExt};
 use iroh_blobs::{
     export::ExportProgress,
-    store::ImportProgress,
+    store::{ExportFormat, ImportProgress},
     util::progress::{AsyncChannelProgressSender, ProgressSender},
-    BlobFormat,
+    BlobFormat, HashAndFormat,
 };
 
 use super::{
@@ -478,26 +478,24 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
             false => ImportMode::Copy,
         };
 
-        todo!()
-        // let blobs = self.blobs();
-        // let (temp_tag, size) = blobs
-        //     .store()
-        //     .import_file(root, import_mode, BlobFormat::Raw, import_progress)
-        //     .await?;
+        let blobs = self.blob_store();
+        let (temp_tag, size) = blobs
+            .import_file(root, import_mode, BlobFormat::Raw, import_progress)
+            .await?;
 
-        // let hash_and_format = temp_tag.inner();
-        // let HashAndFormat { hash, .. } = *hash_and_format;
-        // self.doc_set_hash(SetHashRequest {
-        //     doc_id,
-        //     author_id,
-        //     key: key.clone(),
-        //     hash,
-        //     size,
-        // })
-        // .await?;
-        // drop(temp_tag);
-        // progress.send(DocImportProgress::AllDone { key }).await?;
-        // Ok(())
+        let hash_and_format = temp_tag.inner();
+        let HashAndFormat { hash, .. } = *hash_and_format;
+        self.doc_set_hash(SetHashRequest {
+            doc_id,
+            author_id,
+            key: key.clone(),
+            hash,
+            size,
+        })
+        .await?;
+        drop(temp_tag);
+        progress.send(DocImportProgress::AllDone { key }).await?;
+        Ok(())
     }
 
     pub(super) fn doc_export_file(
@@ -533,18 +531,17 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
             x
         });
 
-        todo!()
-        // let blobs = self.blobs();
-        // iroh_blobs::export::export(
-        //     blobs.store(),
-        //     entry.content_hash(),
-        //     path,
-        //     ExportFormat::Blob,
-        //     mode,
-        //     export_progress,
-        // )
-        // .await?;
-        // progress.send(ExportProgress::AllDone).await?;
-        // Ok(())
+        let blobs = self.blob_store();
+        iroh_blobs::export::export(
+            blobs,
+            entry.content_hash(),
+            path,
+            ExportFormat::Blob,
+            mode,
+            export_progress,
+        )
+        .await?;
+        progress.send(ExportProgress::AllDone).await?;
+        Ok(())
     }
 }
