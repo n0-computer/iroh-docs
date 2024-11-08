@@ -1874,6 +1874,7 @@ dependencies = [
  "lru",
  "nested_enum_utils",
  "num_enum",
+ "parking_lot",
  "portable-atomic",
  "postcard",
  "proptest",
@@ -1890,11 +1891,13 @@ dependencies = [
  "strum",
  "tempfile",
  "test-strategy",
+ "testresult",
  "thiserror",
  "tokio",
  "tokio-stream",
  "tokio-util",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -4296,6 +4299,12 @@ dependencies = [
  "structmeta",
  "syn 2.0.87",
 ]
+
+[[package]]
+name = "testresult"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "614b328ff036a4ef882c61570f72918f7e9c5bee1da33f8e7f91e01daee7e56c"
 
 [[package]]
 name = "thiserror"
