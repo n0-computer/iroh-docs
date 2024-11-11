@@ -76,6 +76,8 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 parking_lot = "0.12.3"
 testresult = "0.4.1"
 nested_enum_utils = "0.1.0"
+iroh-io = "0.6.1"
+testdir = "0.9.1"
 
 [features]
 default = ["net", "metrics", "engine", "rpc", "test-utils"]

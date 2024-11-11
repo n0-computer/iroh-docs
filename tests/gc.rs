@@ -176,7 +176,6 @@ async fn gc_hashseq_impl() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "fs-store")]
 mod file {
     use std::{io, path::PathBuf};
 
@@ -235,7 +234,7 @@ mod file {
         let (node, _) = wrap_in_node(bao_store.clone(), Duration::from_secs(10)).await;
         let client = node.client();
         let doc = client.docs().create().await?;
-        let author = client.authors().create().await?;
+        let author = client.docs().author_create().await?;
         let temp_path = dir.join("temp");
         tokio::fs::create_dir_all(&temp_path).await?;
         let mut to_import = Vec::new();
