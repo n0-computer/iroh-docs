@@ -1,15 +1,33 @@
-//! An iroh node that just has the blobs transport
-use std::{collections::BTreeSet, sync::Arc};
+#![allow(dead_code)]
+use std::{
+    collections::BTreeSet,
+    net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6},
+    ops::Deref,
+    path::Path,
+    sync::Arc,
+};
 
 use iroh_blobs::{
     store::{GcConfig, Store as BlobStore},
     util::local_pool::{LocalPool, Run},
 };
-use iroh_net::{key::SecretKey, relay::RelayMode, NodeId};
+use iroh_net::{discovery::Discovery, dns::DnsResolver, key::SecretKey, relay::RelayMode, NodeId};
 use nested_enum_utils::enum_conversions;
 use quic_rpc::transport::{Connector, Listener};
 use serde::{Deserialize, Serialize};
 use tokio_util::task::AbortOnDropHandle;
+
+/// Default bind address for the node.
+/// 11204 is "iroh" in leetspeak <https://simple.wikipedia.org/wiki/Leet>
+pub const DEFAULT_BIND_PORT: u16 = 11204;
+
+/// The default bind address for the iroh IPv4 socket.
+pub const DEFAULT_BIND_ADDR_V4: SocketAddrV4 =
+    SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, DEFAULT_BIND_PORT);
+
+/// The default bind address for the iroh IPv6 socket.
+pub const DEFAULT_BIND_ADDR_V6: SocketAddrV6 =
+    SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, DEFAULT_BIND_PORT + 1, 0, 0);
 
 /// An iroh node that just has the blobs transport
 #[derive(Debug)]
@@ -20,6 +38,14 @@ pub struct Node<S> {
     _local_pool: LocalPool,
     _rpc_task: AbortOnDropHandle<()>,
     _gc_task: Option<Run<()>>,
+}
+
+impl<S> Deref for Node<S> {
+    type Target = Client;
+
+    fn deref(&self) -> &Self::Target {
+        &self.client
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -68,19 +94,119 @@ impl Client {
 }
 
 /// An iroh node builder
-#[derive(Debug)]
+#[derive(derive_more::Debug)]
 pub struct Builder<S> {
     store: S,
     secret_key: Option<SecretKey>,
     relay_mode: RelayMode,
+    dns_resolver: Option<DnsResolver>,
+    node_discovery: Option<Box<dyn Discovery>>,
     gc_interval: Option<std::time::Duration>,
+    #[debug(skip)]
+    register_gc_done_cb: Option<Box<dyn Fn() + Send + 'static>>,
+    insecure_skip_relay_cert_verify: bool,
+    bind_random_port: bool,
 }
 
 impl<S: BlobStore> Builder<S> {
     /// Spawns the node
     pub async fn spawn(self) -> anyhow::Result<Node<S>> {
-        let (client, router, rpc_task, docs, local_pool) =
-            setup_router(self.store.clone(), self.relay_mode).await?;
+        let store = self.store.clone();
+        let mut addr_v4 = DEFAULT_BIND_ADDR_V4;
+        let mut addr_v6 = DEFAULT_BIND_ADDR_V6;
+        if self.bind_random_port {
+            addr_v4.set_port(0);
+            addr_v6.set_port(0);
+        }
+        let mut builder = iroh_net::Endpoint::builder()
+            .bind_addr_v4(addr_v4)
+            .bind_addr_v6(addr_v6)
+            .discovery_n0()
+            .relay_mode(self.relay_mode.clone())
+            .insecure_skip_relay_cert_verify(self.insecure_skip_relay_cert_verify);
+        if let Some(dns_resolver) = self.dns_resolver.clone() {
+            builder = builder.dns_resolver(dns_resolver);
+        }
+        let endpoint = builder.bind().await?;
+        let addr = endpoint.node_addr().await?;
+        let local_pool = LocalPool::single();
+        let mut router = iroh_router::Router::builder(endpoint.clone());
+
+        // Setup blobs
+        let downloader = iroh_blobs::downloader::Downloader::new(
+            store.clone(),
+            endpoint.clone(),
+            local_pool.handle().clone(),
+        );
+        let blobs = Arc::new(iroh_blobs::net_protocol::Blobs::new_with_events(
+            store.clone(),
+            local_pool.handle().clone(),
+            Default::default(),
+            downloader.clone(),
+            endpoint.clone(),
+        ));
+        let gossip = iroh_gossip::net::Gossip::from_endpoint(
+            endpoint.clone(),
+            Default::default(),
+            &addr.info,
+        );
+        let docs = iroh_docs::engine::Engine::spawn(
+            endpoint,
+            gossip.clone(),
+            iroh_docs::store::Store::memory(),
+            store.clone(),
+            downloader,
+            iroh_docs::engine::DefaultAuthorStorage::Mem,
+            local_pool.handle().clone(),
+        )
+        .await?;
+        router = router.accept(iroh_blobs::protocol::ALPN.to_vec(), blobs.clone());
+        router = router.accept(iroh_docs::net::DOCS_ALPN.to_vec(), Arc::new(docs.clone()));
+        router = router.accept(
+            iroh_gossip::net::GOSSIP_ALPN.to_vec(),
+            Arc::new(gossip.clone()),
+        );
+
+        // Build the router
+        let router = router.spawn().await?;
+
+        // Setup RPC
+        let (internal_rpc, controller) =
+            quic_rpc::transport::flume::channel::<Request, Response>(1);
+        let controller = controller.boxed();
+        let internal_rpc = internal_rpc.boxed();
+        let internal_rpc = quic_rpc::RpcServer::<Service>::new(internal_rpc);
+
+        let docs2 = docs.clone();
+        let rpc_task: tokio::task::JoinHandle<()> = tokio::task::spawn(async move {
+            loop {
+                let request = internal_rpc.accept().await;
+                match request {
+                    Ok(accepting) => {
+                        let blobs = blobs.clone();
+                        let docs = docs2.clone();
+                        tokio::task::spawn(async move {
+                            let (msg, chan) = accepting.read_first().await?;
+                            match msg {
+                                Request::BlobsOrTags(msg) => {
+                                    blobs.handle_rpc_request(msg, chan.map().boxed()).await?;
+                                }
+                                Request::Docs(msg) => {
+                                    docs.handle_rpc_request(msg, chan.map().boxed()).await?;
+                                }
+                            }
+                            anyhow::Ok(())
+                        });
+                    }
+                    Err(err) => {
+                        tracing::warn!("rpc error: {:?}", err);
+                    }
+                }
+            }
+        });
+
+        let client = quic_rpc::RpcClient::new(controller);
+
         let _gc_task = if let Some(period) = self.gc_interval {
             let store = self.store.clone();
             let local_pool = local_pool.clone();
@@ -114,7 +240,7 @@ impl<S: BlobStore> Builder<S> {
                     .gc_run(
                         GcConfig {
                             period,
-                            done_callback: None,
+                            done_callback: self.register_gc_done_cb,
                         },
                         protected_cb,
                     )
@@ -144,21 +270,66 @@ impl<S: BlobStore> Builder<S> {
         self
     }
 
+    pub fn dns_resolver(mut self, value: DnsResolver) -> Self {
+        self.dns_resolver = Some(value);
+        self
+    }
+
+    pub fn node_discovery(mut self, value: Box<dyn Discovery>) -> Self {
+        self.node_discovery = Some(value);
+        self
+    }
+
     pub fn gc_interval(mut self, value: Option<std::time::Duration>) -> Self {
         self.gc_interval = value;
         self
+    }
+
+    pub fn register_gc_done_cb(mut self, value: Box<dyn Fn() + Send + Sync>) -> Self {
+        self.register_gc_done_cb = Some(value);
+        self
+    }
+
+    pub fn insecure_skip_relay_cert_verify(mut self, value: bool) -> Self {
+        self.insecure_skip_relay_cert_verify = value;
+        self
+    }
+
+    pub fn bind_random_port(mut self) -> Self {
+        self.bind_random_port = true;
+        self
+    }
+
+    pub fn new(store: S) -> Self {
+        Self {
+            store,
+            secret_key: None,
+            relay_mode: RelayMode::Default,
+            gc_interval: None,
+            insecure_skip_relay_cert_verify: false,
+            bind_random_port: false,
+            dns_resolver: None,
+            node_discovery: None,
+            register_gc_done_cb: None,
+        }
     }
 }
 
 impl Node<iroh_blobs::store::mem::Store> {
     /// Creates a new node with memory storage
     pub fn memory() -> Builder<iroh_blobs::store::mem::Store> {
-        Builder {
-            store: iroh_blobs::store::mem::Store::new(),
-            secret_key: None,
-            relay_mode: RelayMode::Default,
-            gc_interval: None,
-        }
+        Builder::new(iroh_blobs::store::mem::Store::new())
+    }
+}
+
+impl Node<iroh_blobs::store::fs::Store> {
+    /// Creates a new node with persistent storage
+    pub async fn persistent(
+        path: impl AsRef<Path>,
+    ) -> anyhow::Result<Builder<iroh_blobs::store::fs::Store>> {
+        Ok(Builder::new(
+            iroh_blobs::store::fs::Store::load(path).await?,
+        ))
     }
 }
 
@@ -177,97 +348,4 @@ impl<S> Node<S> {
     pub fn client(&self) -> &Client {
         &self.client
     }
-}
-
-async fn setup_router<S: iroh_blobs::store::Store>(
-    store: S,
-    relay_mode: RelayMode,
-) -> anyhow::Result<(
-    quic_rpc::RpcClient<Service>,
-    iroh_router::Router,
-    tokio::task::JoinHandle<()>,
-    iroh_docs::engine::Engine<S>,
-    LocalPool,
-)> {
-    let endpoint = iroh_net::Endpoint::builder()
-        .discovery_n0()
-        .relay_mode(relay_mode)
-        .bind()
-        .await?;
-    let addr = endpoint.node_addr().await?;
-    let local_pool = LocalPool::single();
-    let mut router = iroh_router::Router::builder(endpoint.clone());
-
-    // Setup blobs
-    let downloader = iroh_blobs::downloader::Downloader::new(
-        store.clone(),
-        endpoint.clone(),
-        local_pool.handle().clone(),
-    );
-    let blobs = Arc::new(iroh_blobs::net_protocol::Blobs::new_with_events(
-        store.clone(),
-        local_pool.handle().clone(),
-        Default::default(),
-        downloader.clone(),
-        endpoint.clone(),
-    ));
-    let gossip =
-        iroh_gossip::net::Gossip::from_endpoint(endpoint.clone(), Default::default(), &addr.info);
-    let docs = iroh_docs::engine::Engine::spawn(
-        endpoint,
-        gossip.clone(),
-        iroh_docs::store::Store::memory(),
-        store.clone(),
-        downloader,
-        iroh_docs::engine::DefaultAuthorStorage::Mem,
-        local_pool.handle().clone(),
-    )
-    .await?;
-    router = router.accept(iroh_blobs::protocol::ALPN.to_vec(), blobs.clone());
-    router = router.accept(iroh_docs::net::DOCS_ALPN.to_vec(), Arc::new(docs.clone()));
-    router = router.accept(
-        iroh_gossip::net::GOSSIP_ALPN.to_vec(),
-        Arc::new(gossip.clone()),
-    );
-
-    // Build the router
-    let router = router.spawn().await?;
-
-    // Setup RPC
-    let (internal_rpc, controller) = quic_rpc::transport::flume::channel::<Request, Response>(32);
-    let controller = controller.boxed();
-    let internal_rpc = internal_rpc.boxed();
-    let internal_rpc = quic_rpc::RpcServer::<Service>::new(internal_rpc);
-
-    let docs2 = docs.clone();
-    let rpc_server_task: tokio::task::JoinHandle<()> = tokio::task::spawn(async move {
-        loop {
-            let request = internal_rpc.accept().await;
-            match request {
-                Ok(accepting) => {
-                    let blobs = blobs.clone();
-                    let docs = docs2.clone();
-                    tokio::task::spawn(async move {
-                        let (msg, chan) = accepting.read_first().await?;
-                        match msg {
-                            Request::BlobsOrTags(msg) => {
-                                blobs.handle_rpc_request(msg, chan.map().boxed()).await?;
-                            }
-                            Request::Docs(msg) => {
-                                docs.handle_rpc_request(msg, chan.map().boxed()).await?;
-                            }
-                        }
-                        anyhow::Ok(())
-                    });
-                }
-                Err(err) => {
-                    tracing::warn!("rpc error: {:?}", err);
-                }
-            }
-        }
-    });
-
-    let client = quic_rpc::RpcClient::new(controller);
-
-    Ok((client, router, rpc_server_task, docs, local_pool))
 }

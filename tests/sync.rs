@@ -506,7 +506,7 @@ async fn test_sync_via_relay() -> Result<()> {
         .await?;
 
     let doc1 = node1.docs().create().await?;
-    let author1 = node1.authors().create().await?;
+    let author1 = node1.docs().author_create().await?;
     let inserted_hash = doc1
         .set_bytes(author1, b"foo".to_vec(), b"bar".to_vec())
         .await?;
@@ -599,7 +599,7 @@ async fn sync_restart_node() -> Result<()> {
         .insecure_skip_relay_cert_verify(true)
         .relay_mode(RelayMode::Custom(relay_map.clone()))
         .dns_resolver(discovery_server.dns_resolver())
-        .node_discovery(discovery_server.discovery(secret_key_1.clone()).into())
+        .node_discovery(discovery_server.discovery(secret_key_1.clone()))
         .spawn()
         .await?;
     let id1 = node1.node_id();
@@ -619,11 +619,11 @@ async fn sync_restart_node() -> Result<()> {
         .relay_mode(RelayMode::Custom(relay_map.clone()))
         .insecure_skip_relay_cert_verify(true)
         .dns_resolver(discovery_server.dns_resolver())
-        .node_discovery(discovery_server.discovery(secret_key_2.clone()).into())
+        .node_discovery(discovery_server.discovery(secret_key_2.clone()))
         .spawn()
         .await?;
     let id2 = node2.node_id();
-    let author2 = node2.authors().create().await?;
+    let author2 = node2.docs().author_create().await?;
     let doc2 = node2.docs().import(ticket.clone()).await?;
     let blobs2 = node2.blobs();
 
@@ -666,7 +666,7 @@ async fn sync_restart_node() -> Result<()> {
         .insecure_skip_relay_cert_verify(true)
         .relay_mode(RelayMode::Custom(relay_map.clone()))
         .dns_resolver(discovery_server.dns_resolver())
-        .node_discovery(discovery_server.discovery(secret_key_1.clone()).into())
+        .node_discovery(discovery_server.discovery(secret_key_1.clone()))
         .spawn()
         .await?;
     assert_eq!(id1, node1.node_id());
@@ -916,7 +916,7 @@ async fn sync_big() -> Result<()> {
 
     // assert initial data
     for (i, doc) in docs.iter().enumerate() {
-        let blobs = nodes[i].client().blobs();
+        let blobs = nodes[i].blobs();
         let entries = get_all_with_content(&blobs, doc).await?;
         let mut expected = expected
             .iter()
@@ -987,8 +987,7 @@ async fn sync_big() -> Result<()> {
 #[cfg(feature = "test-utils")]
 async fn test_list_docs_stream() -> Result<()> {
     let node = Node::memory()
-        .node_discovery(iroh::node::DiscoveryConfig::None)
-        .relay_mode(iroh::net::relay::RelayMode::Disabled)
+        .relay_mode(RelayMode::Disabled)
         .spawn()
         .await?;
     let count = 200;
