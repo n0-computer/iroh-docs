@@ -1,3 +1,4 @@
+#![cfg(feature = "rpc")]
 use std::{
     io::{Cursor, Write},
     time::Duration,

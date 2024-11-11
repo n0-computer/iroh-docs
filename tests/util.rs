@@ -1,3 +1,4 @@
+#![cfg(feature = "rpc")]
 #![allow(dead_code)]
 use std::{
     collections::BTreeSet,
