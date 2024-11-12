@@ -33,7 +33,7 @@ impl<C: Connector<RpcService>> Client<C> {
     /// You likely want to save the returned [`AuthorId`] somewhere so that you can use this author
     /// again.
     ///
-    /// If you need only a single author, use [`Self::author_default`].
+    /// If you need only a single author, use [`Self::default`].
     pub async fn create(&self) -> Result<AuthorId> {
         let res = self.rpc.rpc(AuthorCreateRequest).await??;
         Ok(res.author_id)
@@ -44,7 +44,7 @@ impl<C: Connector<RpcService>> Client<C> {
     /// On persistent nodes, the author is created on first start and its public key is saved
     /// in the data directory.
     ///
-    /// The default author can be set with [`Self::author_set_default`].
+    /// The default author can be set with [`Self::set_default`].
     pub async fn default(&self) -> Result<AuthorId> {
         let res = self.rpc.rpc(AuthorGetDefaultRequest).await??;
         Ok(res.author_id)
