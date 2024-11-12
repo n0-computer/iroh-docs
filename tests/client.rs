@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::{Context, Result};
 use futures_util::TryStreamExt;
 use iroh_blobs::{
@@ -6,6 +8,7 @@ use iroh_blobs::{
 };
 use iroh_docs::store::Query;
 use rand::RngCore;
+use testresult::TestResult;
 use tokio::io::AsyncWriteExt;
 use util::Node;
 
@@ -153,11 +156,8 @@ async fn test_default_author_memory() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "fs-store")]
 #[tokio::test]
-async fn test_default_author_persist() -> Result<()> {
-    use crate::util::path::IrohPaths;
-
+async fn test_default_author_persist() -> TestResult<()> {
     let _guard = iroh_test::logging::setup();
 
     let iroh_root_dir = tempfile::TempDir::new().unwrap();
@@ -165,53 +165,35 @@ async fn test_default_author_persist() -> Result<()> {
 
     // check that the default author exists and cannot be deleted.
     let default_author = {
-        let iroh = Node::persistent(iroh_root)
-            .await
-            .unwrap()
-            .enable_docs()
-            .spawn()
-            .await
-            .unwrap();
-        let author = iroh.authors().default().await.unwrap();
-        assert!(iroh.authors().export(author).await.unwrap().is_some());
-        assert!(iroh.authors().delete(author).await.is_err());
+        let iroh = Node::persistent(iroh_root).spawn().await.unwrap();
+        let author = iroh.docs().author_default().await.unwrap();
+        assert!(iroh.docs().author_export(author).await.unwrap().is_some());
+        assert!(iroh.docs().author_delete(author).await.is_err());
         iroh.shutdown().await.unwrap();
         author
     };
 
     // check that the default author is persisted across restarts.
     {
-        let iroh = Node::persistent(iroh_root)
-            .await
-            .unwrap()
-            .enable_docs()
-            .spawn()
-            .await
-            .unwrap();
-        let author = iroh.authors().default().await.unwrap();
+        let iroh = Node::persistent(iroh_root).spawn().await.unwrap();
+        let author = iroh.docs().author_default().await.unwrap();
         assert_eq!(author, default_author);
-        assert!(iroh.authors().export(author).await.unwrap().is_some());
-        assert!(iroh.authors().delete(author).await.is_err());
+        assert!(iroh.docs().author_export(author).await.unwrap().is_some());
+        assert!(iroh.docs().author_delete(author).await.is_err());
         iroh.shutdown().await.unwrap();
     };
 
     // check that a new default author is created if the default author file is deleted
     // manually.
     let default_author = {
-        tokio::fs::remove_file(IrohPaths::DefaultAuthor.with_root(iroh_root))
+        tokio::fs::remove_file(iroh_root.join("default-author"))
             .await
             .unwrap();
-        let iroh = Node::persistent(iroh_root)
-            .await
-            .unwrap()
-            .enable_docs()
-            .spawn()
-            .await
-            .unwrap();
-        let author = iroh.authors().default().await.unwrap();
+        let iroh = Node::persistent(iroh_root).spawn().await.unwrap();
+        let author = iroh.docs().author_default().await.unwrap();
         assert!(author != default_author);
-        assert!(iroh.authors().export(author).await.unwrap().is_some());
-        assert!(iroh.authors().delete(author).await.is_err());
+        assert!(iroh.docs().author_export(author).await.unwrap().is_some());
+        assert!(iroh.docs().author_delete(author).await.is_err());
         iroh.shutdown().await.unwrap();
         author
     };
@@ -219,17 +201,11 @@ async fn test_default_author_persist() -> Result<()> {
     // check that the node fails to start if the default author is missing from the docs store.
     {
         let mut docs_store =
-            iroh_docs::store::fs::Store::persistent(IrohPaths::DocsDatabase.with_root(iroh_root))
-                .unwrap();
+            iroh_docs::store::fs::Store::persistent(iroh_root.join("docs.redb")).unwrap();
         docs_store.delete_author(default_author).unwrap();
         docs_store.flush().unwrap();
         drop(docs_store);
-        let iroh = Node::persistent(iroh_root)
-            .await
-            .unwrap()
-            .enable_docs()
-            .spawn()
-            .await;
+        let iroh = Node::persistent(iroh_root).spawn().await;
         assert!(iroh.is_err());
 
         // somehow the blob store is not shutdown correctly (yet?) on macos.
@@ -237,44 +213,29 @@ async fn test_default_author_persist() -> Result<()> {
         #[cfg(target_os = "macos")]
         tokio::time::sleep(Duration::from_secs(1)).await;
 
-        tokio::fs::remove_file(IrohPaths::DefaultAuthor.with_root(iroh_root))
+        tokio::fs::remove_file(iroh_root.join("default-author"))
             .await
             .unwrap();
         drop(iroh);
-        let iroh = Node::persistent(iroh_root)
-            .await
-            .unwrap()
-            .enable_docs()
-            .spawn()
-            .await;
-        assert!(iroh.is_ok());
+        let iroh = Node::persistent(iroh_root).spawn().await;
+        if let Err(cause) = iroh.as_ref() {
+            panic!("failed to start node: {:?}", cause);
+        }
         iroh.unwrap().shutdown().await.unwrap();
     }
 
     // check that the default author can be set manually and is persisted.
     let default_author = {
-        let iroh = Node::persistent(iroh_root)
-            .await
-            .unwrap()
-            .enable_docs()
-            .spawn()
-            .await
-            .unwrap();
-        let author = iroh.authors().create().await.unwrap();
-        iroh.authors().set_default(author).await.unwrap();
-        assert_eq!(iroh.authors().default().await.unwrap(), author);
+        let iroh = Node::persistent(iroh_root).spawn().await.unwrap();
+        let author = iroh.docs().author_create().await.unwrap();
+        iroh.docs().author_set_default(author).await.unwrap();
+        assert_eq!(iroh.docs().author_default().await.unwrap(), author);
         iroh.shutdown().await.unwrap();
         author
     };
     {
-        let iroh = Node::persistent(iroh_root)
-            .await
-            .unwrap()
-            .enable_docs()
-            .spawn()
-            .await
-            .unwrap();
-        assert_eq!(iroh.authors().default().await.unwrap(), default_author);
+        let iroh = Node::persistent(iroh_root).spawn().await.unwrap();
+        assert_eq!(iroh.docs().author_default().await.unwrap(), default_author);
         iroh.shutdown().await.unwrap();
     }
 

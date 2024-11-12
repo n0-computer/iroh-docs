@@ -595,7 +595,6 @@ async fn sync_restart_node() -> Result<()> {
     let secret_key_1 = SecretKey::generate_with_rng(&mut rng);
 
     let node1 = Node::persistent(&node1_dir)
-        .await?
         .secret_key(secret_key_1.clone())
         .insecure_skip_relay_cert_verify(true)
         .relay_mode(RelayMode::Custom(relay_map.clone()))
@@ -662,7 +661,6 @@ async fn sync_restart_node() -> Result<()> {
 
     info!(me = id1.fmt_short(), "node1 respawn");
     let node1 = Node::persistent(&node1_dir)
-        .await?
         .secret_key(secret_key_1.clone())
         .insecure_skip_relay_cert_verify(true)
         .relay_mode(RelayMode::Custom(relay_map.clone()))

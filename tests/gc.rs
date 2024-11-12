@@ -1,6 +1,7 @@
 #![cfg(feature = "rpc")]
 use std::{
     io::{Cursor, Write},
+    path::PathBuf,
     time::Duration,
 };
 
@@ -14,7 +15,7 @@ use iroh_blobs::{
     BlobFormat, HashAndFormat, IROH_BLOCK_SIZE,
 };
 use rand::RngCore;
-use util::{Builder, Node};
+use util::Node;
 
 mod util;
 
@@ -39,15 +40,34 @@ pub fn simulate_remote(data: &[u8]) -> (blake3::Hash, Cursor<Bytes>) {
 }
 
 /// Wrap a bao store in a node that has gc enabled.
-async fn wrap_in_node<S>(
-    bao_store: S,
+async fn mem_node(
     gc_period: Duration,
-) -> (Node<S>, async_channel::Receiver<()>)
-where
-    S: iroh_blobs::store::Store,
-{
+) -> (
+    Node<iroh_blobs::store::mem::Store>,
+    async_channel::Receiver<()>,
+) {
     let (gc_send, gc_recv) = async_channel::unbounded();
-    let node = Builder::new(bao_store)
+    let node = Node::memory()
+        .gc_interval(Some(gc_period))
+        .register_gc_done_cb(Box::new(move || {
+            gc_send.send_blocking(()).ok();
+        }))
+        .spawn()
+        .await
+        .unwrap();
+    (node, gc_recv)
+}
+
+/// Wrap a bao store in a node that has gc enabled.
+async fn persistent_node(
+    path: PathBuf,
+    gc_period: Duration,
+) -> (
+    Node<iroh_blobs::store::fs::Store>,
+    async_channel::Receiver<()>,
+) {
+    let (gc_send, gc_recv) = async_channel::unbounded();
+    let node = Node::persistent(path)
         .gc_interval(Some(gc_period))
         .register_gc_done_cb(Box::new(move || {
             gc_send.send_blocking(()).ok();
@@ -63,9 +83,9 @@ async fn gc_test_node() -> (
     iroh_blobs::store::mem::Store,
     async_channel::Receiver<()>,
 ) {
-    let bao_store = iroh_blobs::store::mem::Store::new();
-    let (node, gc_recv) = wrap_in_node(bao_store.clone(), Duration::from_millis(500)).await;
-    (node, bao_store, gc_recv)
+    let (node, gc_recv) = mem_node(Duration::from_millis(500)).await;
+    let store = node.blob_store().clone();
+    (node, store, gc_recv)
 }
 
 async fn step(evs: &async_channel::Receiver<()>) {
@@ -230,8 +250,8 @@ mod file {
     async fn redb_doc_import_stress() -> Result<()> {
         let _ = tracing_subscriber::fmt::try_init();
         let dir = testdir!();
-        let bao_store = iroh_blobs::store::fs::Store::load(dir.join("store")).await?;
-        let (node, _) = wrap_in_node(bao_store.clone(), Duration::from_secs(10)).await;
+        let (node, _) = persistent_node(dir.join("store"), Duration::from_secs(10)).await;
+        let bao_store = node.blob_store().clone();
         let client = node.client();
         let doc = client.docs().create().await?;
         let author = client.docs().author_create().await?;
@@ -272,9 +292,8 @@ mod file {
         let dir = testdir!();
         let path = data_path(dir.clone());
         let outboard_path = outboard_path(dir.clone());
-
-        let bao_store = iroh_blobs::store::fs::Store::load(dir.clone()).await?;
-        let (node, evs) = wrap_in_node(bao_store.clone(), Duration::from_millis(100)).await;
+        let (node, evs) = persistent_node(dir.clone(), Duration::from_millis(100)).await;
+        let bao_store = node.blob_store().clone();
         let data1 = create_test_data(10000000);
         let tt1 = bao_store
             .import_bytes(data1.clone(), BlobFormat::Raw)
@@ -434,8 +453,8 @@ mod file {
         let path = data_path(dir.clone());
         let outboard_path = outboard_path(dir.clone());
 
-        let bao_store = iroh_blobs::store::fs::Store::load(dir.clone()).await?;
-        let (node, evs) = wrap_in_node(bao_store.clone(), Duration::from_millis(10)).await;
+        let (node, evs) = persistent_node(dir.clone(), Duration::from_millis(10)).await;
+        let bao_store = node.blob_store().clone();
 
         let data1: Bytes = create_test_data(10000000);
         let (_entry, tt1) = simulate_download_partial(&bao_store, data1.clone()).await?;
@@ -465,8 +484,8 @@ mod file {
         let _ = tracing_subscriber::fmt::try_init();
         let dir = testdir!();
 
-        let bao_store = iroh_blobs::store::fs::Store::load(dir.clone()).await?;
-        let (node, evs) = wrap_in_node(bao_store.clone(), Duration::from_secs(1)).await;
+        let (node, evs) = persistent_node(dir.clone(), Duration::from_secs(1)).await;
+        let bao_store = node.blob_store().clone();
 
         let mut deleted = Vec::new();
         let mut live = Vec::new();

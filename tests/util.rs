@@ -2,9 +2,10 @@
 #![allow(dead_code)]
 use std::{
     collections::BTreeSet,
+    marker::PhantomData,
     net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6},
     ops::Deref,
-    path::Path,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -35,10 +36,10 @@ pub const DEFAULT_BIND_ADDR_V6: SocketAddrV6 =
 pub struct Node<S> {
     router: iroh_router::Router,
     client: Client,
-    _store: S,
-    _local_pool: LocalPool,
-    _rpc_task: AbortOnDropHandle<()>,
-    _gc_task: Option<Run<()>>,
+    store: S,
+    local_pool: LocalPool,
+    rpc_task: AbortOnDropHandle<()>,
+    gc_task: Option<Run<()>>,
 }
 
 impl<S> Deref for Node<S> {
@@ -97,7 +98,7 @@ impl Client {
 /// An iroh node builder
 #[derive(derive_more::Debug)]
 pub struct Builder<S> {
-    store: S,
+    path: Option<PathBuf>,
     secret_key: Option<SecretKey>,
     relay_mode: RelayMode,
     dns_resolver: Option<DnsResolver>,
@@ -107,12 +108,12 @@ pub struct Builder<S> {
     register_gc_done_cb: Option<Box<dyn Fn() + Send + 'static>>,
     insecure_skip_relay_cert_verify: bool,
     bind_random_port: bool,
+    _p: PhantomData<S>,
 }
 
 impl<S: BlobStore> Builder<S> {
     /// Spawns the node
-    pub async fn spawn(self) -> anyhow::Result<Node<S>> {
-        let store = self.store.clone();
+    async fn spawn0(self, store: S) -> anyhow::Result<Node<S>> {
         let mut addr_v4 = DEFAULT_BIND_ADDR_V4;
         let mut addr_v6 = DEFAULT_BIND_ADDR_V6;
         if self.bind_random_port {
@@ -151,16 +152,33 @@ impl<S: BlobStore> Builder<S> {
             Default::default(),
             &addr.info,
         );
-        let docs = iroh_docs::engine::Engine::spawn(
+        let replica_store = match self.path {
+            Some(ref path) => iroh_docs::store::Store::persistent(path.join("docs.redb"))?,
+            None => iroh_docs::store::Store::memory(),
+        };
+        let author_store = match self.path {
+            Some(ref path) => {
+                iroh_docs::engine::DefaultAuthorStorage::Persistent(path.join("default-author"))
+            }
+            None => iroh_docs::engine::DefaultAuthorStorage::Mem,
+        };
+        let docs = match iroh_docs::engine::Engine::spawn(
             endpoint,
             gossip.clone(),
-            iroh_docs::store::Store::memory(),
+            replica_store,
             store.clone(),
             downloader,
-            iroh_docs::engine::DefaultAuthorStorage::Mem,
+            author_store,
             local_pool.handle().clone(),
         )
-        .await?;
+        .await
+        {
+            Ok(docs) => docs,
+            Err(err) => {
+                store.shutdown().await;
+                return Err(err);
+            }
+        };
         router = router.accept(iroh_blobs::protocol::ALPN.to_vec(), blobs.clone());
         router = router.accept(iroh_docs::net::DOCS_ALPN.to_vec(), Arc::new(docs.clone()));
         router = router.accept(
@@ -209,7 +227,7 @@ impl<S: BlobStore> Builder<S> {
         let client = quic_rpc::RpcClient::new(controller);
 
         let _gc_task = if let Some(period) = self.gc_interval {
-            let store = self.store.clone();
+            let store = store.clone();
             let local_pool = local_pool.clone();
             let docs = docs.clone();
             let protected_cb = move || {
@@ -254,10 +272,10 @@ impl<S: BlobStore> Builder<S> {
         Ok(Node {
             router,
             client,
-            _store: self.store,
-            _rpc_task: AbortOnDropHandle::new(rpc_task),
-            _gc_task,
-            _local_pool: local_pool,
+            store,
+            rpc_task: AbortOnDropHandle::new(rpc_task),
+            gc_task: _gc_task,
+            local_pool,
         })
     }
 
@@ -301,9 +319,9 @@ impl<S: BlobStore> Builder<S> {
         self
     }
 
-    pub fn new(store: S) -> Self {
+    fn new(path: Option<PathBuf>) -> Self {
         Self {
-            store,
+            path,
             secret_key: None,
             relay_mode: RelayMode::Default,
             gc_interval: None,
@@ -312,6 +330,7 @@ impl<S: BlobStore> Builder<S> {
             dns_resolver: None,
             node_discovery: None,
             register_gc_done_cb: None,
+            _p: PhantomData,
         }
     }
 }
@@ -319,18 +338,31 @@ impl<S: BlobStore> Builder<S> {
 impl Node<iroh_blobs::store::mem::Store> {
     /// Creates a new node with memory storage
     pub fn memory() -> Builder<iroh_blobs::store::mem::Store> {
-        Builder::new(iroh_blobs::store::mem::Store::new())
+        Builder::new(None)
+    }
+}
+
+impl Builder<iroh_blobs::store::mem::Store> {
+    /// Spawns the node
+    pub async fn spawn(self) -> anyhow::Result<Node<iroh_blobs::store::mem::Store>> {
+        let store = iroh_blobs::store::mem::Store::new();
+        self.spawn0(store).await
     }
 }
 
 impl Node<iroh_blobs::store::fs::Store> {
     /// Creates a new node with persistent storage
-    pub async fn persistent(
-        path: impl AsRef<Path>,
-    ) -> anyhow::Result<Builder<iroh_blobs::store::fs::Store>> {
-        Ok(Builder::new(
-            iroh_blobs::store::fs::Store::load(path).await?,
-        ))
+    pub fn persistent(path: impl AsRef<Path>) -> Builder<iroh_blobs::store::fs::Store> {
+        let path = Some(path.as_ref().to_owned());
+        Builder::new(path)
+    }
+}
+
+impl Builder<iroh_blobs::store::fs::Store> {
+    /// Spawns the node
+    pub async fn spawn(self) -> anyhow::Result<Node<iroh_blobs::store::fs::Store>> {
+        let store = iroh_blobs::store::fs::Store::load(self.path.clone().unwrap()).await?;
+        self.spawn0(store).await
     }
 }
 
@@ -340,9 +372,20 @@ impl<S> Node<S> {
         self.router.endpoint().node_id()
     }
 
+    /// Returns the blob store
+    pub fn blob_store(&self) -> &S {
+        &self.store
+    }
+
     /// Shuts down the node
-    pub async fn shutdown(self) -> anyhow::Result<()> {
-        self.router.shutdown().await
+    pub async fn shutdown(mut self) -> anyhow::Result<()> {
+        self.router.shutdown().await?;
+        self.local_pool.shutdown().await;
+        self.rpc_task.abort();
+        if let Some(mut task) = self.gc_task.take() {
+            task.abort();
+        }
+        Ok(())
     }
 
     /// Returns the client
