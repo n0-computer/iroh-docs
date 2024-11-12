@@ -244,7 +244,7 @@ async fn sync_gossip_bulk() -> Result<()> {
 /// This tests basic sync and gossip with 3 peers.
 #[tokio::test]
 #[ignore = "flaky"]
-async fn sync_full_basic() -> Result<()> {
+async fn sync_full_basic() -> testresult::TestResult<()> {
     let mut rng = test_rng(b"sync_full_basic");
     setup_logging();
     let mut nodes = spawn_nodes(2, &mut rng).await?;
@@ -984,7 +984,7 @@ async fn sync_big() -> Result<()> {
 
 #[tokio::test]
 #[cfg(feature = "test-utils")]
-async fn test_list_docs_stream() -> Result<()> {
+async fn test_list_docs_stream() -> testresult::TestResult<()> {
     let node = Node::memory()
         .relay_mode(RelayMode::Disabled)
         .spawn()
