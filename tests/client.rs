@@ -1,3 +1,4 @@
+#![cfg(feature = "rpc")]
 use anyhow::{Context, Result};
 use futures_util::TryStreamExt;
 use iroh_blobs::{
