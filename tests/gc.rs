@@ -254,7 +254,7 @@ mod file {
         let bao_store = node.blob_store().clone();
         let client = node.client();
         let doc = client.docs().create().await?;
-        let author = client.docs().author_create().await?;
+        let author = client.authors().create().await?;
         let temp_path = dir.join("temp");
         tokio::fs::create_dir_all(&temp_path).await?;
         let mut to_import = Vec::new();

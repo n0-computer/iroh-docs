@@ -12,7 +12,7 @@ use quic_rpc_derive::rpc_requests;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    client::{ImportProgress, ShareMode},
+    client::docs::{ImportProgress, ShareMode},
     RpcError, RpcResult,
 };
 use crate::{

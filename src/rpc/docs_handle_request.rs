@@ -10,7 +10,7 @@ use iroh_blobs::{
 };
 
 use super::{
-    client::ShareMode,
+    client::docs::ShareMode,
     proto::{
         AuthorCreateRequest, AuthorCreateResponse, AuthorDeleteRequest, AuthorDeleteResponse,
         AuthorExportRequest, AuthorExportResponse, AuthorGetDefaultRequest,
@@ -419,9 +419,11 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
         let this = self.clone();
         self.local_pool_handle().spawn_detached(|| async move {
             if let Err(e) = this.doc_import_file0(msg, tx).await {
-                tx2.send(super::client::ImportProgress::Abort(RpcError::new(&*e)))
-                    .await
-                    .ok();
+                tx2.send(super::client::docs::ImportProgress::Abort(RpcError::new(
+                    &*e,
+                )))
+                .await
+                .ok();
             }
         });
         rx.map(ImportFileResponse)
@@ -430,13 +432,13 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
     async fn doc_import_file0(
         self,
         msg: ImportFileRequest,
-        progress: async_channel::Sender<super::client::ImportProgress>,
+        progress: async_channel::Sender<super::client::docs::ImportProgress>,
     ) -> anyhow::Result<()> {
         use std::collections::BTreeMap;
 
         use iroh_blobs::store::ImportMode;
 
-        use super::client::ImportProgress as DocImportProgress;
+        use super::client::docs::ImportProgress as DocImportProgress;
 
         let progress = AsyncChannelProgressSender::new(progress);
         let names = Arc::new(Mutex::new(BTreeMap::new()));

@@ -75,14 +75,16 @@ impl quic_rpc::Service for Service {
 #[derive(Debug, Clone)]
 pub struct Client {
     blobs: iroh_blobs::rpc::client::blobs::Client,
-    docs: iroh_docs::rpc::client::Client,
+    docs: iroh_docs::rpc::client::docs::Client,
+    authors: iroh_docs::rpc::client::authors::Client,
 }
 
 impl Client {
     fn new(client: quic_rpc::RpcClient<Service>) -> Self {
         Self {
             blobs: iroh_blobs::rpc::client::blobs::Client::new(client.clone().map().boxed()),
-            docs: iroh_docs::rpc::client::Client::new(client.map().boxed()),
+            docs: iroh_docs::rpc::client::docs::Client::new(client.clone().map().boxed()),
+            authors: iroh_docs::rpc::client::authors::Client::new(client.map().boxed()),
         }
     }
 
@@ -90,8 +92,12 @@ impl Client {
         &self.blobs
     }
 
-    pub fn docs(&self) -> &iroh_docs::rpc::client::Client {
+    pub fn docs(&self) -> &iroh_docs::rpc::client::docs::Client {
         &self.docs
+    }
+
+    pub fn authors(&self) -> &iroh_docs::rpc::client::authors::Client {
+        &self.authors
     }
 }
 

@@ -13,7 +13,7 @@ use futures_util::{FutureExt, StreamExt, TryStreamExt};
 use iroh_base::node_addr::AddrInfoOptions;
 use iroh_blobs::Hash;
 use iroh_docs::{
-    rpc::client::{Doc, Entry, LiveEvent, ShareMode},
+    rpc::client::docs::{Doc, Entry, LiveEvent, ShareMode},
     store::{DownloadPolicy, FilterKind, Query},
     AuthorId, ContentStatus,
 };
@@ -82,7 +82,7 @@ async fn sync_simple() -> Result<()> {
 
     // create doc on node0
     let peer0 = nodes[0].node_id();
-    let author0 = clients[0].docs().author_create().await?;
+    let author0 = clients[0].authors().create().await?;
     let doc0 = clients[0].docs().create().await?;
     let blobs0 = clients[0].blobs();
     let hash0 = doc0
@@ -141,7 +141,7 @@ async fn sync_subscribe_no_sync() -> Result<()> {
     let client = node.client();
     let doc = client.docs().create().await?;
     let mut sub = doc.subscribe().await?;
-    let author = client.docs().author_create().await?;
+    let author = client.authors().create().await?;
     doc.set_bytes(author, b"k".to_vec(), b"v".to_vec()).await?;
     let event = tokio::time::timeout(Duration::from_millis(100), sub.next()).await?;
     assert!(
@@ -164,7 +164,7 @@ async fn sync_gossip_bulk() -> Result<()> {
     let clients = nodes.iter().map(|node| node.client()).collect::<Vec<_>>();
 
     let _peer0 = nodes[0].node_id();
-    let author0 = clients[0].docs().author_create().await?;
+    let author0 = clients[0].authors().create().await?;
     let doc0 = clients[0].docs().create().await?;
     let mut ticket = doc0
         .share(ShareMode::Write, AddrInfoOptions::RelayAndAddresses)
@@ -255,7 +255,7 @@ async fn sync_full_basic() -> testresult::TestResult<()> {
 
     // peer0: create doc and ticket
     let peer0 = nodes[0].node_id();
-    let author0 = clients[0].docs().author_create().await?;
+    let author0 = clients[0].authors().create().await?;
     let doc0 = clients[0].docs().create().await?;
     let blobs0 = clients[0].blobs();
     let mut events0 = doc0.subscribe().await?;
@@ -278,7 +278,7 @@ async fn sync_full_basic() -> testresult::TestResult<()> {
 
     info!("peer1: spawn");
     let peer1 = nodes[1].node_id();
-    let author1 = clients[1].docs().author_create().await?;
+    let author1 = clients[1].authors().create().await?;
     info!("peer1: join doc");
     let doc1 = clients[1].docs().import(ticket.clone()).await?;
     let blobs1 = clients[1].blobs();
@@ -456,7 +456,7 @@ async fn sync_subscribe_stop_close() -> Result<()> {
     let client = node.client();
 
     let doc = client.docs().create().await?;
-    let author = client.docs().author_create().await?;
+    let author = client.authors().create().await?;
 
     let status = doc.status().await?;
     assert_eq!(status.subscribers, 0);
@@ -507,7 +507,7 @@ async fn test_sync_via_relay() -> Result<()> {
         .await?;
 
     let doc1 = node1.docs().create().await?;
-    let author1 = node1.docs().author_create().await?;
+    let author1 = node1.authors().create().await?;
     let inserted_hash = doc1
         .set_bytes(author1, b"foo".to_vec(), b"bar".to_vec())
         .await?;
@@ -623,7 +623,7 @@ async fn sync_restart_node() -> Result<()> {
         .spawn()
         .await?;
     let id2 = node2.node_id();
-    let author2 = node2.docs().author_create().await?;
+    let author2 = node2.authors().create().await?;
     let doc2 = node2.docs().import(ticket.clone()).await?;
     let blobs2 = node2.blobs();
 
@@ -758,13 +758,13 @@ async fn test_download_policies() -> Result<()> {
     let clients = nodes.iter().map(|node| node.client()).collect::<Vec<_>>();
 
     let doc_a = clients[0].docs().create().await?;
-    let author_a = clients[0].docs().author_create().await?;
+    let author_a = clients[0].authors().create().await?;
     let ticket = doc_a
         .share(ShareMode::Write, AddrInfoOptions::RelayAndAddresses)
         .await?;
 
     let doc_b = clients[1].docs().import(ticket).await?;
-    let author_b = clients[1].docs().author_create().await?;
+    let author_b = clients[1].authors().create().await?;
 
     doc_a.set_download_policy(policy_a).await?;
     doc_b.set_download_policy(policy_b).await?;
@@ -880,7 +880,7 @@ async fn sync_big() -> Result<()> {
     let nodes = spawn_nodes(n_nodes, &mut rng).await?;
     let node_ids = nodes.iter().map(|node| node.node_id()).collect::<Vec<_>>();
     let clients = nodes.iter().map(|node| node.client()).collect::<Vec<_>>();
-    let authors = collect_futures(clients.iter().map(|c| c.docs().author_create())).await?;
+    let authors = collect_futures(clients.iter().map(|c| c.authors().create())).await?;
 
     let doc0 = clients[0].docs().create().await?;
     let mut ticket = doc0
@@ -1165,7 +1165,7 @@ async fn doc_delete() -> Result<()> {
     let client = node.client();
     let doc = client.docs().create().await?;
     let blobs = client.blobs();
-    let author = client.docs().author_create().await?;
+    let author = client.authors().create().await?;
     let hash = doc
         .set_bytes(author, b"foo".to_vec(), b"hi".to_vec())
         .await?;
@@ -1193,7 +1193,7 @@ async fn sync_drop_doc() -> Result<()> {
     let client = node.client();
 
     let doc = client.docs().create().await?;
-    let author = client.docs().author_create().await?;
+    let author = client.authors().create().await?;
 
     let mut sub = doc.subscribe().await?;
     doc.set_bytes(author, b"foo".to_vec(), b"bar".to_vec())
