@@ -88,7 +88,7 @@ async fn sync_simple() -> Result<()> {
     let hash0 = doc0
         .set_bytes(author0, b"k1".to_vec(), b"v1".to_vec())
         .await?;
-    assert_latest(&blobs0, &doc0, b"k1", b"v1").await;
+    assert_latest(blobs0, &doc0, b"k1", b"v1").await;
     let ticket = doc0
         .share(ShareMode::Write, AddrInfoOptions::RelayAndAddresses)
         .await?;
@@ -113,7 +113,7 @@ async fn sync_simple() -> Result<()> {
         ],
     )
     .await;
-    assert_latest(&blobs1, &doc1, b"k1", b"v1").await;
+    assert_latest(blobs1, &doc1, b"k1", b"v1").await;
 
     info!("node0: assert 2 events");
     assert_next(
@@ -271,7 +271,7 @@ async fn sync_full_basic() -> Result<()> {
         matches!(&e, LiveEvent::InsertLocal { entry } if entry.content_hash() == hash0),
         "expected LiveEvent::InsertLocal but got {e:?}",
     );
-    assert_latest(&blobs0, &doc0, key0, value0).await;
+    assert_latest(blobs0, &doc0, key0, value0).await;
     let ticket = doc0
         .share(ShareMode::Write, AddrInfoOptions::RelayAndAddresses)
         .await?;
@@ -316,7 +316,7 @@ async fn sync_full_basic() -> Result<()> {
     let hash1 = doc1
         .set_bytes(author1, key1.to_vec(), value1.to_vec())
         .await?;
-    assert_latest(&blobs1, &doc1, key1, value1).await;
+    assert_latest(blobs1, &doc1, key1, value1).await;
     info!("peer1: wait for 1 event (local insert, and pendingcontentready)");
     assert_next(
         &mut events1,
@@ -337,7 +337,7 @@ async fn sync_full_basic() -> Result<()> {
             Box::new(move |e| matches!(e, LiveEvent::ContentReady { hash } if *hash == hash1)),
         ],
     ).await;
-    assert_latest(&blobs0, &doc0, key1, value1).await;
+    assert_latest(blobs0, &doc0, key1, value1).await;
 
     // Note: If we could check gossip messages directly here (we can't easily), we would notice
     // that peer1 will receive a `Op::ContentReady` gossip message, broadcast
@@ -389,8 +389,8 @@ async fn sync_full_basic() -> Result<()> {
             match_event!(LiveEvent::PendingContentReady),
         ]
     ).await;
-    assert_latest(&blobs2, &doc2, b"k1", b"v1").await;
-    assert_latest(&blobs2, &doc2, b"k2", b"v2").await;
+    assert_latest(blobs2, &doc2, b"k1", b"v1").await;
+    assert_latest(blobs2, &doc2, b"k2", b"v2").await;
 
     info!("peer0: wait for 2 events (join & accept sync finished from peer2)");
     assert_next(
@@ -606,7 +606,7 @@ async fn sync_restart_node() -> Result<()> {
 
     // create doc & ticket on node1
     let doc1 = node1.docs().create().await?;
-    let blobs1 = node1.blobs().clone();
+    let blobs1 = node1.blobs();
     let mut events1 = doc1.subscribe().await?;
     let ticket = doc1
         .share(ShareMode::Write, AddrInfoOptions::RelayAndAddresses)
@@ -629,7 +629,7 @@ async fn sync_restart_node() -> Result<()> {
 
     info!("node2 set a");
     let hash_a = doc2.set_bytes(author2, "n2/a", "a").await?;
-    assert_latest(&blobs2, &doc2, b"n2/a", b"a").await;
+    assert_latest(blobs2, &doc2, b"n2/a", b"a").await;
 
     assert_next_unordered_with_optionals(
         &mut events1,
@@ -647,7 +647,7 @@ async fn sync_restart_node() -> Result<()> {
         ],
     )
     .await;
-    assert_latest(&blobs1, &doc1, b"n2/a", b"a").await;
+    assert_latest(blobs1, &doc1, b"n2/a", b"a").await;
 
     info!(me = id1.fmt_short(), "node1 start shutdown");
     node1.shutdown().await?;
@@ -673,7 +673,7 @@ async fn sync_restart_node() -> Result<()> {
     let doc1 = node1.docs().open(doc1.id()).await?.expect("doc to exist");
     let blobs1 = node1.blobs();
     let mut events1 = doc1.subscribe().await?;
-    assert_latest(&blobs1, &doc1, b"n2/a", b"a").await;
+    assert_latest(blobs1, &doc1, b"n2/a", b"a").await;
 
     // check that initial resync is working
     doc1.start_sync(vec![]).await?;
@@ -691,7 +691,7 @@ async fn sync_restart_node() -> Result<()> {
             match_event!(LiveEvent::PendingContentReady),
         ]
     ).await;
-    assert_latest(&blobs1, &doc1, b"n2/b", b"b").await;
+    assert_latest(blobs1, &doc1, b"n2/b", b"b").await;
 
     // check that live conn is working
     info!(me = id2.fmt_short(), "node2 set c");
@@ -711,7 +711,7 @@ async fn sync_restart_node() -> Result<()> {
         ]
     ).await;
 
-    assert_latest(&blobs1, &doc1, b"n2/c", b"c").await;
+    assert_latest(blobs1, &doc1, b"n2/c", b"c").await;
 
     Ok(())
 }
@@ -916,7 +916,7 @@ async fn sync_big() -> Result<()> {
     // assert initial data
     for (i, doc) in docs.iter().enumerate() {
         let blobs = nodes[i].blobs();
-        let entries = get_all_with_content(&blobs, doc).await?;
+        let entries = get_all_with_content(blobs, doc).await?;
         let mut expected = expected
             .iter()
             .filter(|e| e.author == authors[i])
@@ -1169,7 +1169,7 @@ async fn doc_delete() -> Result<()> {
     let hash = doc
         .set_bytes(author, b"foo".to_vec(), b"hi".to_vec())
         .await?;
-    assert_latest(&blobs, &doc, b"foo", b"hi").await;
+    assert_latest(blobs, &doc, b"foo", b"hi").await;
     let deleted = doc.del(author, b"foo".to_vec()).await?;
     assert_eq!(deleted, 1);
 
