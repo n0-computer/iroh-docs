@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use anyhow::{Context, Result};
 use futures_util::TryStreamExt;
 use iroh_blobs::{
@@ -208,7 +206,7 @@ async fn test_default_author_persist() -> TestResult<()> {
         // somehow the blob store is not shutdown correctly (yet?) on macos.
         // so we give it some time until we find a proper fix.
         #[cfg(target_os = "macos")]
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
         tokio::fs::remove_file(iroh_root.join("default-author")).await?;
         drop(iroh);
