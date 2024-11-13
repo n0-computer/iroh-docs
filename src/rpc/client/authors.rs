@@ -16,6 +16,8 @@ use crate::{
     Author, AuthorId,
 };
 
+use super::flatten;
+
 /// Iroh docs client.
 #[derive(Debug, Clone)]
 pub struct Client<C = BoxedConnector<RpcService>> {
@@ -96,18 +98,4 @@ impl<C: Connector<RpcService>> Client<C> {
         self.rpc.rpc(AuthorDeleteRequest { author }).await??;
         Ok(())
     }
-}
-
-fn flatten<T, E1, E2>(
-    s: impl Stream<Item = Result<Result<T, E1>, E2>>,
-) -> impl Stream<Item = Result<T>>
-where
-    E1: std::error::Error + Send + Sync + 'static,
-    E2: std::error::Error + Send + Sync + 'static,
-{
-    s.map(|res| match res {
-        Ok(Ok(res)) => Ok(res),
-        Ok(Err(err)) => Err(err.into()),
-        Err(err) => Err(err.into()),
-    })
 }
