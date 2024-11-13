@@ -12,7 +12,7 @@ use anyhow::{anyhow, Context as _, Result};
 use bytes::Bytes;
 use derive_more::{Display, FromStr};
 use futures_lite::{Stream, StreamExt};
-use iroh_base::{key::PublicKey, node_addr::AddrInfoOptions};
+use iroh_base::node_addr::AddrInfoOptions;
 use iroh_blobs::{export::ExportProgress, store::ExportMode, Hash};
 use iroh_net::NodeAddr;
 use portable_atomic::{AtomicBool, Ordering};
@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 
 use super::flatten;
 #[doc(inline)]
-pub use crate::engine::{Origin, SyncEvent, SyncReason};
+pub use crate::engine::{Origin, SyncEvent, SyncReason, LiveEvent};
 use crate::{
     actor::OpenState,
     rpc::proto::{
@@ -32,7 +32,7 @@ use crate::{
         StartSyncRequest, StatusRequest,
     },
     store::{DownloadPolicy, Query},
-    AuthorId, Capability, CapabilityKind, ContentStatus, DocTicket, NamespaceId, PeerIdBytes,
+    AuthorId, Capability, CapabilityKind, DocTicket, NamespaceId, PeerIdBytes,
     RecordIdentifier,
 };
 
@@ -526,71 +526,6 @@ pub enum ShareMode {
     /// Write access
     Write,
 }
-
-/// Events informing about actions of the live sync progress.
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, strum::Display)]
-pub enum LiveEvent {
-    /// A local insertion.
-    InsertLocal {
-        /// The inserted entry.
-        entry: Entry,
-    },
-    /// Received a remote insert.
-    InsertRemote {
-        /// The peer that sent us the entry.
-        from: PublicKey,
-        /// The inserted entry.
-        entry: Entry,
-        /// If the content is available at the local node
-        content_status: ContentStatus,
-    },
-    /// The content of an entry was downloaded and is now available at the local node
-    ContentReady {
-        /// The content hash of the newly available entry content
-        hash: Hash,
-    },
-    /// We have a new neighbor in the swarm.
-    NeighborUp(PublicKey),
-    /// We lost a neighbor in the swarm.
-    NeighborDown(PublicKey),
-    /// A set-reconciliation sync finished.
-    SyncFinished(SyncEvent),
-    /// All pending content is now ready.
-    ///
-    /// This event signals that all queued content downloads from the last sync run have either
-    /// completed or failed.
-    ///
-    /// It will only be emitted after a [`Self::SyncFinished`] event, never before.
-    ///
-    /// Receiving this event does not guarantee that all content in the document is available. If
-    /// blobs failed to download, this event will still be emitted after all operations completed.
-    PendingContentReady,
-}
-
-impl From<crate::engine::LiveEvent> for LiveEvent {
-    fn from(event: crate::engine::LiveEvent) -> LiveEvent {
-        match event {
-            crate::engine::LiveEvent::InsertLocal { entry } => Self::InsertLocal {
-                entry: entry.into(),
-            },
-            crate::engine::LiveEvent::InsertRemote {
-                from,
-                entry,
-                content_status,
-            } => Self::InsertRemote {
-                from,
-                content_status,
-                entry: entry.into(),
-            },
-            crate::engine::LiveEvent::ContentReady { hash } => Self::ContentReady { hash },
-            crate::engine::LiveEvent::NeighborUp(node) => Self::NeighborUp(node),
-            crate::engine::LiveEvent::NeighborDown(node) => Self::NeighborDown(node),
-            crate::engine::LiveEvent::SyncFinished(details) => Self::SyncFinished(details),
-            crate::engine::LiveEvent::PendingContentReady => Self::PendingContentReady,
-        }
-    }
-}
-
 /// Progress stream for [`Doc::import_file`].
 #[derive(derive_more::Debug)]
 #[must_use = "streams do nothing unless polled"]
