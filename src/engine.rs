@@ -11,7 +11,9 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use futures_lite::{Stream, StreamExt};
-use iroh_blobs::{downloader::Downloader, store::EntryStatus, Hash};
+use iroh_blobs::{
+    downloader::Downloader, store::EntryStatus, util::local_pool::LocalPoolHandle, Hash,
+};
 use iroh_gossip::net::Gossip;
 use iroh_net::{key::PublicKey, Endpoint, NodeAddr};
 use serde::{Deserialize, Serialize};
@@ -40,7 +42,7 @@ const SUBSCRIBE_CHANNEL_CAP: usize = 256;
 /// The sync engine coordinates actors that manage open documents, set-reconciliation syncs with
 /// peers and a gossip swarm for each syncing document.
 #[derive(derive_more::Debug, Clone)]
-pub struct Engine {
+pub struct Engine<D> {
     /// [`Endpoint`] used by the engine.
     pub endpoint: Endpoint,
     /// Handle to the actor thread.
@@ -52,20 +54,23 @@ pub struct Engine {
     actor_handle: Arc<AbortOnDropHandle<()>>,
     #[debug("ContentStatusCallback")]
     content_status_cb: ContentStatusCallback,
+    local_pool_handle: LocalPoolHandle,
+    blob_store: D,
 }
 
-impl Engine {
+impl<D: iroh_blobs::store::Store> Engine<D> {
     /// Start the sync engine.
     ///
     /// This will spawn two tokio tasks for the live sync coordination and gossip actors, and a
     /// thread for the [`crate::actor::SyncHandle`].
-    pub async fn spawn<B: iroh_blobs::store::Store>(
+    pub async fn spawn(
         endpoint: Endpoint,
         gossip: Gossip,
         replica_store: crate::store::Store,
-        bao_store: B,
+        bao_store: D,
         downloader: Downloader,
         default_author_storage: DefaultAuthorStorage,
+        local_pool_handle: LocalPoolHandle,
     ) -> anyhow::Result<Self> {
         let (live_actor_tx, to_live_actor_recv) = mpsc::channel(ACTOR_CHANNEL_CAP);
         let me = endpoint.node_id().fmt_short();
@@ -80,7 +85,7 @@ impl Engine {
             sync.clone(),
             endpoint.clone(),
             gossip.clone(),
-            bao_store,
+            bao_store.clone(),
             downloader,
             to_live_actor_recv,
             live_actor_tx.clone(),
@@ -111,7 +116,14 @@ impl Engine {
             actor_handle: Arc::new(AbortOnDropHandle::new(actor_handle)),
             content_status_cb,
             default_author: Arc::new(default_author),
+            local_pool_handle,
+            blob_store: bao_store,
         })
+    }
+
+    /// Get the blob store.
+    pub fn blob_store(&self) -> &D {
+        &self.blob_store
     }
 
     /// Start to sync a document.
@@ -204,6 +216,10 @@ impl Engine {
             .await?;
         reply_rx.await?;
         Ok(())
+    }
+
+    pub(crate) fn local_pool_handle(&self) -> &LocalPoolHandle {
+        &self.local_pool_handle
     }
 }
 

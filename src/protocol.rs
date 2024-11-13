@@ -9,7 +9,7 @@ use iroh_router::ProtocolHandler;
 
 use crate::engine::Engine;
 
-impl ProtocolHandler for Engine {
+impl<D: iroh_blobs::store::Store> ProtocolHandler for Engine<D> {
     fn accept(self: Arc<Self>, conn: Connecting) -> BoxedFuture<Result<()>> {
         Box::pin(async move { self.handle_connection(conn).await })
     }

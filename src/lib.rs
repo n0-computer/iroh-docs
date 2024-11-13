@@ -48,6 +48,9 @@ mod ticket;
 #[cfg(feature = "engine")]
 #[cfg_attr(iroh_docsrs, doc(cfg(feature = "engine")))]
 pub mod engine;
+#[cfg(feature = "rpc")]
+#[cfg_attr(iroh_docsrs, doc(cfg(feature = "rpc")))]
+pub mod rpc;
 
 pub mod actor;
 pub mod store;

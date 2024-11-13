@@ -50,13 +50,20 @@ redb = { version = "2.0.0" }
 redb_v1  = { package = "redb", version = "1.5.1" }
 self_cell = "1.0.3"
 serde = { version = "1.0.164", features = ["derive"] }
-strum = { version = "0.25", features = ["derive"] }
+strum = { version = "0.26", features = ["derive"] }
 tempfile = { version = "3.4" }
 thiserror = "1"
 tokio = { version = "1", features = ["sync", "rt", "time", "macros"] }
 tokio-stream = { version = "0.1", optional = true, features = ["sync"]}
 tokio-util = { version = "0.7.12", optional = true, features = ["codec", "io-util", "io", "rt"] }
 tracing = "0.1"
+
+# rpc
+nested_enum_utils = { version = "0.1.0", optional = true }
+quic-rpc = { version = "0.15", optional = true }
+quic-rpc-derive = { version = "0.15", optional = true }
+serde-error = { version = "0.1.3", optional = true }
+portable-atomic = { version = "1.9.0", optional = true }
 
 [dev-dependencies]
 iroh-test = "0.28.0"
@@ -65,12 +72,27 @@ tokio = { version = "1", features = ["sync", "macros"] }
 proptest = "1.2.0"
 tempfile = "3.4"
 test-strategy = "0.3.1"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+parking_lot = "0.12.3"
+testresult = "0.4.1"
+nested_enum_utils = "0.1.0"
+iroh-io = "0.6.1"
+testdir = "0.9.1"
 
 [features]
-default = ["net", "metrics", "engine"]
+default = ["net", "metrics", "engine", "rpc", "test-utils"]
 net = ["dep:iroh-net", "tokio/io-util", "dep:tokio-stream", "dep:tokio-util"]
 metrics = ["iroh-metrics/metrics"]
 engine = ["net", "dep:iroh-gossip", "dep:iroh-blobs", "dep:iroh-router"]
+test-utils = ["iroh-net/test-utils"]
+rpc = [
+  "engine",
+  "dep:nested_enum_utils",
+  "dep:quic-rpc",
+  "dep:quic-rpc-derive",
+  "dep:serde-error",
+  "dep:portable-atomic",
+]
 
 [package.metadata.docs.rs]
 all-features = true
