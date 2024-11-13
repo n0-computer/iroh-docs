@@ -20,8 +20,6 @@ use quic_rpc::{client::BoxedConnector, message::RpcMsg, Connector};
 use serde::{Deserialize, Serialize};
 
 use super::flatten;
-#[doc(inline)]
-pub use crate::engine::{LiveEvent, Origin, SyncEvent, SyncReason};
 use crate::{
     actor::OpenState,
     rpc::proto::{
@@ -32,7 +30,12 @@ use crate::{
         StartSyncRequest, StatusRequest,
     },
     store::{DownloadPolicy, Query},
-    AuthorId, Capability, CapabilityKind, DocTicket, NamespaceId, PeerIdBytes, RecordIdentifier,
+    AuthorId, Capability, CapabilityKind, DocTicket, NamespaceId, PeerIdBytes,
+};
+#[doc(inline)]
+pub use crate::{
+    engine::{LiveEvent, Origin, SyncEvent, SyncReason},
+    Entry,
 };
 
 /// Iroh docs client.
@@ -265,7 +268,7 @@ impl<C: Connector<RpcService>> Doc<C> {
             .0
             .rpc
             .server_streaming(ExportFileRequest {
-                entry: entry.0,
+                entry,
                 path: path.as_ref().into(),
                 mode,
             })
@@ -425,54 +428,6 @@ where
 {
     fn from(doc: &'a Doc<C>) -> &'a quic_rpc::RpcClient<RpcService, C> {
         &doc.0.rpc
-    }
-}
-
-/// A single entry in a [`Doc`].
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
-pub struct Entry(crate::Entry);
-
-impl From<crate::Entry> for Entry {
-    fn from(value: crate::Entry) -> Self {
-        Self(value)
-    }
-}
-
-impl From<crate::SignedEntry> for Entry {
-    fn from(value: crate::SignedEntry) -> Self {
-        Self(value.into())
-    }
-}
-
-impl Entry {
-    /// Returns the [`RecordIdentifier`] for this entry.
-    pub fn id(&self) -> &RecordIdentifier {
-        self.0.id()
-    }
-
-    /// Returns the [`AuthorId`] of this entry.
-    pub fn author(&self) -> AuthorId {
-        self.0.author()
-    }
-
-    /// Returns the [`struct@Hash`] of the content data of this record.
-    pub fn content_hash(&self) -> Hash {
-        self.0.content_hash()
-    }
-
-    /// Returns the length of the data addressed by this record's content hash.
-    pub fn content_len(&self) -> u64 {
-        self.0.content_len()
-    }
-
-    /// Returns the key of this entry.
-    pub fn key(&self) -> &[u8] {
-        self.0.key()
-    }
-
-    /// Returns the timestamp of this entry.
-    pub fn timestamp(&self) -> u64 {
-        self.0.timestamp()
     }
 }
 

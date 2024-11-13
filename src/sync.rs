@@ -945,6 +945,21 @@ impl Entry {
         &self.record
     }
 
+    /// Get the content hash of the record.
+    pub fn content_hash(&self) -> Hash {
+        self.record.hash
+    }
+
+    /// Get the content length of the record.
+    pub fn content_len(&self) -> u64 {
+        self.record.len
+    }
+
+    /// Get the timestamp of the record.
+    pub fn timestamp(&self) -> u64 {
+        self.record.timestamp
+    }
+
     /// Serialize this entry into its canonical byte representation used for signing.
     pub fn encode(&self, out: &mut Vec<u8>) {
         self.id.encode(out);
