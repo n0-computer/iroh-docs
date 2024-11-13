@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 
 use super::flatten;
 #[doc(inline)]
-pub use crate::engine::{Origin, SyncEvent, SyncReason, LiveEvent};
+pub use crate::engine::{LiveEvent, Origin, SyncEvent, SyncReason};
 use crate::{
     actor::OpenState,
     rpc::proto::{
@@ -32,8 +32,7 @@ use crate::{
         StartSyncRequest, StatusRequest,
     },
     store::{DownloadPolicy, Query},
-    AuthorId, Capability, CapabilityKind, DocTicket, NamespaceId, PeerIdBytes,
-    RecordIdentifier,
+    AuthorId, Capability, CapabilityKind, DocTicket, NamespaceId, PeerIdBytes, RecordIdentifier,
 };
 
 /// Iroh docs client.
