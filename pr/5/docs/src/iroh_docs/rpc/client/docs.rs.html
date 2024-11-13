@@ -668,71 +668,6 @@
 <a href="#668" id="668">668</a>
 <a href="#669" id="669">669</a>
 <a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
-<a href="#675" id="675">675</a>
-<a href="#676" id="676">676</a>
-<a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
-<a href="#681" id="681">681</a>
-<a href="#682" id="682">682</a>
-<a href="#683" id="683">683</a>
-<a href="#684" id="684">684</a>
-<a href="#685" id="685">685</a>
-<a href="#686" id="686">686</a>
-<a href="#687" id="687">687</a>
-<a href="#688" id="688">688</a>
-<a href="#689" id="689">689</a>
-<a href="#690" id="690">690</a>
-<a href="#691" id="691">691</a>
-<a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a>
-<a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a>
-<a href="#700" id="700">700</a>
-<a href="#701" id="701">701</a>
-<a href="#702" id="702">702</a>
-<a href="#703" id="703">703</a>
-<a href="#704" id="704">704</a>
-<a href="#705" id="705">705</a>
-<a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
-<a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! API for document management.
 //!
 //! The main entry point is the [`Client`].
@@ -747,7 +682,7 @@
 <span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>derive_more::{Display, FromStr};
 <span class="kw">use </span>futures_lite::{Stream, StreamExt};
-<span class="kw">use </span>iroh_base::{key::PublicKey, node_addr::AddrInfoOptions};
+<span class="kw">use </span>iroh_base::node_addr::AddrInfoOptions;
 <span class="kw">use </span>iroh_blobs::{export::ExportProgress, store::ExportMode, Hash};
 <span class="kw">use </span>iroh_net::NodeAddr;
 <span class="kw">use </span>portable_atomic::{AtomicBool, Ordering};
@@ -756,7 +691,7 @@
 
 <span class="kw">use </span><span class="kw">super</span>::flatten;
 <span class="attr">#[doc(inline)]
-</span><span class="kw">pub use </span><span class="kw">crate</span>::engine::{Origin, SyncEvent, SyncReason};
+</span><span class="kw">pub use </span><span class="kw">crate</span>::engine::{Origin, SyncEvent, SyncReason, LiveEvent};
 <span class="kw">use crate</span>::{
     actor::OpenState,
     rpc::proto::{
@@ -767,7 +702,7 @@
         StartSyncRequest, StatusRequest,
     },
     store::{DownloadPolicy, Query},
-    AuthorId, Capability, CapabilityKind, ContentStatus, DocTicket, NamespaceId, PeerIdBytes,
+    AuthorId, Capability, CapabilityKind, DocTicket, NamespaceId, PeerIdBytes,
     RecordIdentifier,
 };
 
@@ -1261,71 +1196,6 @@
     <span class="doccomment">/// Write access
     </span>Write,
 }
-
-<span class="doccomment">/// Events informing about actions of the live sync progress.
-</span><span class="attr">#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, strum::Display)]
-</span><span class="kw">pub enum </span>LiveEvent {
-    <span class="doccomment">/// A local insertion.
-    </span>InsertLocal {
-        <span class="doccomment">/// The inserted entry.
-        </span>entry: Entry,
-    },
-    <span class="doccomment">/// Received a remote insert.
-    </span>InsertRemote {
-        <span class="doccomment">/// The peer that sent us the entry.
-        </span>from: PublicKey,
-        <span class="doccomment">/// The inserted entry.
-        </span>entry: Entry,
-        <span class="doccomment">/// If the content is available at the local node
-        </span>content_status: ContentStatus,
-    },
-    <span class="doccomment">/// The content of an entry was downloaded and is now available at the local node
-    </span>ContentReady {
-        <span class="doccomment">/// The content hash of the newly available entry content
-        </span>hash: Hash,
-    },
-    <span class="doccomment">/// We have a new neighbor in the swarm.
-    </span>NeighborUp(PublicKey),
-    <span class="doccomment">/// We lost a neighbor in the swarm.
-    </span>NeighborDown(PublicKey),
-    <span class="doccomment">/// A set-reconciliation sync finished.
-    </span>SyncFinished(SyncEvent),
-    <span class="doccomment">/// All pending content is now ready.
-    ///
-    /// This event signals that all queued content downloads from the last sync run have either
-    /// completed or failed.
-    ///
-    /// It will only be emitted after a [`Self::SyncFinished`] event, never before.
-    ///
-    /// Receiving this event does not guarantee that all content in the document is available. If
-    /// blobs failed to download, this event will still be emitted after all operations completed.
-    </span>PendingContentReady,
-}
-
-<span class="kw">impl </span>From&lt;<span class="kw">crate</span>::engine::LiveEvent&gt; <span class="kw">for </span>LiveEvent {
-    <span class="kw">fn </span>from(event: <span class="kw">crate</span>::engine::LiveEvent) -&gt; LiveEvent {
-        <span class="kw">match </span>event {
-            <span class="kw">crate</span>::engine::LiveEvent::InsertLocal { entry } =&gt; <span class="self">Self</span>::InsertLocal {
-                entry: entry.into(),
-            },
-            <span class="kw">crate</span>::engine::LiveEvent::InsertRemote {
-                from,
-                entry,
-                content_status,
-            } =&gt; <span class="self">Self</span>::InsertRemote {
-                from,
-                content_status,
-                entry: entry.into(),
-            },
-            <span class="kw">crate</span>::engine::LiveEvent::ContentReady { hash } =&gt; <span class="self">Self</span>::ContentReady { hash },
-            <span class="kw">crate</span>::engine::LiveEvent::NeighborUp(node) =&gt; <span class="self">Self</span>::NeighborUp(node),
-            <span class="kw">crate</span>::engine::LiveEvent::NeighborDown(node) =&gt; <span class="self">Self</span>::NeighborDown(node),
-            <span class="kw">crate</span>::engine::LiveEvent::SyncFinished(details) =&gt; <span class="self">Self</span>::SyncFinished(details),
-            <span class="kw">crate</span>::engine::LiveEvent::PendingContentReady =&gt; <span class="self">Self</span>::PendingContentReady,
-        }
-    }
-}
-
 <span class="doccomment">/// Progress stream for [`Doc::import_file`].
 </span><span class="attr">#[derive(derive_more::Debug)]
 #[must_use = <span class="string">"streams do nothing unless polled"</span>]
