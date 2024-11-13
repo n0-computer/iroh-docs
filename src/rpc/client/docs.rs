@@ -380,7 +380,7 @@ impl<C: Connector<RpcService>> Doc<C> {
             .try_server_streaming(DocSubscribeRequest { doc_id: self.id() })
             .await?;
         Ok(stream.map(|res| match res {
-            Ok(res) => Ok(res.event.into()),
+            Ok(res) => Ok(res.event),
             Err(err) => Err(err.into()),
         }))
     }
