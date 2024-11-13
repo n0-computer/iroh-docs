@@ -6,6 +6,7 @@ use anyhow::Result;
 use futures_lite::{Stream, StreamExt};
 use quic_rpc::{client::BoxedConnector, Connector};
 
+use super::flatten;
 #[doc(inline)]
 pub use crate::engine::{Origin, SyncEvent, SyncReason};
 use crate::{
@@ -15,8 +16,6 @@ use crate::{
     },
     Author, AuthorId,
 };
-
-use super::flatten;
 
 /// Iroh docs client.
 #[derive(Debug, Clone)]

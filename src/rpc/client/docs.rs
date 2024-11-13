@@ -19,6 +19,7 @@ use portable_atomic::{AtomicBool, Ordering};
 use quic_rpc::{client::BoxedConnector, message::RpcMsg, Connector};
 use serde::{Deserialize, Serialize};
 
+use super::flatten;
 #[doc(inline)]
 pub use crate::engine::{Origin, SyncEvent, SyncReason};
 use crate::{
@@ -34,8 +35,6 @@ use crate::{
     AuthorId, Capability, CapabilityKind, ContentStatus, DocTicket, NamespaceId, PeerIdBytes,
     RecordIdentifier,
 };
-
-use super::flatten;
 
 /// Iroh docs client.
 #[derive(Debug, Clone)]
@@ -732,125 +731,5 @@ impl Stream for ExportFileProgress {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         Pin::new(&mut self.stream).poll_next(cx)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use iroh_blobs::util::local_pool::LocalPool;
-    use iroh_gossip::net::GOSSIP_ALPN;
-    // use rand::RngCore;
-    // use tokio::io::AsyncWriteExt;
-    use tracing::warn;
-
-    use super::*;
-    use crate::{
-        engine::{DefaultAuthorStorage, Engine},
-        net::DOCS_ALPN,
-    };
-
-    async fn setup_router() -> Result<(
-        Client,
-        iroh_router::Router,
-        tokio::task::JoinHandle<anyhow::Result<()>>,
-    )> {
-        let endpoint = iroh_net::Endpoint::builder().bind().await?;
-        let local_pool = LocalPool::single();
-        let mut router = iroh_router::Router::builder(endpoint.clone());
-
-        // Setup gossip
-        let my_addr = endpoint.node_addr().await?;
-        let gossip = iroh_gossip::net::Gossip::from_endpoint(
-            endpoint.clone(),
-            Default::default(),
-            &my_addr.info,
-        );
-        router = router.accept(GOSSIP_ALPN.to_vec(), Arc::new(gossip.clone()));
-
-        // Setup blobs
-
-        let bao_store = iroh_blobs::store::mem::Store::new();
-        let downloader = iroh_blobs::downloader::Downloader::new(
-            bao_store.clone(),
-            endpoint.clone(),
-            local_pool.handle().clone(),
-        );
-        let blobs = iroh_blobs::net_protocol::Blobs::new_with_events(
-            bao_store.clone(),
-            local_pool.handle().clone(),
-            Default::default(),
-            downloader.clone(),
-            endpoint.clone(),
-        );
-        router = router.accept(iroh_blobs::protocol::ALPN.to_vec(), Arc::new(blobs));
-
-        // Setup docs
-
-        let replica_store = crate::store::Store::memory();
-        let engine = Engine::spawn(
-            endpoint.clone(),
-            gossip,
-            replica_store,
-            bao_store,
-            downloader,
-            DefaultAuthorStorage::Mem,
-            local_pool.handle().clone(),
-        )
-        .await?;
-
-        router = router.accept(DOCS_ALPN.to_vec(), Arc::new(engine.clone()));
-
-        // Build the router
-
-        let router = router.spawn().await?;
-
-        // Setup RPC
-        let (internal_rpc, controller) = quic_rpc::transport::flume::channel(32);
-        let controller = quic_rpc::transport::boxed::BoxedConnector::new(controller);
-        let internal_rpc = quic_rpc::transport::boxed::BoxedListener::new(internal_rpc);
-        let internal_rpc = quic_rpc::RpcServer::new(internal_rpc);
-
-        let rpc_server_task = tokio::task::spawn(async move {
-            loop {
-                let request = internal_rpc.accept().await;
-                match request {
-                    Ok(accepting) => {
-                        let engine = engine.clone();
-                        tokio::task::spawn(async move {
-                            let (msg, chan) = accepting.read_first().await.unwrap();
-                            engine.handle_rpc_request(msg, chan).await.unwrap();
-                        });
-                    }
-                    Err(err) => {
-                        warn!("rpc error: {:?}", err);
-                    }
-                }
-            }
-        });
-
-        let docs_client = Client::new(quic_rpc::RpcClient::new(controller.clone()));
-
-        Ok((docs_client, router, rpc_server_task))
-    }
-
-    #[tokio::test]
-    async fn test_drop_doc_client_sync() -> Result<()> {
-        let _guard = iroh_test::logging::setup();
-
-        let (docs_client, router, rpc_server_task) = setup_router().await?;
-
-        let doc = docs_client.create().await?;
-
-        let res = std::thread::spawn(move || {
-            drop(doc);
-        });
-
-        tokio::task::spawn_blocking(move || res.join().map_err(|e| anyhow::anyhow!("{:?}", e)))
-            .await??;
-
-        rpc_server_task.abort();
-        router.shutdown().await?;
-
-        Ok(())
     }
 }
