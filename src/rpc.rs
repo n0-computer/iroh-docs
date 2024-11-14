@@ -1,9 +1,8 @@
 //! Quic RPC implementation for docs.
 
-use proto::{Request, Response, RpcService};
+use proto::{Request, RpcService};
 use quic_rpc::{
     server::{ChannelTypes, RpcChannel},
-    transport::flume::FlumeConnector,
     RpcClient, RpcServer,
 };
 use tokio_util::task::AbortOnDropHandle;
@@ -20,7 +19,7 @@ type RpcResult<T> = std::result::Result<T, RpcError>;
 
 impl<D: iroh_blobs::store::Store> Engine<D> {
     /// Get an in memory client to interact with the docs engine.
-    pub fn client(&self) -> &client::docs::Client<FlumeConnector<Response, Request>> {
+    pub fn client(&self) -> &client::docs::MemClient {
         &self
             .rpc_handler
             .get_or_init(|| RpcHandler::new(self))
@@ -81,7 +80,7 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
 #[derive(Debug)]
 pub(crate) struct RpcHandler {
     /// Client to hand out
-    client: client::docs::Client<FlumeConnector<Response, Request>>,
+    client: client::docs::MemClient,
     /// Handler task
     _handler: AbortOnDropHandle<()>,
 }
@@ -91,7 +90,7 @@ impl RpcHandler {
         let engine = engine.clone();
         let (listener, connector) = quic_rpc::transport::flume::channel(1);
         let listener = RpcServer::new(listener);
-        let client = client::docs::Client::new(RpcClient::new(connector));
+        let client = client::docs::MemClient::new(RpcClient::new(connector));
         let _handler = listener
             .spawn_accept_loop(move |req, chan| engine.clone().handle_rpc_request(req, chan));
         Self { client, _handler }

@@ -16,7 +16,9 @@ use iroh_base::node_addr::AddrInfoOptions;
 use iroh_blobs::{export::ExportProgress, store::ExportMode, Hash};
 use iroh_net::NodeAddr;
 use portable_atomic::{AtomicBool, Ordering};
-use quic_rpc::{client::BoxedConnector, message::RpcMsg, Connector};
+use quic_rpc::{
+    client::BoxedConnector, message::RpcMsg, transport::flume::FlumeConnector, Connector,
+};
 use serde::{Deserialize, Serialize};
 
 use super::{authors, flatten};
@@ -37,6 +39,10 @@ pub use crate::{
     engine::{LiveEvent, Origin, SyncEvent, SyncReason},
     Entry,
 };
+
+/// Type alias for a memory-backed client.
+pub type MemClient =
+    Client<FlumeConnector<crate::rpc::proto::Response, crate::rpc::proto::Request>>;
 
 /// Iroh docs client.
 #[derive(Debug, Clone)]
