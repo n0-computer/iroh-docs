@@ -97,15 +97,9 @@
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Quic RPC implementation for docs.
 
-</span><span class="kw">use </span>proto::RpcService;
+</span><span class="kw">use </span>proto::{Request, Response, RpcService};
 <span class="kw">use </span>quic_rpc::{
     server::{ChannelTypes, RpcChannel},
     transport::flume::FlumeConnector,
@@ -125,11 +119,7 @@
 
 <span class="kw">impl</span>&lt;D: iroh_blobs::store::Store&gt; Engine&lt;D&gt; {
     <span class="doccomment">/// Get an in memory client to interact with the docs engine.
-    </span><span class="kw">pub fn </span>client(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::rpc::client::docs::Client&lt;
-        FlumeConnector&lt;<span class="kw">crate</span>::rpc::proto::Response, <span class="kw">crate</span>::rpc::proto::Request&gt;,
-    &gt; {
+    </span><span class="kw">pub fn </span>client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>client::docs::Client&lt;FlumeConnector&lt;Response, Request&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self
             </span>.rpc_handler
             .get_or_init(|| RpcHandler::new(<span class="self">self</span>))
@@ -139,10 +129,10 @@
     <span class="doccomment">/// Handle a docs request from the RPC server.
     </span><span class="kw">pub async fn </span>handle_rpc_request&lt;C: ChannelTypes&lt;RpcService&gt;&gt;(
         <span class="self">self</span>,
-        msg: <span class="kw">crate</span>::rpc::proto::Request,
+        msg: Request,
         chan: RpcChannel&lt;RpcService, C&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), quic_rpc::server::RpcServerError&lt;C&gt;&gt; {
-        <span class="kw">use </span><span class="kw">crate</span>::rpc::proto::Request::<span class="kw-2">*</span>;
+        <span class="kw">use </span>Request::<span class="kw-2">*</span>;
         <span class="kw">let </span>this = <span class="self">self</span>;
         <span class="kw">match </span>msg {
             Open(msg) =&gt; chan.rpc(msg, this, <span class="self">Self</span>::doc_open).<span class="kw">await</span>,
@@ -190,9 +180,7 @@
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RpcHandler {
     <span class="doccomment">/// Client to hand out
-    </span>client: <span class="kw">crate</span>::rpc::client::docs::Client&lt;
-        FlumeConnector&lt;<span class="kw">crate</span>::rpc::proto::Response, <span class="kw">crate</span>::rpc::proto::Request&gt;,
-    &gt;,
+    </span>client: client::docs::Client&lt;FlumeConnector&lt;Response, Request&gt;&gt;,
     <span class="doccomment">/// Handler task
     </span>_handler: AbortOnDropHandle&lt;()&gt;,
 }
@@ -202,7 +190,7 @@
         <span class="kw">let </span>engine = engine.clone();
         <span class="kw">let </span>(listener, connector) = quic_rpc::transport::flume::channel(<span class="number">1</span>);
         <span class="kw">let </span>listener = RpcServer::new(listener);
-        <span class="kw">let </span>client = <span class="kw">crate</span>::rpc::client::docs::Client::new(RpcClient::new(connector));
+        <span class="kw">let </span>client = client::docs::Client::new(RpcClient::new(connector));
         <span class="kw">let </span>_handler = listener
             .spawn_accept_loop(<span class="kw">move </span>|req, chan| engine.clone().handle_rpc_request(req, chan));
         <span class="self">Self </span>{ client, _handler }
