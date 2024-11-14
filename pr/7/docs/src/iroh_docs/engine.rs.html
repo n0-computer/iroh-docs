@@ -436,7 +436,7 @@
     io,
     path::PathBuf,
     str::FromStr,
-    sync::{Arc, OnceLock, RwLock},
+    sync::{Arc, RwLock},
 };
 
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
@@ -487,7 +487,7 @@
     local_pool_handle: LocalPoolHandle,
     blob_store: D,
     <span class="attr">#[cfg(feature = <span class="string">"rpc"</span>)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) rpc_handler: Arc&lt;OnceLock&lt;<span class="kw">crate</span>::rpc::RpcHandler&gt;&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) rpc_handler: Arc&lt;std::sync::OnceLock&lt;<span class="kw">crate</span>::rpc::RpcHandler&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;D: iroh_blobs::store::Store&gt; Engine&lt;D&gt; {
