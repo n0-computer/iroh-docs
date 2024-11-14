@@ -6,9 +6,7 @@ use quic_rpc::{
     transport::flume::FlumeConnector,
     RpcClient, RpcServer,
 };
-use tokio::task::JoinSet;
 use tokio_util::task::AbortOnDropHandle;
-use tracing::{error, warn};
 
 use crate::engine::Engine;
 
@@ -35,13 +33,12 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
 
     /// Handle a docs request from the RPC server.
     pub async fn handle_rpc_request<C: ChannelTypes<RpcService>>(
-        &self,
+        self,
         msg: crate::rpc::proto::Request,
         chan: RpcChannel<RpcService, C>,
     ) -> Result<(), quic_rpc::server::RpcServerError<C>> {
         use crate::rpc::proto::Request::*;
-
-        let this = self.clone();
+        let this = self;
         match msg {
             Open(msg) => chan.rpc(msg, this, Self::doc_open).await,
             Close(msg) => chan.rpc(msg, this, Self::doc_close).await,
@@ -101,45 +98,8 @@ impl RpcHandler {
         let (listener, connector) = quic_rpc::transport::flume::channel(1);
         let listener = RpcServer::new(listener);
         let client = crate::rpc::client::docs::Client::new(RpcClient::new(connector));
-        let task = tokio::spawn(async move {
-            let mut tasks = JoinSet::new();
-            loop {
-                tokio::select! {
-                    Some(res) = tasks.join_next(), if !tasks.is_empty() => {
-                        if let Err(e) = res {
-                            if e.is_panic() {
-                                error!("Panic handling RPC request: {e}");
-                            }
-                        }
-                    }
-                    req = listener.accept() => {
-                        let req = match req {
-                            Ok(req) => req,
-                            Err(e) => {
-                                warn!("Error accepting RPC request: {e}");
-                                continue;
-                            }
-                        };
-                        let engine = engine.clone();
-                        tasks.spawn(async move {
-                            let (req, client) = match req.read_first().await {
-                                Ok((req, client)) => (req, client),
-                                Err(e) => {
-                                    warn!("Error reading first message: {e}");
-                                    return;
-                                }
-                            };
-                            if let Err(cause) = engine.handle_rpc_request(req, client).await {
-                                warn!("Error handling RPC request: {:?}", cause);
-                            }
-                        });
-                    }
-                }
-            }
-        });
-        Self {
-            client,
-            _handler: AbortOnDropHandle::new(task),
-        }
+        let _handler = listener
+            .spawn_accept_loop(move |req, chan| engine.clone().handle_rpc_request(req, chan));
+        Self { client, _handler }
     }
 }
