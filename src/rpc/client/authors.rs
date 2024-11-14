@@ -19,6 +19,7 @@ use crate::{
 
 /// Iroh docs client.
 #[derive(Debug, Clone)]
+#[repr(transparent)]
 pub struct Client<C = BoxedConnector<RpcService>> {
     pub(super) rpc: quic_rpc::RpcClient<RpcService, C>,
 }
