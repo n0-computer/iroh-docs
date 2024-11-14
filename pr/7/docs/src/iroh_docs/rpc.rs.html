@@ -103,46 +103,6 @@
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Quic RPC implementation for docs.
 
 </span><span class="kw">use </span>proto::RpcService;
@@ -151,9 +111,7 @@
     transport::flume::FlumeConnector,
     RpcClient, RpcServer,
 };
-<span class="kw">use </span>tokio::task::JoinSet;
 <span class="kw">use </span>tokio_util::task::AbortOnDropHandle;
-<span class="kw">use </span>tracing::{error, warn};
 
 <span class="kw">use </span><span class="kw">crate</span>::engine::Engine;
 
@@ -180,13 +138,12 @@
 
     <span class="doccomment">/// Handle a docs request from the RPC server.
     </span><span class="kw">pub async fn </span>handle_rpc_request&lt;C: ChannelTypes&lt;RpcService&gt;&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="self">self</span>,
         msg: <span class="kw">crate</span>::rpc::proto::Request,
         chan: RpcChannel&lt;RpcService, C&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), quic_rpc::server::RpcServerError&lt;C&gt;&gt; {
         <span class="kw">use </span><span class="kw">crate</span>::rpc::proto::Request::<span class="kw-2">*</span>;
-
-        <span class="kw">let </span>this = <span class="self">self</span>.clone();
+        <span class="kw">let </span>this = <span class="self">self</span>;
         <span class="kw">match </span>msg {
             Open(msg) =&gt; chan.rpc(msg, this, <span class="self">Self</span>::doc_open).<span class="kw">await</span>,
             Close(msg) =&gt; chan.rpc(msg, this, <span class="self">Self</span>::doc_close).<span class="kw">await</span>,
@@ -246,46 +203,9 @@
         <span class="kw">let </span>(listener, connector) = quic_rpc::transport::flume::channel(<span class="number">1</span>);
         <span class="kw">let </span>listener = RpcServer::new(listener);
         <span class="kw">let </span>client = <span class="kw">crate</span>::rpc::client::docs::Client::new(RpcClient::new(connector));
-        <span class="kw">let </span>task = tokio::spawn(<span class="kw">async move </span>{
-            <span class="kw">let </span><span class="kw-2">mut </span>tasks = JoinSet::new();
-            <span class="kw">loop </span>{
-                <span class="macro">tokio::select!</span> {
-                    <span class="prelude-val">Some</span>(res) = tasks.join_next(), <span class="kw">if </span>!tasks.is_empty() =&gt; {
-                        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = res {
-                            <span class="kw">if </span>e.is_panic() {
-                                <span class="macro">error!</span>(<span class="string">"Panic handling RPC request: {e}"</span>);
-                            }
-                        }
-                    }
-                    req = listener.accept() =&gt; {
-                        <span class="kw">let </span>req = <span class="kw">match </span>req {
-                            <span class="prelude-val">Ok</span>(req) =&gt; req,
-                            <span class="prelude-val">Err</span>(e) =&gt; {
-                                <span class="macro">warn!</span>(<span class="string">"Error accepting RPC request: {e}"</span>);
-                                <span class="kw">continue</span>;
-                            }
-                        };
-                        <span class="kw">let </span>engine = engine.clone();
-                        tasks.spawn(<span class="kw">async move </span>{
-                            <span class="kw">let </span>(req, client) = <span class="kw">match </span>req.read_first().<span class="kw">await </span>{
-                                <span class="prelude-val">Ok</span>((req, client)) =&gt; (req, client),
-                                <span class="prelude-val">Err</span>(e) =&gt; {
-                                    <span class="macro">warn!</span>(<span class="string">"Error reading first message: {e}"</span>);
-                                    <span class="kw">return</span>;
-                                }
-                            };
-                            <span class="kw">if let </span><span class="prelude-val">Err</span>(cause) = engine.handle_rpc_request(req, client).<span class="kw">await </span>{
-                                <span class="macro">warn!</span>(<span class="string">"Error handling RPC request: {:?}"</span>, cause);
-                            }
-                        });
-                    }
-                }
-            }
-        });
-        <span class="self">Self </span>{
-            client,
-            _handler: AbortOnDropHandle::new(task),
-        }
+        <span class="kw">let </span>_handler = listener
+            .spawn_accept_loop(<span class="kw">move </span>|req, chan| engine.clone().handle_rpc_request(req, chan));
+        <span class="self">Self </span>{ client, _handler }
     }
 }
 </code></pre></div></section></main></body></html>
