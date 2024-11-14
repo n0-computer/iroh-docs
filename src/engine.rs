@@ -6,7 +6,7 @@ use std::{
     io,
     path::PathBuf,
     str::FromStr,
-    sync::{Arc, OnceLock, RwLock},
+    sync::{Arc, RwLock},
 };
 
 use anyhow::{bail, Context, Result};
@@ -57,7 +57,7 @@ pub struct Engine<D> {
     local_pool_handle: LocalPoolHandle,
     blob_store: D,
     #[cfg(feature = "rpc")]
-    pub(crate) rpc_handler: Arc<OnceLock<crate::rpc::RpcHandler>>,
+    pub(crate) rpc_handler: Arc<std::sync::OnceLock<crate::rpc::RpcHandler>>,
 }
 
 impl<D: iroh_blobs::store::Store> Engine<D> {
