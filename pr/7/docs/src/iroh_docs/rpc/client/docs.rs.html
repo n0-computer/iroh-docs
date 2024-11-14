@@ -628,6 +628,12 @@
 <a href="#628" id="628">628</a>
 <a href="#629" id="629">629</a>
 <a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! API for document management.
 //!
 //! The main entry point is the [`Client`].
@@ -646,7 +652,9 @@
 <span class="kw">use </span>iroh_blobs::{export::ExportProgress, store::ExportMode, Hash};
 <span class="kw">use </span>iroh_net::NodeAddr;
 <span class="kw">use </span>portable_atomic::{AtomicBool, Ordering};
-<span class="kw">use </span>quic_rpc::{client::BoxedConnector, message::RpcMsg, Connector};
+<span class="kw">use </span>quic_rpc::{
+    client::BoxedConnector, message::RpcMsg, transport::flume::FlumeConnector, Connector,
+};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use super</span>::{authors, flatten};
@@ -667,6 +675,10 @@
     engine::{LiveEvent, Origin, SyncEvent, SyncReason},
     Entry,
 };
+
+<span class="doccomment">/// Type alias for a memory-backed client.
+</span><span class="kw">pub type </span>MemClient =
+    Client&lt;FlumeConnector&lt;<span class="kw">crate</span>::rpc::proto::Response, <span class="kw">crate</span>::rpc::proto::Request&gt;&gt;;
 
 <span class="doccomment">/// Iroh docs client.
 </span><span class="attr">#[derive(Debug, Clone)]
