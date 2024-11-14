@@ -1,7 +1,14 @@
 //! Quic RPC implementation for docs.
 
 use proto::RpcService;
-use quic_rpc::server::{ChannelTypes, RpcChannel};
+use quic_rpc::{
+    server::{ChannelTypes, RpcChannel},
+    transport::flume::FlumeConnector,
+    RpcClient, RpcServer,
+};
+use tokio::task::JoinSet;
+use tokio_util::task::AbortOnDropHandle;
+use tracing::{error, warn};
 
 use crate::engine::Engine;
 
@@ -14,6 +21,18 @@ type RpcError = serde_error::Error;
 type RpcResult<T> = std::result::Result<T, RpcError>;
 
 impl<D: iroh_blobs::store::Store> Engine<D> {
+    /// Get an in memory client to interact with the docs engine.
+    pub fn client(
+        &self,
+    ) -> &crate::rpc::client::docs::Client<
+        FlumeConnector<crate::rpc::proto::Response, crate::rpc::proto::Request>,
+    > {
+        &self
+            .rpc_handler
+            .get_or_init(|| RpcHandler::new(self))
+            .client
+    }
+
     /// Handle a docs request from the RPC server.
     pub async fn handle_rpc_request<C: ChannelTypes<RpcService>>(
         &self,
@@ -62,6 +81,65 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
             AuthorDelete(msg) => chan.rpc(msg, this, Self::author_delete).await,
             AuthorGetDefault(msg) => chan.rpc(msg, this, Self::author_default).await,
             AuthorSetDefault(msg) => chan.rpc(msg, this, Self::author_set_default).await,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct RpcHandler {
+    /// Client to hand out
+    client: crate::rpc::client::docs::Client<
+        FlumeConnector<crate::rpc::proto::Response, crate::rpc::proto::Request>,
+    >,
+    /// Handler task
+    _handler: AbortOnDropHandle<()>,
+}
+
+impl RpcHandler {
+    fn new<D: iroh_blobs::store::Store>(engine: &Engine<D>) -> Self {
+        let engine = engine.clone();
+        let (listener, connector) = quic_rpc::transport::flume::channel(1);
+        let listener = RpcServer::new(listener);
+        let client = crate::rpc::client::docs::Client::new(RpcClient::new(connector));
+        let task = tokio::spawn(async move {
+            let mut tasks = JoinSet::new();
+            loop {
+                tokio::select! {
+                    Some(res) = tasks.join_next(), if !tasks.is_empty() => {
+                        if let Err(e) = res {
+                            if e.is_panic() {
+                                error!("Panic handling RPC request: {e}");
+                            }
+                        }
+                    }
+                    req = listener.accept() => {
+                        let req = match req {
+                            Ok(req) => req,
+                            Err(e) => {
+                                warn!("Error accepting RPC request: {e}");
+                                continue;
+                            }
+                        };
+                        let engine = engine.clone();
+                        tasks.spawn(async move {
+                            let (req, client) = match req.read_first().await {
+                                Ok((req, client)) => (req, client),
+                                Err(e) => {
+                                    warn!("Error reading first message: {e}");
+                                    return;
+                                }
+                            };
+                            if let Err(cause) = engine.handle_rpc_request(req, client).await {
+                                warn!("Error handling RPC request: {:?}", cause);
+                            }
+                        });
+                    }
+                }
+            }
+        });
+        Self {
+            client,
+            _handler: AbortOnDropHandle::new(task),
         }
     }
 }

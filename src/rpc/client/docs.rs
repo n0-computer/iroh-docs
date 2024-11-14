@@ -19,7 +19,7 @@ use portable_atomic::{AtomicBool, Ordering};
 use quic_rpc::{client::BoxedConnector, message::RpcMsg, Connector};
 use serde::{Deserialize, Serialize};
 
-use super::flatten;
+use super::{authors, flatten};
 use crate::{
     actor::OpenState,
     rpc::proto::{
@@ -48,6 +48,11 @@ impl<C: Connector<RpcService>> Client<C> {
     /// Creates a new docs client.
     pub fn new(rpc: quic_rpc::RpcClient<RpcService, C>) -> Self {
         Self { rpc }
+    }
+
+    /// Returns an authors client.
+    pub fn authors(&self) -> authors::Client<C> {
+        authors::Client::new(self.rpc.clone())
     }
 
     /// Creates a client.
