@@ -1,7 +1,11 @@
 //! Quic RPC implementation for docs.
 
-use proto::RpcService;
-use quic_rpc::server::{ChannelTypes, RpcChannel};
+use proto::{Request, RpcService};
+use quic_rpc::{
+    server::{ChannelTypes, RpcChannel},
+    RpcClient, RpcServer,
+};
+use tokio_util::task::AbortOnDropHandle;
 
 use crate::engine::Engine;
 
@@ -14,15 +18,22 @@ type RpcError = serde_error::Error;
 type RpcResult<T> = std::result::Result<T, RpcError>;
 
 impl<D: iroh_blobs::store::Store> Engine<D> {
+    /// Get an in memory client to interact with the docs engine.
+    pub fn client(&self) -> &client::docs::MemClient {
+        &self
+            .rpc_handler
+            .get_or_init(|| RpcHandler::new(self))
+            .client
+    }
+
     /// Handle a docs request from the RPC server.
     pub async fn handle_rpc_request<C: ChannelTypes<RpcService>>(
-        &self,
-        msg: crate::rpc::proto::Request,
+        self,
+        msg: Request,
         chan: RpcChannel<RpcService, C>,
     ) -> Result<(), quic_rpc::server::RpcServerError<C>> {
-        use crate::rpc::proto::Request::*;
-
-        let this = self.clone();
+        use Request::*;
+        let this = self;
         match msg {
             Open(msg) => chan.rpc(msg, this, Self::doc_open).await,
             Close(msg) => chan.rpc(msg, this, Self::doc_close).await,
@@ -63,5 +74,25 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
             AuthorGetDefault(msg) => chan.rpc(msg, this, Self::author_default).await,
             AuthorSetDefault(msg) => chan.rpc(msg, this, Self::author_set_default).await,
         }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct RpcHandler {
+    /// Client to hand out
+    client: client::docs::MemClient,
+    /// Handler task
+    _handler: AbortOnDropHandle<()>,
+}
+
+impl RpcHandler {
+    fn new<D: iroh_blobs::store::Store>(engine: &Engine<D>) -> Self {
+        let engine = engine.clone();
+        let (listener, connector) = quic_rpc::transport::flume::channel(1);
+        let listener = RpcServer::new(listener);
+        let client = client::docs::MemClient::new(RpcClient::new(connector));
+        let _handler = listener
+            .spawn_accept_loop(move |req, chan| engine.clone().handle_rpc_request(req, chan));
+        Self { client, _handler }
     }
 }

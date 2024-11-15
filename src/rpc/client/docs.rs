@@ -16,10 +16,12 @@ use iroh_base::node_addr::AddrInfoOptions;
 use iroh_blobs::{export::ExportProgress, store::ExportMode, Hash};
 use iroh_net::NodeAddr;
 use portable_atomic::{AtomicBool, Ordering};
-use quic_rpc::{client::BoxedConnector, message::RpcMsg, Connector};
+use quic_rpc::{
+    client::BoxedConnector, message::RpcMsg, transport::flume::FlumeConnector, Connector,
+};
 use serde::{Deserialize, Serialize};
 
-use super::flatten;
+use super::{authors, flatten};
 use crate::{
     actor::OpenState,
     rpc::proto::{
@@ -38,8 +40,13 @@ pub use crate::{
     Entry,
 };
 
+/// Type alias for a memory-backed client.
+pub type MemClient =
+    Client<FlumeConnector<crate::rpc::proto::Response, crate::rpc::proto::Request>>;
+
 /// Iroh docs client.
 #[derive(Debug, Clone)]
+#[repr(transparent)]
 pub struct Client<C = BoxedConnector<RpcService>> {
     pub(super) rpc: quic_rpc::RpcClient<RpcService, C>,
 }
@@ -48,6 +55,11 @@ impl<C: Connector<RpcService>> Client<C> {
     /// Creates a new docs client.
     pub fn new(rpc: quic_rpc::RpcClient<RpcService, C>) -> Self {
         Self { rpc }
+    }
+
+    /// Returns an authors client.
+    pub fn authors(&self) -> authors::Client<C> {
+        authors::Client::new(self.rpc.clone())
     }
 
     /// Creates a client.

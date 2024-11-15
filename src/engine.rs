@@ -56,6 +56,8 @@ pub struct Engine<D> {
     content_status_cb: ContentStatusCallback,
     local_pool_handle: LocalPoolHandle,
     blob_store: D,
+    #[cfg(feature = "rpc")]
+    pub(crate) rpc_handler: Arc<std::sync::OnceLock<crate::rpc::RpcHandler>>,
 }
 
 impl<D: iroh_blobs::store::Store> Engine<D> {
@@ -118,6 +120,8 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
             default_author: Arc::new(default_author),
             local_pool_handle,
             blob_store: bao_store,
+            #[cfg(feature = "rpc")]
+            rpc_handler: Default::default(),
         })
     }
 
