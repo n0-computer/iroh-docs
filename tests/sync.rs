@@ -19,7 +19,7 @@ use iroh_docs::{
 };
 use iroh_net::{
     key::{PublicKey, SecretKey},
-    relay::RelayMode,
+    RelayMode,
 };
 use rand::{CryptoRng, Rng, SeedableRng};
 use tracing::{debug, error_span, info, Instrument};
