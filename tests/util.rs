@@ -13,7 +13,7 @@ use iroh_blobs::{
     store::{GcConfig, Store as BlobStore},
     util::local_pool::{LocalPool, Run},
 };
-use iroh_net::{discovery::Discovery, dns::DnsResolver, key::SecretKey, relay::RelayMode, NodeId};
+use iroh_net::{discovery::Discovery, dns::DnsResolver, key::SecretKey, NodeId, RelayMode};
 use nested_enum_utils::enum_conversions;
 use quic_rpc::transport::{Connector, Listener};
 use serde::{Deserialize, Serialize};
