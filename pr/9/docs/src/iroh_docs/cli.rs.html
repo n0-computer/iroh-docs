@@ -1324,7 +1324,7 @@
 <span class="doccomment">/// Environment for CLI and REPL
 ///
 /// This is cheaply cloneable and has interior mutability. If not running in the console
-/// environment, [Self::set_doc] and [Self::set_author] will lead to an error, as changing the
+/// environment, `Self::set_doc` and `Self::set_author` will lead to an error, as changing the
 /// environment is only supported within the console.
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>ConsoleEnv(Arc&lt;RwLock&lt;ConsoleEnvInner&gt;&gt;);
@@ -1332,7 +1332,7 @@
 <span class="attr">#[derive(PartialEq, Eq, Debug, Deserialize, Serialize, Clone)]
 </span><span class="kw">struct </span>ConsoleEnvInner {
     <span class="doccomment">/// Active author. Read from IROH_AUTHOR env variable.
-    /// For console also read from/persisted to a file (see [`ConsolePaths::DefaultAuthor`])
+    /// For console also read from/persisted to a file.
     /// Defaults to the node's default author if both are empty.
     </span>author: AuthorId,
     <span class="doccomment">/// Active doc. Read from IROH_DOC env variable. Not persisted.
@@ -1550,11 +1550,11 @@
         <span class="doccomment">/// Set the general download policy for this document.
         </span>kind: FetchKind,
         <span class="doccomment">/// Add an exception to the download policy.
-        /// An exception must be formatted as &lt;matching_kind&gt;:&lt;encoding&gt;:&lt;pattern&gt;.
+        /// An exception must be formatted as `&lt;matching_kind&gt;:&lt;encoding&gt;:&lt;pattern&gt;`.
         ///
         /// - &lt;matching_kind&gt; can be either `prefix` or `exact`.
         ///
-        /// - &lt;encoding&gt; can be either `utf8` or `hex`.
+        /// - `&lt;encoding&gt;` can be either `utf8` or `hex`.
         </span><span class="attr">#[clap(short, long, value_name = <span class="string">"matching_kind&gt;:&lt;encoding&gt;:&lt;pattern"</span>)]
         </span>except: Vec&lt;FilterKind&gt;,
     },
@@ -2037,7 +2037,7 @@
                         LiveEvent::InsertLocal { entry } =&gt; {
                             <span class="macro">println!</span>(
                                 <span class="string">"local change:  {}"</span>,
-                                fmt_entry(<span class="kw-2">&amp;</span>blobs, <span class="kw-2">&amp;</span>entry, DisplayContentMode::Auto).<span class="kw">await
+                                fmt_entry(blobs, <span class="kw-2">&amp;</span>entry, DisplayContentMode::Auto).<span class="kw">await
                             </span>)
                         }
                         LiveEvent::InsertRemote {
@@ -2047,17 +2047,17 @@
                         } =&gt; {
                             <span class="kw">let </span>content = <span class="kw">match </span>content_status {
                                 ContentStatus::Complete =&gt; {
-                                    fmt_entry(<span class="kw-2">&amp;</span>blobs, <span class="kw-2">&amp;</span>entry, DisplayContentMode::Auto).<span class="kw">await
+                                    fmt_entry(blobs, <span class="kw-2">&amp;</span>entry, DisplayContentMode::Auto).<span class="kw">await
                                 </span>}
                                 ContentStatus::Incomplete =&gt; {
                                     <span class="kw">let </span>(<span class="prelude-val">Ok</span>(content) | <span class="prelude-val">Err</span>(content)) =
-                                        fmt_content(<span class="kw-2">&amp;</span>blobs, <span class="kw-2">&amp;</span>entry, DisplayContentMode::ShortHash)
+                                        fmt_content(blobs, <span class="kw-2">&amp;</span>entry, DisplayContentMode::ShortHash)
                                             .<span class="kw">await</span>;
                                     <span class="macro">format!</span>(<span class="string">"&lt;incomplete: {} ({})&gt;"</span>, content, human_len(<span class="kw-2">&amp;</span>entry))
                                 }
                                 ContentStatus::Missing =&gt; {
                                     <span class="kw">let </span>(<span class="prelude-val">Ok</span>(content) | <span class="prelude-val">Err</span>(content)) =
-                                        fmt_content(<span class="kw-2">&amp;</span>blobs, <span class="kw-2">&amp;</span>entry, DisplayContentMode::ShortHash)
+                                        fmt_content(blobs, <span class="kw-2">&amp;</span>entry, DisplayContentMode::ShortHash)
                                             .<span class="kw">await</span>;
                                     <span class="macro">format!</span>(<span class="string">"&lt;missing: {} ({})&gt;"</span>, content, human_len(<span class="kw-2">&amp;</span>entry))
                                 }
@@ -2161,7 +2161,7 @@
     }
 }
 
-<span class="doccomment">/// Gets the document given the client, the environment (and maybe the [`NamespaceID`]).
+<span class="doccomment">/// Gets the document given the client, the environment (and maybe the [`crate::keys::NamespaceId`]).
 </span><span class="kw">async fn </span>get_doc(
     docs: <span class="kw-2">&amp;</span>docs::Client,
     env: <span class="kw-2">&amp;</span>ConsoleEnv,
@@ -2451,7 +2451,7 @@
 
     <span class="attr">#[tokio::test]
     #[ignore]
-    #[allow(unused_variables, unreachable_code)]
+    #[allow(unused_variables, unreachable_code, clippy::diverging_sub_expression)]
     </span><span class="kw">async fn </span>test_doc_import() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>temp_dir = tempfile::tempdir().context(<span class="string">"tempdir"</span>)<span class="question-mark">?</span>;
 
