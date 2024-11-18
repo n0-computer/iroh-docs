@@ -66,7 +66,7 @@ impl ConsolePaths {
 /// Environment for CLI and REPL
 ///
 /// This is cheaply cloneable and has interior mutability. If not running in the console
-/// environment, [Self::set_doc] and [Self::set_author] will lead to an error, as changing the
+/// environment, `Self::set_doc` and `Self::set_author` will lead to an error, as changing the
 /// environment is only supported within the console.
 #[derive(Clone, Debug)]
 pub struct ConsoleEnv(Arc<RwLock<ConsoleEnvInner>>);
@@ -74,7 +74,7 @@ pub struct ConsoleEnv(Arc<RwLock<ConsoleEnvInner>>);
 #[derive(PartialEq, Eq, Debug, Deserialize, Serialize, Clone)]
 struct ConsoleEnvInner {
     /// Active author. Read from IROH_AUTHOR env variable.
-    /// For console also read from/persisted to a file (see [`ConsolePaths::DefaultAuthor`])
+    /// For console also read from/persisted to a file.
     /// Defaults to the node's default author if both are empty.
     author: AuthorId,
     /// Active doc. Read from IROH_DOC env variable. Not persisted.
@@ -292,11 +292,11 @@ pub enum DlPolicyCmd {
         /// Set the general download policy for this document.
         kind: FetchKind,
         /// Add an exception to the download policy.
-        /// An exception must be formatted as <matching_kind>:<encoding>:<pattern>.
+        /// An exception must be formatted as `<matching_kind>:<encoding>:<pattern>`.
         ///
         /// - <matching_kind> can be either `prefix` or `exact`.
         ///
-        /// - <encoding> can be either `utf8` or `hex`.
+        /// - `<encoding>` can be either `utf8` or `hex`.
         #[clap(short, long, value_name = "matching_kind>:<encoding>:<pattern")]
         except: Vec<FilterKind>,
     },
@@ -903,7 +903,7 @@ impl DocCommands {
     }
 }
 
-/// Gets the document given the client, the environment (and maybe the [`NamespaceID`]).
+/// Gets the document given the client, the environment (and maybe the [`crate::keys::NamespaceId`]).
 async fn get_doc(
     docs: &docs::Client,
     env: &ConsoleEnv,
