@@ -92,7 +92,7 @@ net = ["dep:iroh-net", "tokio/io-util", "dep:tokio-stream", "dep:tokio-util"]
 metrics = ["iroh-metrics/metrics"]
 engine = ["net", "dep:iroh-gossip", "dep:iroh-blobs", "dep:iroh-router"]
 test-utils = ["iroh-net/test-utils"]
-cli = ["dep:clap", "dep:indicatif", "dep:console", "dep:colored", "dep:dialoguer", "dep:shellexpand"]
+cli = ["rpc", "dep:clap", "dep:indicatif", "dep:console", "dep:colored", "dep:dialoguer", "dep:shellexpand"]
 rpc = [
   "engine",
   "dep:nested_enum_utils",
