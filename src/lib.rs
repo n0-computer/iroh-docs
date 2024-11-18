@@ -52,6 +52,10 @@ pub mod engine;
 #[cfg_attr(iroh_docsrs, doc(cfg(feature = "rpc")))]
 pub mod rpc;
 
+#[cfg(feature = "cli")]
+#[cfg_attr(iroh_docsrs, doc(cfg(feature = "cli")))]
+mod cli;
+
 pub mod actor;
 pub mod store;
 pub mod sync;
