@@ -69,7 +69,7 @@ impl ConsolePaths {
 /// environment, [Self::set_doc] and [Self::set_author] will lead to an error, as changing the
 /// environment is only supported within the console.
 #[derive(Clone, Debug)]
-pub(crate) struct ConsoleEnv(Arc<RwLock<ConsoleEnvInner>>);
+pub struct ConsoleEnv(Arc<RwLock<ConsoleEnvInner>>);
 
 #[derive(PartialEq, Eq, Debug, Deserialize, Serialize, Clone)]
 struct ConsoleEnvInner {
