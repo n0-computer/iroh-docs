@@ -145,7 +145,7 @@ impl ConsoleEnv {
     }
 
     /// Return the iroh data directory
-    pub(crate) fn iroh_data_dir(&self) -> PathBuf {
+    pub fn iroh_data_dir(&self) -> PathBuf {
         self.0.read().unwrap().iroh_data_dir.clone()
     }
 
@@ -178,7 +178,7 @@ impl ConsoleEnv {
     }
 
     /// Get the active document.
-    pub(crate) fn doc(&self, arg: Option<NamespaceId>) -> anyhow::Result<NamespaceId> {
+    pub fn doc(&self, arg: Option<NamespaceId>) -> anyhow::Result<NamespaceId> {
         let inner = self.0.read().unwrap();
         let doc_id = arg.or(inner.doc).ok_or_else(|| {
             anyhow!(
@@ -193,7 +193,7 @@ impl ConsoleEnv {
     ///
     /// This is either the node's default author, or in the console optionally the author manually
     /// switched to.
-    pub(crate) fn author(&self) -> AuthorId {
+    pub fn author(&self) -> AuthorId {
         let inner = self.0.read().unwrap();
         inner.author
     }
