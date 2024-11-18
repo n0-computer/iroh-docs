@@ -779,7 +779,7 @@ impl DocCommands {
                         LiveEvent::InsertLocal { entry } => {
                             println!(
                                 "local change:  {}",
-                                fmt_entry(&blobs, &entry, DisplayContentMode::Auto).await
+                                fmt_entry(blobs, &entry, DisplayContentMode::Auto).await
                             )
                         }
                         LiveEvent::InsertRemote {
@@ -789,17 +789,17 @@ impl DocCommands {
                         } => {
                             let content = match content_status {
                                 ContentStatus::Complete => {
-                                    fmt_entry(&blobs, &entry, DisplayContentMode::Auto).await
+                                    fmt_entry(blobs, &entry, DisplayContentMode::Auto).await
                                 }
                                 ContentStatus::Incomplete => {
                                     let (Ok(content) | Err(content)) =
-                                        fmt_content(&blobs, &entry, DisplayContentMode::ShortHash)
+                                        fmt_content(blobs, &entry, DisplayContentMode::ShortHash)
                                             .await;
                                     format!("<incomplete: {} ({})>", content, human_len(&entry))
                                 }
                                 ContentStatus::Missing => {
                                     let (Ok(content) | Err(content)) =
-                                        fmt_content(&blobs, &entry, DisplayContentMode::ShortHash)
+                                        fmt_content(blobs, &entry, DisplayContentMode::ShortHash)
                                             .await;
                                     format!("<missing: {} ({})>", content, human_len(&entry))
                                 }
@@ -1193,7 +1193,7 @@ mod tests {
 
     #[tokio::test]
     #[ignore]
-    #[allow(unused_variables, unreachable_code)]
+    #[allow(unused_variables, unreachable_code, clippy::diverging_sub_expression)]
     async fn test_doc_import() -> Result<()> {
         let temp_dir = tempfile::tempdir().context("tempdir")?;
 
