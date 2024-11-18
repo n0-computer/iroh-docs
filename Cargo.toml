@@ -36,7 +36,7 @@ futures-lite = "2.3.0"
 futures-util = { version = "0.3.25" }
 hex = "0.4"
 iroh-base = "0.28.0"
-iroh-blobs = { version = "0.28.0", optional = true, features = ["downloader", "rpc"] }
+iroh-blobs = { version = "0.28.0", optional = true, features = ["downloader"] }
 iroh-gossip = { version = "0.28.0", optional = true }
 iroh-metrics = { version = "0.28.0", default-features = false }
 iroh-net = { version = "0.28.0", optional = true }
@@ -87,12 +87,12 @@ iroh-io = "0.6.1"
 testdir = "0.9.1"
 
 [features]
-default = ["net", "metrics", "engine", "rpc", "test-utils", "cli"]
+default = ["net", "metrics", "engine", "rpc", "test-utils"]
 net = ["dep:iroh-net", "tokio/io-util", "dep:tokio-stream", "dep:tokio-util"]
 metrics = ["iroh-metrics/metrics"]
 engine = ["net", "dep:iroh-gossip", "dep:iroh-blobs", "dep:iroh-router"]
 test-utils = ["iroh-net/test-utils"]
-cli = ["rpc", "dep:clap", "dep:indicatif", "dep:console", "dep:colored", "dep:dialoguer", "dep:shellexpand"]
+cli = ["rpc", "dep:clap", "dep:indicatif", "dep:console", "dep:colored", "dep:dialoguer", "dep:shellexpand", "iroh-blobs/rpc"]
 rpc = [
   "engine",
   "dep:nested_enum_utils",
@@ -101,9 +101,6 @@ rpc = [
   "dep:serde-error",
   "dep:portable-atomic",
 ]
-dialoguer = ["dep:dialoguer"]
-colored = ["dep:colored"]
-shellexpand = ["dep:shellexpand"]
 
 [package.metadata.docs.rs]
 all-features = true
