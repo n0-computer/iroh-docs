@@ -85,7 +85,7 @@ struct ConsoleEnvInner {
 
 impl ConsoleEnv {
     /// Read from environment variables and the console config file.
-    pub(crate) async fn for_console(
+    pub async fn for_console(
         iroh_data_dir: PathBuf,
         authors: &crate::rpc::client::authors::Client,
     ) -> Result<Self> {
@@ -113,7 +113,7 @@ impl ConsoleEnv {
     }
 
     /// Read only from environment variables.
-    pub(crate) async fn for_cli(iroh_data_dir: PathBuf, authors: &AuthorsClient) -> Result<Self> {
+    pub async fn for_cli(iroh_data_dir: PathBuf, authors: &AuthorsClient) -> Result<Self> {
         let author = env_author(None, authors).await?;
         let env = ConsoleEnvInner {
             author,

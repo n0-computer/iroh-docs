@@ -9,6 +9,7 @@ use iroh_base::base32::fmt_short;
 use super::{AuthorsClient, ConsoleEnv};
 use crate::{Author, AuthorId};
 
+#[allow(missing_docs)]
 /// Commands to manage authors.
 #[derive(Debug, Clone, Parser)]
 pub enum AuthorCommands {
