@@ -34,13 +34,14 @@ use tracing::warn;
 
 use crate::{
     engine::Origin,
-    rpc::client::{
-        authors,
-        docs::{self, Doc, Entry, LiveEvent, ShareMode},
-    },
+    rpc::client::docs::{self, Doc, Entry, LiveEvent, ShareMode},
     store::{DownloadPolicy, FilterKind, Query, SortDirection},
     AuthorId, ContentStatus, DocTicket, NamespaceId,
 };
+
+pub mod authors;
+
+type AuthorsClient = crate::rpc::client::authors::Client;
 
 const ENV_AUTHOR: &str = "IROH_AUTHOR";
 const ENV_DOC: &str = "IROH_DOC";
@@ -86,7 +87,7 @@ impl ConsoleEnv {
     /// Read from environment variables and the console config file.
     pub(crate) async fn for_console(
         iroh_data_dir: PathBuf,
-        authors: &authors::Client,
+        authors: &crate::rpc::client::authors::Client,
     ) -> Result<Self> {
         let console_data_dir = ConsolePaths::root(&iroh_data_dir);
         tokio::fs::create_dir_all(&console_data_dir)
@@ -112,7 +113,7 @@ impl ConsoleEnv {
     }
 
     /// Read only from environment variables.
-    pub(crate) async fn for_cli(iroh_data_dir: PathBuf, authors: &authors::Client) -> Result<Self> {
+    pub(crate) async fn for_cli(iroh_data_dir: PathBuf, authors: &AuthorsClient) -> Result<Self> {
         let author = env_author(None, authors).await?;
         let env = ConsoleEnvInner {
             author,
@@ -226,7 +227,7 @@ impl ConsoleEnv {
     }
 }
 
-async fn env_author(from_config: Option<AuthorId>, authors: &authors::Client) -> Result<AuthorId> {
+async fn env_author(from_config: Option<AuthorId>, authors: &AuthorsClient) -> Result<AuthorId> {
     if let Some(author) = env::var(ENV_AUTHOR)
         .ok()
         .map(|s| {
@@ -277,6 +278,7 @@ pub enum FetchKind {
     Nothing,
 }
 
+#[allow(missing_docs)]
 /// Subcommands for the download policy command.
 #[derive(Debug, Clone, clap::Subcommand)]
 pub enum DlPolicyCmd {
@@ -309,6 +311,7 @@ pub enum DlPolicyCmd {
 }
 
 /// Possible `Document` commands.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Parser)]
 pub enum DocCommands {
     /// Set the active document (only works within the Iroh console).
