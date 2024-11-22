@@ -2,6 +2,7 @@
 
 use std::{
     collections::{HashMap, HashSet},
+    sync::Arc,
     time::SystemTime,
 };
 
@@ -187,7 +188,7 @@ impl<B: iroh_blobs::store::Store> LiveActor<B> {
     pub fn new(
         sync: SyncHandle,
         endpoint: Endpoint,
-        gossip: Gossip,
+        gossip: Arc<Gossip>,
         bao_store: B,
         downloader: Downloader,
         inbox: mpsc::Receiver<ToLiveActor>,

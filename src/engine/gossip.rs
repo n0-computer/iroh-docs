@@ -1,4 +1,7 @@
-use std::collections::{hash_map, HashMap};
+use std::{
+    collections::{hash_map, HashMap},
+    sync::Arc,
+};
 
 use anyhow::{Context, Result};
 use bytes::Bytes;
@@ -23,7 +26,7 @@ struct ActiveState {
 
 #[derive(Debug)]
 pub struct GossipState {
-    gossip: Gossip,
+    gossip: Arc<Gossip>,
     sync: SyncHandle,
     to_live_actor: mpsc::Sender<ToLiveActor>,
     active: HashMap<NamespaceId, ActiveState>,
@@ -31,7 +34,11 @@ pub struct GossipState {
 }
 
 impl GossipState {
-    pub fn new(gossip: Gossip, sync: SyncHandle, to_live_actor: mpsc::Sender<ToLiveActor>) -> Self {
+    pub fn new(
+        gossip: Arc<Gossip>,
+        sync: SyncHandle,
+        to_live_actor: mpsc::Sender<ToLiveActor>,
+    ) -> Self {
         Self {
             gossip,
             sync,

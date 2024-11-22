@@ -4,7 +4,7 @@
 
 use std::{
     io,
-    path::PathBuf,
+    path::{Path, PathBuf},
     str::FromStr,
     sync::{Arc, RwLock},
 };
@@ -60,6 +60,83 @@ pub struct Engine<D> {
     pub(crate) rpc_handler: Arc<std::sync::OnceLock<crate::rpc::RpcHandler>>,
 }
 
+impl Engine<iroh_blobs::store::mem::Store> {
+    /// Construct an in memory version from a preconfigured router.
+    pub async fn from_router(router: &iroh_router::RouterBuilder) -> anyhow::Result<Self> {
+        let endpoint = router.endpoint().clone();
+        let Some(gossip) =
+            router.get_protocol::<iroh_gossip::net::Gossip>(iroh_gossip::net::GOSSIP_ALPN)
+        else {
+            bail!("router is missing Gossip");
+        };
+        let Some(blobs) = router
+            .get_protocol::<iroh_blobs::net_protocol::Blobs<iroh_blobs::store::mem::Store>>(
+                iroh_blobs::protocol::ALPN,
+            )
+        else {
+            bail!("router is missing Blobs");
+        };
+
+        let bao_store = blobs.store().clone();
+        let downloader = blobs.downloader().clone();
+        let local_pool = blobs.rt().clone();
+        let replica_store = crate::store::Store::memory();
+        let default_author_storage = DefaultAuthorStorage::Mem;
+
+        Self::spawn(
+            endpoint,
+            gossip,
+            replica_store,
+            bao_store,
+            downloader,
+            default_author_storage,
+            local_pool,
+        )
+        .await
+    }
+}
+
+impl Engine<iroh_blobs::store::fs::Store> {
+    /// Construct a persistent version from a preconfigured router.
+    pub async fn from_router(
+        router: &iroh_router::RouterBuilder,
+        path: impl AsRef<Path>,
+    ) -> anyhow::Result<Self> {
+        let endpoint = router.endpoint().clone();
+        let Some(gossip) =
+            router.get_protocol::<iroh_gossip::net::Gossip>(iroh_gossip::net::GOSSIP_ALPN)
+        else {
+            bail!("router is missing Gossip");
+        };
+        let Some(blobs) = router
+            .get_protocol::<iroh_blobs::net_protocol::Blobs<iroh_blobs::store::fs::Store>>(
+                iroh_blobs::protocol::ALPN,
+            )
+        else {
+            bail!("router is missing Blobs");
+        };
+
+        let bao_store = blobs.store().clone();
+        let downloader = blobs.downloader().clone();
+        let local_pool = blobs.rt().clone();
+        let root = path.as_ref();
+        let replica_store = crate::store::Store::persistent(root.join("docs.redb"))?;
+        let default_author_storage = DefaultAuthorStorage::Persistent(root.join("default-author"));
+
+        let res = Self::spawn(
+            endpoint,
+            gossip,
+            replica_store,
+            bao_store,
+            downloader,
+            default_author_storage,
+            local_pool,
+        )
+        .await?;
+        Ok(res)
+    }
+}
+
 impl<D: iroh_blobs::store::Store> Engine<D> {
     /// Start the sync engine.
     ///
@@ -67,7 +144,7 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
     /// thread for the [`crate::actor::SyncHandle`].
     pub async fn spawn(
         endpoint: Endpoint,
-        gossip: Gossip,
+        gossip: Arc<Gossip>,
         replica_store: crate::store::Store,
         bao_store: D,
         downloader: Downloader,
