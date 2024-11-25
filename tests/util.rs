@@ -146,7 +146,7 @@ impl<S: BlobStore> Builder<S> {
             endpoint.clone(),
             local_pool.handle().clone(),
         );
-        let blobs = Arc::new(iroh_blobs::net_protocol::Blobs::new_with_events(
+        let blobs = Arc::new(iroh_blobs::net_protocol::Blobs::new(
             store.clone(),
             local_pool.handle().clone(),
             Default::default(),
@@ -186,7 +186,7 @@ impl<S: BlobStore> Builder<S> {
             }
         };
         router = router.accept(iroh_blobs::protocol::ALPN.to_vec(), blobs.clone());
-        router = router.accept(iroh_docs::net::DOCS_ALPN.to_vec(), Arc::new(docs.clone()));
+        router = router.accept(iroh_docs::net::ALPN.to_vec(), Arc::new(docs.clone()));
         router = router.accept(
             iroh_gossip::net::GOSSIP_ALPN.to_vec(),
             Arc::new(gossip.clone()),
