@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Result;
-use iroh_net::NodeId;
+use iroh::NodeId;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 

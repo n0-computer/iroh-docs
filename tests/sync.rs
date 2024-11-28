@@ -10,16 +10,16 @@ use anyhow::{anyhow, bail, Context, Result};
 use bytes::Bytes;
 use futures_lite::Stream;
 use futures_util::{FutureExt, StreamExt, TryStreamExt};
+use iroh::{
+    key::{PublicKey, SecretKey},
+    RelayMode,
+};
 use iroh_base::node_addr::AddrInfoOptions;
 use iroh_blobs::Hash;
 use iroh_docs::{
     rpc::client::docs::{Doc, Entry, LiveEvent, ShareMode},
     store::{DownloadPolicy, FilterKind, Query},
     AuthorId, ContentStatus,
-};
-use iroh_net::{
-    key::{PublicKey, SecretKey},
-    RelayMode,
 };
 use rand::{CryptoRng, Rng, SeedableRng};
 use tracing::{debug, error_span, info, Instrument};
@@ -491,7 +491,7 @@ async fn sync_subscribe_stop_close() -> Result<()> {
 #[cfg(feature = "test-utils")]
 async fn test_sync_via_relay() -> Result<()> {
     let _guard = iroh_test::logging::setup();
-    let (relay_map, _relay_url, _guard) = iroh_net::test_utils::run_relay_server().await?;
+    let (relay_map, _relay_url, _guard) = iroh::test_utils::run_relay_server().await?;
 
     let node1 = Node::memory()
         .relay_mode(RelayMode::Custom(relay_map.clone()))
@@ -587,9 +587,9 @@ async fn test_sync_via_relay() -> Result<()> {
 async fn sync_restart_node() -> Result<()> {
     let mut rng = test_rng(b"sync_restart_node");
     setup_logging();
-    let (relay_map, _relay_url, _guard) = iroh_net::test_utils::run_relay_server().await?;
+    let (relay_map, _relay_url, _guard) = iroh::test_utils::run_relay_server().await?;
 
-    let discovery_server = iroh_net::test_utils::DnsPkarrServer::run().await?;
+    let discovery_server = iroh::test_utils::DnsPkarrServer::run().await?;
 
     let node1_dir = tempfile::TempDir::with_prefix("test-sync_restart_node-node1")?;
     let secret_key_1 = SecretKey::generate_with_rng(&mut rng);

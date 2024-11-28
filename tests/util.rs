@@ -9,11 +9,11 @@ use std::{
     sync::Arc,
 };
 
+use iroh::{discovery::Discovery, dns::DnsResolver, key::SecretKey, NodeId, RelayMode};
 use iroh_blobs::{
     store::{GcConfig, Store as BlobStore},
     util::local_pool::{LocalPool, Run},
 };
-use iroh_net::{discovery::Discovery, dns::DnsResolver, key::SecretKey, NodeId, RelayMode};
 use nested_enum_utils::enum_conversions;
 use quic_rpc::transport::{Connector, Listener};
 use serde::{Deserialize, Serialize};
@@ -34,7 +34,7 @@ pub const DEFAULT_BIND_ADDR_V6: SocketAddrV6 =
 /// An iroh node that just has the blobs transport
 #[derive(Debug)]
 pub struct Node<S> {
-    router: iroh_router::Router,
+    router: iroh::protocol::Router,
     client: Client,
     store: S,
     local_pool: LocalPool,
@@ -126,7 +126,7 @@ impl<S: BlobStore> Builder<S> {
             addr_v4.set_port(0);
             addr_v6.set_port(0);
         }
-        let mut builder = iroh_net::Endpoint::builder()
+        let mut builder = iroh::Endpoint::builder()
             .bind_addr_v4(addr_v4)
             .bind_addr_v6(addr_v6)
             .discovery_n0()
@@ -138,7 +138,7 @@ impl<S: BlobStore> Builder<S> {
         let endpoint = builder.bind().await?;
         let addr = endpoint.node_addr().await?;
         let local_pool = LocalPool::single();
-        let mut router = iroh_router::Router::builder(endpoint.clone());
+        let mut router = iroh::protocol::Router::builder(endpoint.clone());
 
         // Setup blobs
         let downloader = iroh_blobs::downloader::Downloader::new(
@@ -146,7 +146,7 @@ impl<S: BlobStore> Builder<S> {
             endpoint.clone(),
             local_pool.handle().clone(),
         );
-        let blobs = Arc::new(iroh_blobs::net_protocol::Blobs::new_with_events(
+        let blobs = Arc::new(iroh_blobs::net_protocol::Blobs::new(
             store.clone(),
             local_pool.handle().clone(),
             Default::default(),
@@ -185,12 +185,9 @@ impl<S: BlobStore> Builder<S> {
                 return Err(err);
             }
         };
-        router = router.accept(iroh_blobs::protocol::ALPN.to_vec(), blobs.clone());
-        router = router.accept(iroh_docs::net::DOCS_ALPN.to_vec(), Arc::new(docs.clone()));
-        router = router.accept(
-            iroh_gossip::net::GOSSIP_ALPN.to_vec(),
-            Arc::new(gossip.clone()),
-        );
+        router = router.accept(iroh_blobs::protocol::ALPN, blobs.clone());
+        router = router.accept(iroh_docs::net::DOCS_ALPN, Arc::new(docs.clone()));
+        router = router.accept(iroh_gossip::net::GOSSIP_ALPN, Arc::new(gossip.clone()));
 
         // Build the router
         let router = router.spawn().await?;

@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use futures_lite::FutureExt;
+use iroh::{key::PublicKey, Endpoint, NodeAddr, NodeId};
 use iroh_blobs::{
     downloader::{DownloadError, DownloadRequest, Downloader},
     get::Stats,
@@ -15,7 +16,6 @@ use iroh_blobs::{
 };
 use iroh_gossip::net::Gossip;
 use iroh_metrics::inc;
-use iroh_net::{key::PublicKey, Endpoint, NodeAddr, NodeId};
 use serde::{Deserialize, Serialize};
 use tokio::{
     sync::{self, mpsc, oneshot},
@@ -86,7 +86,7 @@ pub enum ToLiveActor {
         reply: sync::oneshot::Sender<Result<()>>,
     },
     HandleConnection {
-        conn: iroh_net::endpoint::Connecting,
+        conn: iroh::endpoint::Connecting,
     },
     AcceptSyncRequest {
         namespace: NamespaceId,
@@ -759,7 +759,7 @@ impl<B: iroh_blobs::store::Store> LiveActor<B> {
     }
 
     #[instrument("accept", skip_all)]
-    pub async fn handle_connection(&mut self, conn: iroh_net::endpoint::Connecting) {
+    pub async fn handle_connection(&mut self, conn: iroh::endpoint::Connecting) {
         let to_actor_tx = self.sync_actor_tx.clone();
         let accept_request_cb = move |namespace, peer| {
             let to_actor_tx = to_actor_tx.clone();
