@@ -5,9 +5,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+use iroh::{endpoint::get_remote_node_id, key::PublicKey, Endpoint, NodeAddr};
 #[cfg(feature = "metrics")]
 use iroh_metrics::inc;
-use iroh_net::{endpoint::get_remote_node_id, key::PublicKey, Endpoint, NodeAddr};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error_span, trace, Instrument};
 
@@ -106,7 +106,7 @@ pub enum AcceptOutcome {
 /// Handle an iroh-docs connection and sync all shared documents in the replica store.
 pub async fn handle_connection<F, Fut>(
     sync: SyncHandle,
-    connecting: iroh_net::endpoint::Connecting,
+    connecting: iroh::endpoint::Connecting,
     accept_cb: F,
 ) -> Result<SyncFinished, AcceptError>
 where

@@ -11,11 +11,11 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use futures_lite::{Stream, StreamExt};
+use iroh::{key::PublicKey, Endpoint, NodeAddr};
 use iroh_blobs::{
     downloader::Downloader, store::EntryStatus, util::local_pool::LocalPoolHandle, Hash,
 };
 use iroh_gossip::net::Gossip;
-use iroh_net::{key::PublicKey, Endpoint, NodeAddr};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::task::AbortOnDropHandle;
@@ -202,10 +202,7 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
     }
 
     /// Handle an incoming iroh-docs connection.
-    pub async fn handle_connection(
-        &self,
-        conn: iroh_net::endpoint::Connecting,
-    ) -> anyhow::Result<()> {
+    pub async fn handle_connection(&self, conn: iroh::endpoint::Connecting) -> anyhow::Result<()> {
         self.to_live_actor
             .send(ToLiveActor::HandleConnection { conn })
             .await?;
