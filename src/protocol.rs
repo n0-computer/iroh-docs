@@ -4,8 +4,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use futures_lite::future::Boxed as BoxedFuture;
-use iroh_net::endpoint::Connecting;
-use iroh_router::ProtocolHandler;
+use iroh::{endpoint::Connecting, protocol::ProtocolHandler};
 
 use crate::engine::Engine;
 

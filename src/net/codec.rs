@@ -3,7 +3,7 @@ use std::future::Future;
 use anyhow::{anyhow, ensure};
 use bytes::{Buf, BufMut, BytesMut};
 use futures_util::SinkExt;
-use iroh_net::key::PublicKey;
+use iroh::key::PublicKey;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_stream::StreamExt;
@@ -294,8 +294,8 @@ impl BobState {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use iroh::key::SecretKey;
     use iroh_base::hash::Hash;
-    use iroh_net::key::SecretKey;
     use rand_core::{CryptoRngCore, SeedableRng};
 
     use super::*;

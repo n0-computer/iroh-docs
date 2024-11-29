@@ -4,8 +4,8 @@ use anyhow::{Context, Result};
 use bytes::Bytes;
 use futures_lite::StreamExt;
 use futures_util::FutureExt;
+use iroh::NodeId;
 use iroh_gossip::net::{Event, Gossip, GossipEvent, GossipReceiver, GossipSender, JoinOptions};
-use iroh_net::NodeId;
 use tokio::{
     sync::mpsc,
     task::{AbortHandle, JoinSet},

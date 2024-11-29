@@ -39,8 +39,7 @@ iroh-base = "0.28.0"
 iroh-blobs = { version = "0.28.0", optional = true, features = ["downloader"] }
 iroh-gossip = { version = "0.28.0", optional = true }
 iroh-metrics = { version = "0.28.0", default-features = false }
-iroh-net = { version = "0.28.0", optional = true }
-iroh-router = { version = "0.28.0", optional = true }
+iroh = { version = "0.28", optional = true }
 num_enum = "0.7"
 postcard = { version = "1", default-features = false, features = ["alloc", "use-std", "experimental-derive"] }
 rand = "0.8.5"
@@ -88,10 +87,10 @@ testdir = "0.9.1"
 
 [features]
 default = ["net", "metrics", "engine", "rpc", "test-utils"]
-net = ["dep:iroh-net", "tokio/io-util", "dep:tokio-stream", "dep:tokio-util"]
-metrics = ["iroh-metrics/metrics"]
-engine = ["net", "dep:iroh-gossip", "dep:iroh-blobs", "dep:iroh-router"]
-test-utils = ["iroh-net/test-utils"]
+net = ["dep:iroh", "tokio/io-util", "dep:tokio-stream", "dep:tokio-util"]
+metrics = ["iroh-metrics/metrics", "iroh/metrics"]
+engine = ["net", "dep:iroh-gossip", "dep:iroh-blobs"]
+test-utils = ["iroh/test-utils"]
 cli = ["rpc", "dep:clap", "dep:indicatif", "dep:console", "dep:colored", "dep:dialoguer", "dep:shellexpand", "iroh-blobs/rpc"]
 rpc = [
   "engine",
@@ -107,10 +106,8 @@ all-features = true
 rustdoc-args = ["--cfg", "iroh_docsrs"]
 
 [patch.crates-io]
-iroh-router = { git = "https://github.com/n0-computer/iroh", branch = "refactor-drop-external-protocols" }
-iroh-net = { git = "https://github.com/n0-computer/iroh", branch = "refactor-drop-external-protocols" }
-iroh-metrics = { git = "https://github.com/n0-computer/iroh", branch = "refactor-drop-external-protocols" }
-iroh-base = { git = "https://github.com/n0-computer/iroh", branch = "refactor-drop-external-protocols" }
-iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs", branch = "pluggable-gc-with-exemptions" }
+iroh-metrics = { git = "https://github.com/n0-computer/iroh", branch = "main" }
+iroh-base = { git = "https://github.com/n0-computer/iroh", branch = "main" }
+iroh = { git = "https://github.com/n0-computer/iroh", branch = "main" }
+iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs", branch = "main" }
 iroh-gossip = { git = "https://github.com/n0-computer/iroh-gossip", branch = "main" }
-iroh = { git = "https://github.com/n0-computer/iroh", branch = "refactor-drop-external-protocols" }
