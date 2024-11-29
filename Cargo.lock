@@ -3,20 +3,6 @@
 version = 3
 
 [[package]]
-name = "acto"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31c372578ce4215ccf94ec3f3585fbb6a902e47d07b064ff8a55d850ffb5025e"
-dependencies = [
- "parking_lot",
- "pin-project-lite",
- "rustc_version",
- "smol_str",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -419,9 +405,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
-version = "1.9.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "325918d6fe32f23b19878fe4b34794ae41fc19ddbe53b10571a4874d44ffd39b"
+checksum = "9ac0150caa2ae65ca5bd83f25c7de183dea78d4d366469f148435e2acfbad0da"
 dependencies = [
  "serde",
 ]
@@ -437,9 +423,9 @@ dependencies = [
 
 [[package]]
 name = "cargo-platform"
-version = "0.1.9"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e35af189006b9c0f00a064685c727031e3ed2d8020f7ba284d78cc2671bd36ea"
+checksum = "24b1f0365a6c6bb4020cd05806fd0d33c44d38046b8bd7f0e40814b9763cabfc"
 dependencies = [
  "serde",
 ]
@@ -459,9 +445,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.2"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f34d93e62b03caf570cccc334cbc6c2fceca82f39211051345108adcba3eebdc"
+checksum = "fd9de9f2205d5ef3fd67e685b0df337994ddd4495e2a28d185500d0e1edfea47"
 dependencies = [
  "shlex",
 ]
@@ -942,6 +928,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dcbb2bf8e87535c23f7a8a321e364ce21462d0ff10cb6407820e8e96dfff6653"
 
 [[package]]
+name = "duct"
+version = "0.13.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4ab5718d1224b63252cd0c6f74f6480f9ffeb117438a2e0f5cf6d9a4798929c"
+dependencies = [
+ "libc",
+ "once_cell",
+ "os_pipe",
+ "shared_child",
+]
+
+[[package]]
 name = "dyn-clone"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1104,12 +1102,12 @@ checksum = "a02a5d186d7bf1cb21f1f95e1a9cfa5c1f2dcd803a47aad454423ceec13525c5"
 
 [[package]]
 name = "errno"
-version = "0.3.10"
+version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33d852cb9b869c2a9b3df2f71a3074817f01e1844f839a144f5fcef059a4eb5d"
+checksum = "534c5cf6194dfab3db3242765c03bbe257cf92f22b38f6bc0c58d59108a820ba"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1539,30 +1537,6 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hickory-proto"
-version = "0.24.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07698b8420e2f0d6447a436ba999ec85d8fbf2a398bbd737b82cac4a2e96e512"
-dependencies = [
- "async-trait",
- "cfg-if",
- "data-encoding",
- "enum-as-inner",
- "futures-channel",
- "futures-io",
- "futures-util",
- "idna 0.4.0",
- "ipnet",
- "once_cell",
- "rand",
- "thiserror 1.0.69",
- "tinyvec",
- "tokio",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "hickory-proto"
 version = "0.25.0-alpha.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8270a1857fb962b9914aafd46a89a187a4e63d0eb4190c327e7c7b8256a2d055"
@@ -1595,7 +1569,7 @@ checksum = "46c110355b5703070d9e29c344d79818a7cde3de9c27fc35750defea6074b0ad"
 dependencies = [
  "cfg-if",
  "futures-util",
- "hickory-proto 0.25.0-alpha.2",
+ "hickory-proto",
  "ipconfig",
  "lru-cache",
  "once_cell",
@@ -1919,16 +1893,6 @@ dependencies = [
 
 [[package]]
 name = "idna"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d20d6b07bfbc108882d88ed8e37d39636dcc260e15e30c45e6ba089610b917c"
-dependencies = [
- "unicode-bidi",
- "unicode-normalization",
-]
-
-[[package]]
-name = "idna"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "634d9b1461af396cad843f47fdba5597a4f9e6ddd4bfb6ff5d85028c25cb12f6"
@@ -2051,7 +2015,7 @@ checksum = "ddc24109865250148c2e0f3d25d4f0f479571723792d3802153c60922a4fb708"
 [[package]]
 name = "iroh"
 version = "0.28.1"
-source = "git+https://github.com/n0-computer/iroh?branch=main#43d0ea45b950a69aa3a3340b60275f53aa18b254"
+source = "git+https://github.com/n0-computer/iroh?branch=main#f7764ef130a0f2fd4938339178372a7176bd5def"
 dependencies = [
  "anyhow",
  "axum",
@@ -2068,7 +2032,7 @@ dependencies = [
  "genawaiter",
  "governor",
  "hex",
- "hickory-proto 0.25.0-alpha.2",
+ "hickory-proto",
  "hickory-resolver",
  "hostname 0.4.0",
  "http 1.1.0",
@@ -2111,7 +2075,6 @@ dependencies = [
  "strum",
  "stun-rs",
  "surge-ping",
- "swarm-discovery",
  "thiserror 2.0.3",
  "time",
  "tokio",
@@ -2133,7 +2096,7 @@ dependencies = [
 [[package]]
 name = "iroh-base"
 version = "0.28.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#43d0ea45b950a69aa3a3340b60275f53aa18b254"
+source = "git+https://github.com/n0-computer/iroh?branch=main#f7764ef130a0f2fd4938339178372a7176bd5def"
 dependencies = [
  "aead",
  "anyhow",
@@ -2173,15 +2136,13 @@ dependencies = [
 [[package]]
 name = "iroh-blobs"
 version = "0.28.1"
-source = "git+https://github.com/n0-computer/iroh-blobs?branch=main#d87f67115b3b818a96ace2732aac835dec1ada65"
+source = "git+https://github.com/n0-computer/iroh-blobs?branch=main#e8783f9065c2ca0ead0223c7397e47a804f6d137"
 dependencies = [
  "anyhow",
  "async-channel",
  "bao-tree",
  "bytes",
  "chrono",
- "clap",
- "console",
  "derive_more",
  "futures-buffered",
  "futures-lite 2.5.0",
@@ -2189,7 +2150,6 @@ dependencies = [
  "genawaiter",
  "hashlink",
  "hex",
- "indicatif",
  "iroh",
  "iroh-base",
  "iroh-io",
@@ -2282,7 +2242,7 @@ dependencies = [
 [[package]]
 name = "iroh-gossip"
 version = "0.28.1"
-source = "git+https://github.com/n0-computer/iroh-gossip?branch=main#89e91a34bd046fb7fbd504b2b8d0849e2865d410"
+source = "git+https://github.com/n0-computer/iroh-gossip?branch=main#50caf1b6976859efedbc6fd24b65afc7df60c13d"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -2327,7 +2287,7 @@ dependencies = [
 [[package]]
 name = "iroh-metrics"
 version = "0.28.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#43d0ea45b950a69aa3a3340b60275f53aa18b254"
+source = "git+https://github.com/n0-computer/iroh?branch=main#f7764ef130a0f2fd4938339178372a7176bd5def"
 dependencies = [
  "anyhow",
  "erased_set",
@@ -2347,7 +2307,7 @@ dependencies = [
 [[package]]
 name = "iroh-net-report"
 version = "0.28.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#43d0ea45b950a69aa3a3340b60275f53aa18b254"
+source = "git+https://github.com/n0-computer/iroh?branch=main#f7764ef130a0f2fd4938339178372a7176bd5def"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2423,20 +2383,21 @@ dependencies = [
 [[package]]
 name = "iroh-relay"
 version = "0.28.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#43d0ea45b950a69aa3a3340b60275f53aa18b254"
+source = "git+https://github.com/n0-computer/iroh?branch=main#f7764ef130a0f2fd4938339178372a7176bd5def"
 dependencies = [
  "anyhow",
  "base64",
  "bytes",
  "clap",
  "derive_more",
+ "duct",
  "futures-buffered",
  "futures-lite 2.5.0",
  "futures-sink",
  "futures-util",
  "governor",
  "hex",
- "hickory-proto 0.25.0-alpha.2",
+ "hickory-proto",
  "hickory-resolver",
  "hostname 0.4.0",
  "http 1.1.0",
@@ -2851,7 +2812,7 @@ dependencies = [
 [[package]]
 name = "netwatch"
 version = "0.1.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#43d0ea45b950a69aa3a3340b60275f53aa18b254"
+source = "git+https://github.com/n0-computer/iroh?branch=main#f7764ef130a0f2fd4938339178372a7176bd5def"
 dependencies = [
  "anyhow",
  "atomic-waker",
@@ -3096,6 +3057,16 @@ name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
+
+[[package]]
+name = "os_pipe"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ffd2b0a5634335b135d5728d84c5e0fd726954b87111f7506a61c502280d982"
+dependencies = [
+ "libc",
+ "windows-sys 0.59.0",
+]
 
 [[package]]
 name = "overload"
@@ -3387,7 +3358,7 @@ checksum = "280dc24453071f1b63954171985a0b0d30058d287960968b9b2aca264c8d4ee6"
 [[package]]
 name = "portmapper"
 version = "0.1.0"
-source = "git+https://github.com/n0-computer/iroh?branch=main#43d0ea45b950a69aa3a3340b60275f53aa18b254"
+source = "git+https://github.com/n0-computer/iroh?branch=main#f7764ef130a0f2fd4938339178372a7176bd5def"
 dependencies = [
  "anyhow",
  "base64",
@@ -4431,6 +4402,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "shared_child"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09fa9338aed9a1df411814a5b2252f7cd206c55ae9bf2fa763f8de84603aa60c"
+dependencies = [
+ "libc",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "shell-words"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4496,12 +4477,6 @@ checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 dependencies = [
  "serde",
 ]
-
-[[package]]
-name = "smol_str"
-version = "0.1.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fad6c857cbab2627dcf01ec85a623ca4e7dcb5691cbaa3d7fb7653671f0d09c9"
 
 [[package]]
 name = "socket2"
@@ -4711,21 +4686,6 @@ dependencies = [
  "rand",
  "socket2",
  "thiserror 1.0.69",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "swarm-discovery"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39769914108ae68e261d85ceac7bce7095947130f79c29d4535e9b31fc702a40"
-dependencies = [
- "acto",
- "anyhow",
- "hickory-proto 0.24.1",
- "rand",
- "socket2",
  "tokio",
  "tracing",
 ]
