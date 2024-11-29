@@ -1634,10 +1634,8 @@
 <a href="#1634" id="1634">1634</a>
 <a href="#1635" id="1635">1635</a>
 <a href="#1636" id="1636">1636</a>
-<a href="#1637" id="1637">1637</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementation of Set Reconcilliation based on
 //! "Range-Based Set Reconciliation" by Aljoscha Meyer.
-//!
 
 </span><span class="kw">use </span>std::{cmp::Ordering, fmt::Debug};
 
@@ -2515,7 +2513,7 @@
         Prefix(K),
     }
 
-    <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, K, V&gt; Iterator <span class="kw">for </span>SimpleRangeIterator&lt;<span class="lifetime">'a</span>, K, V&gt;
+    <span class="kw">impl</span>&lt;K, V&gt; Iterator <span class="kw">for </span>SimpleRangeIterator&lt;<span class="lifetime">'_</span>, K, V&gt;
     <span class="kw">where
         </span>K: RangeKey + Default,
         V: Clone,

@@ -373,9 +373,9 @@
     time::{Duration, Instant},
 };
 
+<span class="kw">use </span>iroh::{endpoint::get_remote_node_id, key::PublicKey, Endpoint, NodeAddr};
 <span class="attr">#[cfg(feature = <span class="string">"metrics"</span>)]
 </span><span class="kw">use </span>iroh_metrics::inc;
-<span class="kw">use </span>iroh_net::{endpoint::get_remote_node_id, key::PublicKey, Endpoint, NodeAddr};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>tracing::{debug, error_span, trace, Instrument};
 
@@ -388,7 +388,7 @@
 };
 
 <span class="doccomment">/// The ALPN identifier for the iroh-docs protocol
-</span><span class="kw">pub const </span>DOCS_ALPN: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"/iroh-sync/1"</span>;
+</span><span class="kw">pub const </span>ALPN: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"/iroh-sync/1"</span>;
 
 <span class="kw">mod </span>codec;
 
@@ -403,7 +403,7 @@
     <span class="kw">let </span>peer_id = peer.node_id;
     <span class="macro">trace!</span>(<span class="string">"connect"</span>);
     <span class="kw">let </span>connection = endpoint
-        .connect(peer, DOCS_ALPN)
+        .connect(peer, <span class="kw">crate</span>::ALPN)
         .<span class="kw">await
         </span>.map_err(ConnectError::connect)<span class="question-mark">?</span>;
 
@@ -474,7 +474,7 @@
 <span class="doccomment">/// Handle an iroh-docs connection and sync all shared documents in the replica store.
 </span><span class="kw">pub async fn </span>handle_connection&lt;F, Fut&gt;(
     sync: SyncHandle,
-    connecting: iroh_net::endpoint::Connecting,
+    connecting: iroh::endpoint::Connecting,
     accept_cb: F,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;SyncFinished, AcceptError&gt;
 <span class="kw">where

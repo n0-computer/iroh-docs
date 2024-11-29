@@ -218,8 +218,8 @@
 <span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>futures_lite::StreamExt;
 <span class="kw">use </span>futures_util::FutureExt;
+<span class="kw">use </span>iroh::NodeId;
 <span class="kw">use </span>iroh_gossip::net::{Event, Gossip, GossipEvent, GossipReceiver, GossipSender, JoinOptions};
-<span class="kw">use </span>iroh_net::NodeId;
 <span class="kw">use </span>tokio::{
     sync::mpsc,
     task::{AbortHandle, JoinSet},

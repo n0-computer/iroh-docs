@@ -111,8 +111,8 @@
 <a href="#111" id="111">111</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Tickets for [`iroh-docs`] documents.
 
-</span><span class="kw">use </span>iroh_base::ticket;
-<span class="kw">use </span>iroh_net::NodeAddr;
+</span><span class="kw">use </span>iroh::NodeAddr;
+<span class="kw">use </span>iroh_base::ticket;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use </span><span class="kw">crate</span>::Capability;
@@ -176,7 +176,7 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>std::str::FromStr;
 
-    <span class="kw">use </span>iroh_net::key::PublicKey;
+    <span class="kw">use </span>iroh::key::PublicKey;
     <span class="kw">use </span>iroh_test::{assert_eq_hex, hexdump::parse_hexdump};
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;

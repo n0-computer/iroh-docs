@@ -970,6 +970,7 @@
 
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>futures_lite::FutureExt;
+<span class="kw">use </span>iroh::{key::PublicKey, Endpoint, NodeAddr, NodeId};
 <span class="kw">use </span>iroh_blobs::{
     downloader::{DownloadError, DownloadRequest, Downloader},
     get::Stats,
@@ -978,7 +979,6 @@
 };
 <span class="kw">use </span>iroh_gossip::net::Gossip;
 <span class="kw">use </span>iroh_metrics::inc;
-<span class="kw">use </span>iroh_net::{key::PublicKey, Endpoint, NodeAddr, NodeId};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>tokio::{
     sync::{<span class="self">self</span>, mpsc, oneshot},
@@ -1049,7 +1049,7 @@
         </span>reply: sync::oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;()&gt;&gt;,
     },
     HandleConnection {
-        conn: iroh_net::endpoint::Connecting,
+        conn: iroh::endpoint::Connecting,
     },
     AcceptSyncRequest {
         namespace: NamespaceId,
@@ -1722,7 +1722,7 @@
     }
 
     <span class="attr">#[instrument(<span class="string">"accept"</span>, skip_all)]
-    </span><span class="kw">pub async fn </span>handle_connection(<span class="kw-2">&amp;mut </span><span class="self">self</span>, conn: iroh_net::endpoint::Connecting) {
+    </span><span class="kw">pub async fn </span>handle_connection(<span class="kw-2">&amp;mut </span><span class="self">self</span>, conn: iroh::endpoint::Connecting) {
         <span class="kw">let </span>to_actor_tx = <span class="self">self</span>.sync_actor_tx.clone();
         <span class="kw">let </span>accept_request_cb = <span class="kw">move </span>|namespace, peer| {
             <span class="kw">let </span>to_actor_tx = to_actor_tx.clone();
