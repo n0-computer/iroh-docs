@@ -185,7 +185,7 @@ impl<S: BlobStore> Builder<S> {
         };
         router = router.accept(iroh_blobs::ALPN, blobs.clone());
         router = router.accept(iroh_docs::ALPN, Arc::new(docs.clone()));
-        router = router.accept(iroh_gossip::net::GOSSIP_ALPN, Arc::new(gossip.clone()));
+        router = router.accept(iroh_gossip::ALPN, Arc::new(gossip.clone()));
 
         // Build the router
         let router = router.spawn().await?;
