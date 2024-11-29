@@ -66,10 +66,10 @@ mod ranger;
 
 #[cfg(feature = "net")]
 #[cfg_attr(iroh_docsrs, doc(cfg(feature = "net")))]
-pub use self::ticket::DocTicket;
-pub use self::{heads::*, keys::*, sync::*};
+#[doc(inline)]
+pub use net::ALPN;
 
 #[cfg(feature = "net")]
 #[cfg_attr(iroh_docsrs, doc(cfg(feature = "net")))]
-#[doc(inline)]
-pub use net::ALPN;
+pub use self::ticket::DocTicket;
+pub use self::{heads::*, keys::*, sync::*};
