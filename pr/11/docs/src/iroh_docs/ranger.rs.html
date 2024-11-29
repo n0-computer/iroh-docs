@@ -2513,7 +2513,7 @@
         Prefix(K),
     }
 
-    <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, K, V&gt; Iterator <span class="kw">for </span>SimpleRangeIterator&lt;<span class="lifetime">'a</span>, K, V&gt;
+    <span class="kw">impl</span>&lt;K, V&gt; Iterator <span class="kw">for </span>SimpleRangeIterator&lt;<span class="lifetime">'_</span>, K, V&gt;
     <span class="kw">where
         </span>K: RangeKey + Default,
         V: Clone,

@@ -141,11 +141,11 @@
 
 <span class="attr">#[cfg(feature = <span class="string">"net"</span>)]
 #[cfg_attr(iroh_docsrs, doc(cfg(feature = <span class="string">"net"</span>)))]
-</span><span class="kw">pub use </span><span class="self">self</span>::ticket::DocTicket;
-<span class="kw">pub use </span><span class="self">self</span>::{heads::<span class="kw-2">*</span>, keys::<span class="kw-2">*</span>, sync::<span class="kw-2">*</span>};
+#[doc(inline)]
+</span><span class="kw">pub use </span>net::ALPN;
 
 <span class="attr">#[cfg(feature = <span class="string">"net"</span>)]
 #[cfg_attr(iroh_docsrs, doc(cfg(feature = <span class="string">"net"</span>)))]
-#[doc(inline)]
-</span><span class="kw">pub use </span>net::ALPN;
+</span><span class="kw">pub use </span><span class="self">self</span>::ticket::DocTicket;
+<span class="kw">pub use </span><span class="self">self</span>::{heads::<span class="kw-2">*</span>, keys::<span class="kw-2">*</span>, sync::<span class="kw-2">*</span>};
 </code></pre></div></section></main></body></html>
