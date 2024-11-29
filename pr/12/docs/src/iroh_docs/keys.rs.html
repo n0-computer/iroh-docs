@@ -514,12 +514,16 @@
 <a href="#514" id="514">514</a>
 <a href="#515" id="515">515</a>
 <a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Keys used in iroh-docs
 
 </span><span class="kw">use </span>std::{cmp::Ordering, fmt, str::FromStr};
 
 <span class="kw">use </span>ed25519_dalek::{Signature, SignatureError, Signer, SigningKey, VerifyingKey};
-<span class="kw">use </span>iroh_base::base32;
 <span class="kw">use </span>rand_core::CryptoRngCore;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
@@ -676,37 +680,37 @@
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>Author {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, base32::fmt(<span class="self">self</span>.to_bytes()))
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, hex::encode(<span class="self">self</span>.to_bytes()))
     }
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>NamespaceSecret {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, base32::fmt(<span class="self">self</span>.to_bytes()))
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, hex::encode(<span class="self">self</span>.to_bytes()))
     }
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>AuthorPublicKey {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, base32::fmt(<span class="self">self</span>.as_bytes()))
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, hex::encode(<span class="self">self</span>.as_bytes()))
     }
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>NamespacePublicKey {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, base32::fmt(<span class="self">self</span>.as_bytes()))
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, hex::encode(<span class="self">self</span>.as_bytes()))
     }
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>AuthorId {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, base32::fmt(<span class="self">self</span>.as_bytes()))
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, hex::encode(<span class="self">self</span>.as_bytes()))
     }
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>NamespaceId {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, base32::fmt(<span class="self">self</span>.as_bytes()))
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, hex::encode(<span class="self">self</span>.as_bytes()))
     }
 }
 
@@ -718,13 +722,13 @@
 
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>NamespaceId {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">"NamespaceId({})"</span>, base32::fmt_short(<span class="self">self</span>.<span class="number">0</span>))
+        <span class="macro">write!</span>(f, <span class="string">"NamespaceId({})"</span>, hex::encode(<span class="self">self</span>.<span class="number">0</span>))
     }
 }
 
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>AuthorId {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">"AuthorId({})"</span>, base32::fmt_short(<span class="self">self</span>.<span class="number">0</span>))
+        <span class="macro">write!</span>(f, <span class="string">"AuthorId({})"</span>, hex::encode(<span class="self">self</span>.<span class="number">0</span>))
     }
 }
 
@@ -746,11 +750,17 @@
     }
 }
 
+<span class="kw">fn </span>parse_hex_array(s: <span class="kw-2">&amp;</span>str) -&gt; anyhow::Result&lt;[u8; <span class="number">32</span>]&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>bytes = [<span class="number">0u8</span>; <span class="number">32</span>];
+    hex::decode_to_slice(s, <span class="kw-2">&amp;mut </span>bytes)<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(bytes)
+}
+
 <span class="kw">impl </span>FromStr <span class="kw">for </span>Author {
     <span class="kw">type </span><span class="prelude-val">Err </span>= anyhow::Error;
 
     <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_bytes(<span class="kw-2">&amp;</span>base32::parse_array(s)<span class="question-mark">?</span>))
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_bytes(<span class="kw-2">&amp;</span>parse_hex_array(s)<span class="question-mark">?</span>))
     }
 }
 
@@ -758,7 +768,7 @@
     <span class="kw">type </span><span class="prelude-val">Err </span>= anyhow::Error;
 
     <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_bytes(<span class="kw-2">&amp;</span>base32::parse_array(s)<span class="question-mark">?</span>))
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_bytes(<span class="kw-2">&amp;</span>parse_hex_array(s)<span class="question-mark">?</span>))
     }
 }
 
@@ -766,7 +776,7 @@
     <span class="kw">type </span><span class="prelude-val">Err </span>= anyhow::Error;
 
     <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-        <span class="self">Self</span>::from_bytes(<span class="kw-2">&amp;</span>base32::parse_array(s)<span class="question-mark">?</span>).map_err(Into::into)
+        <span class="self">Self</span>::from_bytes(<span class="kw-2">&amp;</span>parse_hex_array(s)<span class="question-mark">?</span>).map_err(Into::into)
     }
 }
 
@@ -774,7 +784,7 @@
     <span class="kw">type </span><span class="prelude-val">Err </span>= anyhow::Error;
 
     <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-        <span class="self">Self</span>::from_bytes(<span class="kw-2">&amp;</span>base32::parse_array(s)<span class="question-mark">?</span>).map_err(Into::into)
+        <span class="self">Self</span>::from_bytes(<span class="kw-2">&amp;</span>parse_hex_array(s)<span class="question-mark">?</span>).map_err(Into::into)
     }
 }
 
@@ -902,10 +912,10 @@
         AuthorPublicKey::from_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
     }
 
-    <span class="doccomment">/// Convert to a base32 string limited to the first 10 bytes for a friendly string
+    <span class="doccomment">/// Convert to a hex string limited to the first 10 bytes for a friendly string
     /// representation of the key.
     </span><span class="kw">pub fn </span>fmt_short(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-        base32::fmt_short(<span class="self">self</span>.<span class="number">0</span>)
+        hex::encode(<span class="self">self</span>.<span class="number">0</span>).chars().take(<span class="number">10</span>).collect()
     }
 }
 
@@ -937,10 +947,10 @@
         NamespacePublicKey::from_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
     }
 
-    <span class="doccomment">/// Convert to a base32 string limited to the first 10 bytes for a friendly string
+    <span class="doccomment">/// Convert to a hex string limited to the first 10 bytes for a friendly string
     /// representation of the key.
     </span><span class="kw">pub fn </span>fmt_short(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-        base32::fmt_short(<span class="self">self</span>.<span class="number">0</span>)
+        hex::encode(<span class="self">self</span>.<span class="number">0</span>).chars().take(<span class="number">10</span>).collect()
     }
 }
 

@@ -2564,7 +2564,7 @@
 
 <span class="kw">use </span>bytes::{Bytes, BytesMut};
 <span class="kw">use </span>ed25519_dalek::{Signature, SignatureError};
-<span class="kw">use </span>iroh_base::{base32, hash::Hash};
+<span class="kw">use </span>iroh_base::hash::Hash;
 <span class="attr">#[cfg(feature = <span class="string">"metrics"</span>)]
 </span><span class="kw">use </span>iroh_metrics::{inc, inc_by};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -3374,11 +3374,11 @@
         f.debug_struct(<span class="string">"EntrySignature"</span>)
             .field(
                 <span class="string">"namespace_signature"</span>,
-                <span class="kw-2">&amp;</span>base32::fmt(<span class="self">self</span>.namespace_signature.to_bytes()),
+                <span class="kw-2">&amp;</span>hex::encode(<span class="self">self</span>.namespace_signature.to_bytes()),
             )
             .field(
                 <span class="string">"author_signature"</span>,
-                <span class="kw-2">&amp;</span>base32::fmt(<span class="self">self</span>.author_signature.to_bytes()),
+                <span class="kw-2">&amp;</span>hex::encode(<span class="self">self</span>.author_signature.to_bytes()),
             )
             .finish()
     }

@@ -102,6 +102,13 @@
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Tickets for [`iroh-docs`] documents.
 
 </span><span class="kw">use </span>iroh::NodeAddr;
@@ -170,7 +177,6 @@
     <span class="kw">use </span>std::str::FromStr;
 
     <span class="kw">use </span>iroh::key::PublicKey;
-    <span class="kw">use </span>iroh_base::base32;
     <span class="kw">use </span>iroh_test::{assert_eq_hex, hexdump::parse_hexdump};
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -193,7 +199,15 @@
             capability: Capability::Read(namespace_id),
             nodes: <span class="macro">vec!</span>[NodeAddr::from_parts(node_id, <span class="prelude-val">None</span>, [])],
         };
-        <span class="kw">let </span>base32 = base32::parse_vec(ticket.to_string().strip_prefix(<span class="string">"doc"</span>).unwrap()).unwrap();
+        <span class="kw">let </span>s = ticket.to_string();
+        <span class="kw">let </span>base32 = data_encoding::BASE32_NOPAD
+            .decode(
+                s.strip_prefix(<span class="string">"doc"</span>)
+                    .unwrap()
+                    .to_ascii_uppercase()
+                    .as_bytes(),
+            )
+            .unwrap();
         <span class="kw">let </span>expected = parse_hexdump(<span class="string">"
             00 # variant
             01 # capability discriminator, 1 = read
