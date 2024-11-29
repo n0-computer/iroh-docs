@@ -1,6 +1,5 @@
 //! Implementation of Set Reconcilliation based on
 //! "Range-Based Set Reconciliation" by Aljoscha Meyer.
-//!
 
 use std::{cmp::Ordering, fmt::Debug};
 
@@ -878,7 +877,7 @@ mod tests {
         Prefix(K),
     }
 
-    impl<'a, K, V> Iterator for SimpleRangeIterator<'a, K, V>
+    impl<K, V> Iterator for SimpleRangeIterator<'_, K, V>
     where
         K: RangeKey + Default,
         V: Clone,

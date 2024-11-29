@@ -38,6 +38,9 @@ pub mod metrics;
 #[cfg(feature = "net")]
 #[cfg_attr(iroh_docsrs, doc(cfg(feature = "net")))]
 pub mod net;
+#[cfg(feature = "engine")]
+#[cfg_attr(iroh_docsrs, doc(cfg(feature = "engine")))]
+pub mod protocol;
 #[cfg(feature = "net")]
 #[cfg_attr(iroh_docsrs, doc(cfg(feature = "net")))]
 mod ticket;
@@ -45,6 +48,13 @@ mod ticket;
 #[cfg(feature = "engine")]
 #[cfg_attr(iroh_docsrs, doc(cfg(feature = "engine")))]
 pub mod engine;
+#[cfg(feature = "rpc")]
+#[cfg_attr(iroh_docsrs, doc(cfg(feature = "rpc")))]
+pub mod rpc;
+
+#[cfg(feature = "cli")]
+#[cfg_attr(iroh_docsrs, doc(cfg(feature = "cli")))]
+pub mod cli;
 
 pub mod actor;
 pub mod store;
@@ -53,6 +63,11 @@ pub mod sync;
 mod heads;
 mod keys;
 mod ranger;
+
+#[cfg(feature = "net")]
+#[cfg_attr(iroh_docsrs, doc(cfg(feature = "net")))]
+#[doc(inline)]
+pub use net::ALPN;
 
 #[cfg(feature = "net")]
 #[cfg_attr(iroh_docsrs, doc(cfg(feature = "net")))]

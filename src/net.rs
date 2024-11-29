@@ -5,9 +5,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+use iroh::{endpoint::get_remote_node_id, key::PublicKey, Endpoint, NodeAddr};
 #[cfg(feature = "metrics")]
 use iroh_metrics::inc;
-use iroh_net::{endpoint::get_remote_node_id, key::PublicKey, Endpoint, NodeAddr};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error_span, trace, Instrument};
 
@@ -20,7 +20,7 @@ use crate::{
 };
 
 /// The ALPN identifier for the iroh-docs protocol
-pub const DOCS_ALPN: &[u8] = b"/iroh-sync/1";
+pub const ALPN: &[u8] = b"/iroh-sync/1";
 
 mod codec;
 
@@ -35,7 +35,7 @@ pub async fn connect_and_sync(
     let peer_id = peer.node_id;
     trace!("connect");
     let connection = endpoint
-        .connect(peer, DOCS_ALPN)
+        .connect(peer, crate::ALPN)
         .await
         .map_err(ConnectError::connect)?;
 
@@ -106,7 +106,7 @@ pub enum AcceptOutcome {
 /// Handle an iroh-docs connection and sync all shared documents in the replica store.
 pub async fn handle_connection<F, Fut>(
     sync: SyncHandle,
-    connecting: iroh_net::endpoint::Connecting,
+    connecting: iroh::endpoint::Connecting,
     accept_cb: F,
 ) -> Result<SyncFinished, AcceptError>
 where

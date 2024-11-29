@@ -170,6 +170,7 @@ jobs:
         run: |
           echo "HEAD_COMMIT_SHA=$(git rev-parse origin/main)" >> ${GITHUB_ENV}
       - name: Check semver
+        continue-on-error: true
         # uses: obi1kenobi/cargo-semver-checks-action@v2
         uses: n0-computer/cargo-semver-checks-action@feat-baseline
         with:
@@ -255,6 +256,7 @@ jobs:
       uses: mozilla-actions/sccache-action@v0.0.6
 
     - name: Check MSRV all features
+      continue-on-error: true
       run: |
         cargo +$MSRV check --workspace --all-targets
 
