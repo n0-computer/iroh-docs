@@ -388,7 +388,7 @@
 };
 
 <span class="doccomment">/// The ALPN identifier for the iroh-docs protocol
-</span><span class="kw">pub const </span>DOCS_ALPN: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"/iroh-sync/1"</span>;
+</span><span class="kw">pub const </span>ALPN: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"/iroh-sync/1"</span>;
 
 <span class="kw">mod </span>codec;
 
@@ -403,7 +403,7 @@
     <span class="kw">let </span>peer_id = peer.node_id;
     <span class="macro">trace!</span>(<span class="string">"connect"</span>);
     <span class="kw">let </span>connection = endpoint
-        .connect(peer, DOCS_ALPN)
+        .connect(peer, <span class="kw">crate</span>::ALPN)
         .<span class="kw">await
         </span>.map_err(ConnectError::connect)<span class="question-mark">?</span>;
 
