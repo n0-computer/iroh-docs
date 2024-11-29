@@ -20,7 +20,7 @@ use crate::{
 };
 
 /// The ALPN identifier for the iroh-docs protocol
-pub const DOCS_ALPN: &[u8] = b"/iroh-sync/1";
+pub const ALPN: &[u8] = b"/iroh-sync/1";
 
 mod codec;
 
@@ -35,7 +35,7 @@ pub async fn connect_and_sync(
     let peer_id = peer.node_id;
     trace!("connect");
     let connection = endpoint
-        .connect(peer, DOCS_ALPN)
+        .connect(peer, crate::ALPN)
         .await
         .map_err(ConnectError::connect)?;
 

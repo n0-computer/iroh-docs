@@ -13,7 +13,8 @@ use anyhow::{bail, Context, Result};
 use futures_lite::{Stream, StreamExt};
 use iroh::{key::PublicKey, Endpoint, NodeAddr};
 use iroh_blobs::{
-    downloader::Downloader, store::EntryStatus, util::local_pool::LocalPoolHandle, Hash,
+    downloader::Downloader, net_protocol::ProtectCb, store::EntryStatus,
+    util::local_pool::LocalPoolHandle, Hash,
 };
 use iroh_gossip::net::Gossip;
 use serde::{Deserialize, Serialize};
@@ -122,6 +123,34 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
             blob_store: bao_store,
             #[cfg(feature = "rpc")]
             rpc_handler: Default::default(),
+        })
+    }
+
+    /// Return a callback that can be added to blobs to protect the content of
+    /// all docs from garbage collection.
+    pub fn protect_cb(&self) -> ProtectCb {
+        let this = self.clone();
+        Box::new(move |live| {
+            let this = this.clone();
+            Box::pin(async move {
+                let doc_hashes = match this.sync.content_hashes().await {
+                    Ok(hashes) => hashes,
+                    Err(err) => {
+                        tracing::warn!("Error getting doc hashes: {}", err);
+                        return;
+                    }
+                };
+                for hash in doc_hashes {
+                    match hash {
+                        Ok(hash) => {
+                            live.insert(hash);
+                        }
+                        Err(err) => {
+                            tracing::error!("Error getting doc hash: {}", err);
+                        }
+                    }
+                }
+            })
         })
     }
 

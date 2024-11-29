@@ -37,7 +37,7 @@ pub trait RangeExt<K: Key, V: Value> {
     }
 }
 
-impl<'a, K: Key + 'static, V: Value + 'static> RangeExt<K, V> for Range<'a, K, V> {
+impl<K: Key + 'static, V: Value + 'static> RangeExt<K, V> for Range<'_, K, V> {
     fn next_map<T>(
         &mut self,
         map: impl for<'x> Fn(K::SelfType<'x>, V::SelfType<'x>) -> T,
@@ -114,7 +114,7 @@ impl RecordsRange<'static> {
     }
 }
 
-impl<'a> Iterator for RecordsRange<'a> {
+impl Iterator for RecordsRange<'_> {
     type Item = anyhow::Result<SignedEntry>;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next_map(into_entry)

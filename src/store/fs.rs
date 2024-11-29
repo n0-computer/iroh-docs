@@ -630,13 +630,13 @@ impl<'a> StoreInstance<'a> {
     }
 }
 
-impl<'a> PublicKeyStore for StoreInstance<'a> {
+impl PublicKeyStore for StoreInstance<'_> {
     fn public_key(&self, id: &[u8; 32]) -> std::result::Result<VerifyingKey, SignatureError> {
         self.store.public_key(id)
     }
 }
 
-impl<'a> super::DownloadPolicyStore for StoreInstance<'a> {
+impl super::DownloadPolicyStore for StoreInstance<'_> {
     fn get_download_policy(&mut self, namespace: &NamespaceId) -> Result<DownloadPolicy> {
         self.store.get_download_policy(namespace)
     }
@@ -936,7 +936,7 @@ impl<'a> LatestIterator<'a> {
     }
 }
 
-impl<'a> Iterator for LatestIterator<'a> {
+impl Iterator for LatestIterator<'_> {
     type Item = Result<(AuthorId, u64, Vec<u8>)>;
 
     fn next(&mut self) -> Option<Self::Item> {

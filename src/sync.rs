@@ -2292,7 +2292,7 @@ mod tests {
             store: &'a mut Store,
             namespace: NamespaceId,
         }
-        impl<'a> QueryTester<'a> {
+        impl QueryTester<'_> {
             fn assert(&mut self, query: impl Into<Query>, expected: Vec<(&'static str, &Author)>) {
                 let query = query.into();
                 let actual = self

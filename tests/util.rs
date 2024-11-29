@@ -1,7 +1,6 @@
 #![cfg(feature = "rpc")]
 #![allow(dead_code)]
 use std::{
-    collections::BTreeSet,
     marker::PhantomData,
     net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6},
     ops::Deref,
@@ -12,7 +11,7 @@ use std::{
 use iroh::{discovery::Discovery, dns::DnsResolver, key::SecretKey, NodeId, RelayMode};
 use iroh_blobs::{
     store::{GcConfig, Store as BlobStore},
-    util::local_pool::{LocalPool, Run},
+    util::local_pool::LocalPool,
 };
 use nested_enum_utils::enum_conversions;
 use quic_rpc::transport::{Connector, Listener};
@@ -39,7 +38,6 @@ pub struct Node<S> {
     store: S,
     local_pool: LocalPool,
     rpc_task: AbortOnDropHandle<()>,
-    gc_task: Option<Run<()>>,
 }
 
 impl<S> Deref for Node<S> {
@@ -185,8 +183,8 @@ impl<S: BlobStore> Builder<S> {
                 return Err(err);
             }
         };
-        router = router.accept(iroh_blobs::protocol::ALPN, blobs.clone());
-        router = router.accept(iroh_docs::net::DOCS_ALPN, Arc::new(docs.clone()));
+        router = router.accept(iroh_blobs::ALPN, blobs.clone());
+        router = router.accept(iroh_docs::ALPN, Arc::new(docs.clone()));
         router = router.accept(iroh_gossip::net::GOSSIP_ALPN, Arc::new(gossip.clone()));
 
         // Build the router
@@ -200,12 +198,13 @@ impl<S: BlobStore> Builder<S> {
         let internal_rpc = quic_rpc::RpcServer::<Service>::new(internal_rpc);
 
         let docs2 = docs.clone();
+        let blobs2 = blobs.clone();
         let rpc_task: tokio::task::JoinHandle<()> = tokio::task::spawn(async move {
             loop {
                 let request = internal_rpc.accept().await;
                 match request {
                     Ok(accepting) => {
-                        let blobs = blobs.clone();
+                        let blobs = blobs2.clone();
                         let docs = docs2.clone();
                         tokio::task::spawn(async move {
                             let (msg, chan) = accepting.read_first().await?;
@@ -228,56 +227,20 @@ impl<S: BlobStore> Builder<S> {
         });
 
         let client = quic_rpc::RpcClient::new(controller);
+        if let Some(period) = self.gc_interval {
+            blobs.add_protected(docs.protect_cb())?;
+            blobs.start_gc(GcConfig {
+                period,
+                done_callback: self.register_gc_done_cb,
+            })?;
+        }
 
-        let _gc_task = if let Some(period) = self.gc_interval {
-            let store = store.clone();
-            let local_pool = local_pool.clone();
-            let docs = docs.clone();
-            let protected_cb = move || {
-                let docs = docs.clone();
-                async move {
-                    let mut live = BTreeSet::default();
-                    let doc_hashes = match docs.sync.content_hashes().await {
-                        Ok(hashes) => hashes,
-                        Err(err) => {
-                            tracing::warn!("Error getting doc hashes: {}", err);
-                            return live;
-                        }
-                    };
-                    for hash in doc_hashes {
-                        match hash {
-                            Ok(hash) => {
-                                live.insert(hash);
-                            }
-                            Err(err) => {
-                                tracing::error!("Error getting doc hash: {}", err);
-                            }
-                        }
-                    }
-                    live
-                }
-            };
-            Some(local_pool.spawn(move || async move {
-                store
-                    .gc_run(
-                        GcConfig {
-                            period,
-                            done_callback: self.register_gc_done_cb,
-                        },
-                        protected_cb,
-                    )
-                    .await
-            }))
-        } else {
-            None
-        };
         let client = Client::new(client);
         Ok(Node {
             router,
             client,
             store,
             rpc_task: AbortOnDropHandle::new(rpc_task),
-            gc_task: _gc_task,
             local_pool,
         })
     }
@@ -381,13 +344,10 @@ impl<S> Node<S> {
     }
 
     /// Shuts down the node
-    pub async fn shutdown(mut self) -> anyhow::Result<()> {
+    pub async fn shutdown(self) -> anyhow::Result<()> {
         self.router.shutdown().await?;
         self.local_pool.shutdown().await;
         self.rpc_task.abort();
-        if let Some(mut task) = self.gc_task.take() {
-            task.abort();
-        }
         Ok(())
     }
 
