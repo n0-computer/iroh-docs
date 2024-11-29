@@ -66,7 +66,6 @@ mod tests {
     use std::str::FromStr;
 
     use iroh::key::PublicKey;
-    use iroh_base::base32;
     use iroh_test::{assert_eq_hex, hexdump::parse_hexdump};
 
     use super::*;
@@ -89,7 +88,15 @@ mod tests {
             capability: Capability::Read(namespace_id),
             nodes: vec![NodeAddr::from_parts(node_id, None, [])],
         };
-        let base32 = base32::parse_vec(ticket.to_string().strip_prefix("doc").unwrap()).unwrap();
+        let s = ticket.to_string();
+        let base32 = data_encoding::BASE32_NOPAD
+            .decode(
+                s.strip_prefix("doc")
+                    .unwrap()
+                    .to_ascii_uppercase()
+                    .as_bytes(),
+            )
+            .unwrap();
         let expected = parse_hexdump("
             00 # variant
             01 # capability discriminator, 1 = read

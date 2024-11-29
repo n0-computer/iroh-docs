@@ -16,7 +16,7 @@ use std::{
 
 use bytes::{Bytes, BytesMut};
 use ed25519_dalek::{Signature, SignatureError};
-use iroh_base::{base32, hash::Hash};
+use iroh_base::hash::Hash;
 #[cfg(feature = "metrics")]
 use iroh_metrics::{inc, inc_by};
 use serde::{Deserialize, Serialize};
@@ -826,11 +826,11 @@ impl Debug for EntrySignature {
         f.debug_struct("EntrySignature")
             .field(
                 "namespace_signature",
-                &base32::fmt(self.namespace_signature.to_bytes()),
+                &hex::encode(self.namespace_signature.to_bytes()),
             )
             .field(
                 "author_signature",
-                &base32::fmt(self.author_signature.to_bytes()),
+                &hex::encode(self.author_signature.to_bytes()),
             )
             .finish()
     }

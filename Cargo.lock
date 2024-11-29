@@ -2193,6 +2193,7 @@ dependencies = [
  "clap",
  "colored",
  "console",
+ "data-encoding",
  "derive_more",
  "dialoguer",
  "ed25519-dalek",

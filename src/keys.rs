@@ -3,7 +3,6 @@
 use std::{cmp::Ordering, fmt, str::FromStr};
 
 use ed25519_dalek::{Signature, SignatureError, Signer, SigningKey, VerifyingKey};
-use iroh_base::base32;
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 
@@ -160,37 +159,37 @@ impl NamespacePublicKey {
 
 impl fmt::Display for Author {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", base32::fmt(self.to_bytes()))
+        write!(f, "{}", hex::encode(self.to_bytes()))
     }
 }
 
 impl fmt::Display for NamespaceSecret {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", base32::fmt(self.to_bytes()))
+        write!(f, "{}", hex::encode(self.to_bytes()))
     }
 }
 
 impl fmt::Display for AuthorPublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", base32::fmt(self.as_bytes()))
+        write!(f, "{}", hex::encode(self.as_bytes()))
     }
 }
 
 impl fmt::Display for NamespacePublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", base32::fmt(self.as_bytes()))
+        write!(f, "{}", hex::encode(self.as_bytes()))
     }
 }
 
 impl fmt::Display for AuthorId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", base32::fmt(self.as_bytes()))
+        write!(f, "{}", hex::encode(self.as_bytes()))
     }
 }
 
 impl fmt::Display for NamespaceId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", base32::fmt(self.as_bytes()))
+        write!(f, "{}", hex::encode(self.as_bytes()))
     }
 }
 
@@ -202,13 +201,13 @@ impl fmt::Debug for NamespaceSecret {
 
 impl fmt::Debug for NamespaceId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "NamespaceId({})", base32::fmt_short(self.0))
+        write!(f, "NamespaceId({})", hex::encode(self.0))
     }
 }
 
 impl fmt::Debug for AuthorId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "AuthorId({})", base32::fmt_short(self.0))
+        write!(f, "AuthorId({})", hex::encode(self.0))
     }
 }
 
@@ -230,11 +229,17 @@ impl fmt::Debug for AuthorPublicKey {
     }
 }
 
+fn parse_hex_array(s: &str) -> anyhow::Result<[u8; 32]> {
+    let mut bytes = [0u8; 32];
+    hex::decode_to_slice(s, &mut bytes)?;
+    Ok(bytes)
+}
+
 impl FromStr for Author {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self::from_bytes(&base32::parse_array(s)?))
+        Ok(Self::from_bytes(&parse_hex_array(s)?))
     }
 }
 
@@ -242,7 +247,7 @@ impl FromStr for NamespaceSecret {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self::from_bytes(&base32::parse_array(s)?))
+        Ok(Self::from_bytes(&parse_hex_array(s)?))
     }
 }
 
@@ -250,7 +255,7 @@ impl FromStr for AuthorPublicKey {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_bytes(&base32::parse_array(s)?).map_err(Into::into)
+        Self::from_bytes(&parse_hex_array(s)?).map_err(Into::into)
     }
 }
 
@@ -258,7 +263,7 @@ impl FromStr for NamespacePublicKey {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_bytes(&base32::parse_array(s)?).map_err(Into::into)
+        Self::from_bytes(&parse_hex_array(s)?).map_err(Into::into)
     }
 }
 
@@ -386,10 +391,10 @@ impl AuthorId {
         AuthorPublicKey::from_bytes(&self.0)
     }
 
-    /// Convert to a base32 string limited to the first 10 bytes for a friendly string
+    /// Convert to a hex string limited to the first 10 bytes for a friendly string
     /// representation of the key.
     pub fn fmt_short(&self) -> String {
-        base32::fmt_short(self.0)
+        hex::encode(self.0).chars().take(10).collect()
     }
 }
 
@@ -421,10 +426,10 @@ impl NamespaceId {
         NamespacePublicKey::from_bytes(&self.0)
     }
 
-    /// Convert to a base32 string limited to the first 10 bytes for a friendly string
+    /// Convert to a hex string limited to the first 10 bytes for a friendly string
     /// representation of the key.
     pub fn fmt_short(&self) -> String {
-        base32::fmt_short(self.0)
+        hex::encode(self.0).chars().take(10).collect()
     }
 }
 
