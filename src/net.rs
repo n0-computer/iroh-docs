@@ -35,7 +35,7 @@ pub async fn connect_and_sync(
     let peer_id = peer.node_id;
     trace!("connect");
     let connection = endpoint
-        .connect(peer, crate::net::ALPN)
+        .connect(peer, crate::ALPN)
         .await
         .map_err(ConnectError::connect)?;
 
