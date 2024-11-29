@@ -9,8 +9,10 @@ use anyhow::Result;
 use bao_tree::{blake3, io::sync::Outboard, ChunkRanges};
 use bytes::Bytes;
 use futures_lite::StreamExt;
-use iroh_blobs::store::Map;
-use iroh_blobs::{store::bao_tree, IROH_BLOCK_SIZE};
+use iroh_blobs::{
+    store::{bao_tree, Map},
+    IROH_BLOCK_SIZE,
+};
 use iroh_io::AsyncSliceReaderExt;
 use rand::RngCore;
 use testdir::testdir;
