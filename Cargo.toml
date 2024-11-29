@@ -84,6 +84,7 @@ testresult = "0.4.1"
 nested_enum_utils = "0.1.0"
 iroh-io = "0.6.1"
 testdir = "0.9.1"
+data-encoding = "2.6.0"
 
 [features]
 default = ["net", "metrics", "engine", "rpc", "test-utils"]
