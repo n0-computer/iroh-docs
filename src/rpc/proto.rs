@@ -3,8 +3,7 @@
 use std::path::PathBuf;
 
 use bytes::Bytes;
-use iroh::NodeAddr;
-use iroh_base::node_addr::AddrInfoOptions;
+use iroh::{AddrInfoOptions, NodeAddr};
 use iroh_blobs::{export::ExportProgress, store::ExportMode, Hash};
 use nested_enum_utils::enum_conversions;
 use quic_rpc::pattern::try_server_streaming::StreamCreated;

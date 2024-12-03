@@ -12,8 +12,7 @@ use anyhow::{anyhow, Context as _, Result};
 use bytes::Bytes;
 use derive_more::{Display, FromStr};
 use futures_lite::{Stream, StreamExt};
-use iroh::NodeAddr;
-use iroh_base::node_addr::AddrInfoOptions;
+use iroh::{AddrInfoOptions, NodeAddr};
 use iroh_blobs::{export::ExportProgress, store::ExportMode, Hash};
 use portable_atomic::{AtomicBool, Ordering};
 use quic_rpc::{

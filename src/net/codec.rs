@@ -294,8 +294,7 @@ impl BobState {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use iroh::key::SecretKey;
-    use iroh_base::hash::Hash;
+    use iroh::{hash::Hash, key::SecretKey};
     use rand_core::{CryptoRngCore, SeedableRng};
 
     use super::*;
