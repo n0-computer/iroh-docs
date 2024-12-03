@@ -974,18 +974,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "educe"
-version = "0.4.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f0042ff8246a363dbe77d2ceedb073339e85a804b9a47636c6e016a9a32c05f"
-dependencies = [
- "enum-ordinalize",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "elliptic-curve"
 version = "0.13.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1029,19 +1017,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1e6a265c649f3f5979b601d26f1d05ada116434c87741c9493cb56218f76cbc"
 dependencies = [
  "heck",
- "proc-macro2",
- "quote",
- "syn 2.0.90",
-]
-
-[[package]]
-name = "enum-ordinalize"
-version = "3.1.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bf1fa3f06bbff1ea5b1a9c7b14aa992a39657db60a2759457328d7e058f49ee"
-dependencies = [
- "num-bigint",
- "num-traits",
  "proc-macro2",
  "quote",
  "syn 2.0.90",
@@ -2126,7 +2101,7 @@ dependencies = [
 [[package]]
 name = "iroh-blobs"
 version = "0.28.1"
-source = "git+https://github.com/n0-computer/iroh-blobs?branch=iroh-v0-29-0#529ed468dc91196cccd4e214e3718bca1d6308df"
+source = "git+https://github.com/n0-computer/iroh-blobs?branch=iroh-v0-29-0#560efd0743fb8a1af36150a1571054639badbf8a"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -2233,7 +2208,7 @@ dependencies = [
 [[package]]
 name = "iroh-gossip"
 version = "0.28.1"
-source = "git+https://github.com/n0-computer/iroh-gossip?branch=iroh-v0-29-0#42545fb169115988b97fb76eaecdb70bebc4d461"
+source = "git+https://github.com/n0-computer/iroh-gossip?branch=iroh-v0-29-0#01a6b5fc517bea316ab89e7f7f95c1a9255cc539"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -3572,21 +3547,20 @@ dependencies = [
 
 [[package]]
 name = "quic-rpc"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc623a188942fc875926f7baeb2cb08ed4288b64f29072656eb051e360ee7623"
+version = "0.16.0"
+source = "git+https://github.com/n0-computer/quic-rpc?branch=iroh-v0-29-0#02b25594bbfd210acb29b65c59d80c3063565193"
 dependencies = [
  "anyhow",
  "derive_more",
- "educe",
  "flume",
  "futures-lite 2.5.0",
  "futures-sink",
  "futures-util",
- "hex",
  "pin-project",
  "serde",
  "slab",
+ "smallvec",
+ "time",
  "tokio",
  "tokio-util",
  "tracing",
@@ -3594,9 +3568,8 @@ dependencies = [
 
 [[package]]
 name = "quic-rpc-derive"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbef4c942978f74ef296ae40d43d4375c9d730b65a582688a358108cfd5c0cf7"
+version = "0.16.0"
+source = "git+https://github.com/n0-computer/quic-rpc?branch=iroh-v0-29-0#02b25594bbfd210acb29b65c59d80c3063565193"
 dependencies = [
  "proc-macro2",
  "quic-rpc",
