@@ -2,6 +2,25 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.29.0](https://github.com/n0-computer/iroh-docs/compare/v0.28.0..0.29.0) - 2024-12-04
+
+### ⛰️  Features
+
+- Update to latest iroh  - ([c146f7a](https://github.com/n0-computer/iroh-docs/commit/c146f7a969926eb2624fbe3ba4f93f157fc04864))
+- Update to iroh@0.29.0 - ([a625e88](https://github.com/n0-computer/iroh-docs/commit/a625e88889853dd98837982b8344af20b54ac606))
+
+### 🚜 Refactor
+
+- Extract RPC definitions into here - ([176715a](https://github.com/n0-computer/iroh-docs/commit/176715a567c7f5c660a980dcc334b5d5892d2cb1))
+- Remove all blobs gc related tests - ([c63bae3](https://github.com/n0-computer/iroh-docs/commit/c63bae32e5a6fc78db6b4b2549bc56f82fbf94db))
+- Switch to hex - ([e8fa3da](https://github.com/n0-computer/iroh-docs/commit/e8fa3dae967540dc4d6ed7361357d23500e5932a))
+
+### ⚙️ Miscellaneous Tasks
+
+- Prune some deps - ([b6fc71d](https://github.com/n0-computer/iroh-docs/commit/b6fc71df5dbdb745afe1852315c1176109360079))
+- Init changelog - ([dd2d6d2](https://github.com/n0-computer/iroh-docs/commit/dd2d6d286f91c78262c66133a0304d270123d402))
+- Fix release config - ([0ac3fbe](https://github.com/n0-computer/iroh-docs/commit/0ac3fbe60403edd3a302a5c53500299360e31797))
+
 ## [0.28.0] - 2024-11-04
 
 ### ⛰️  Features
