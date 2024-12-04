@@ -2100,8 +2100,9 @@ dependencies = [
 
 [[package]]
 name = "iroh-blobs"
-version = "0.28.1"
-source = "git+https://github.com/n0-computer/iroh-blobs?branch=iroh-v0-29-0#ee9427c1f94cee3bbb37628762ea67edf922ad97"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5eaff53d1700758783707690b76973775e593841735739678dc240412e1d040f"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -5832,15 +5833,15 @@ dependencies = [
 
 [[package]]
 name = "wmi"
-version = "0.14.1"
+version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70df482bbec7017ce4132154233642de658000b24b805345572036782a66ad55"
+checksum = "dc47c0776cc6c00d2f7a874a0c846d94d45535936e5a1187693a24f23b4dd701"
 dependencies = [
  "chrono",
  "futures",
  "log",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.4",
  "windows 0.58.0",
  "windows-core 0.58.0",
 ]
