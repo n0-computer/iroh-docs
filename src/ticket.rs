@@ -1,7 +1,6 @@
 //! Tickets for [`iroh-docs`] documents.
 
-use iroh::NodeAddr;
-use iroh_base::ticket;
+use iroh::{ticket, NodeAddr};
 use serde::{Deserialize, Serialize};
 
 use crate::Capability;

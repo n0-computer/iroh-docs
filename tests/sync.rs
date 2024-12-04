@@ -12,9 +12,8 @@ use futures_lite::Stream;
 use futures_util::{FutureExt, StreamExt, TryStreamExt};
 use iroh::{
     key::{PublicKey, SecretKey},
-    RelayMode,
+    AddrInfoOptions, RelayMode,
 };
-use iroh_base::node_addr::AddrInfoOptions;
 use iroh_blobs::Hash;
 use iroh_docs::{
     rpc::client::docs::{Doc, Entry, LiveEvent, ShareMode},

@@ -18,7 +18,8 @@ use dialoguer::Confirm;
 use futures_buffered::BufferedStreamExt;
 use futures_lite::{Stream, StreamExt};
 use indicatif::{HumanBytes, HumanDuration, MultiProgress, ProgressBar, ProgressStyle};
-use iroh_base::{base32::fmt_short, hash::Hash, node_addr::AddrInfoOptions};
+use iroh::{hash::Hash, AddrInfoOptions};
+use iroh_base::base32::fmt_short;
 use iroh_blobs::{
     provider::AddProgress,
     rpc::client::blobs::{self, WrapOption},
