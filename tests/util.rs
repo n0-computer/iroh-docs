@@ -144,13 +144,13 @@ impl<S: BlobStore> Builder<S> {
             endpoint.clone(),
             local_pool.handle().clone(),
         );
-        let blobs = Arc::new(iroh_blobs::net_protocol::Blobs::new(
+        let blobs = iroh_blobs::net_protocol::Blobs::new(
             store.clone(),
             local_pool.handle().clone(),
             Default::default(),
             downloader.clone(),
             endpoint.clone(),
-        ));
+        );
         let gossip = iroh_gossip::net::Gossip::from_endpoint(
             endpoint.clone(),
             Default::default(),

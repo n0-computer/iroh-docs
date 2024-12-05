@@ -110,8 +110,15 @@ rpc = [
   "dep:quic-rpc-derive",
   "dep:serde-error",
   "dep:portable-atomic",
+  "iroh-blobs/rpc",
 ]
 
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "iroh_docsrs"]
+
+[patch.crates-io]
+iroh-base = { git = "https://github.com/n0-computer/iroh", branch = "main" }
+iroh = { git = "https://github.com/n0-computer/iroh", branch = "main" }
+iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs", branch = "main" }
+iroh-gossip = { git = "https://github.com/n0-computer/iroh-gossip", branch = "main" }
