@@ -248,7 +248,8 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
         Ok(())
     }
 
-    pub(crate) fn local_pool_handle(&self) -> &LocalPoolHandle {
+    /// Returns the stored `LocalPoolHandle`.
+    pub fn local_pool_handle(&self) -> &LocalPoolHandle {
         &self.local_pool_handle
     }
 }
