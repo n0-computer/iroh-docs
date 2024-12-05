@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"iroh_docs":[["impl FromArgMatches for <a class=\"enum\" href=\"iroh_docs/cli/authors/enum.AuthorCommands.html\" title=\"enum iroh_docs::cli::authors::AuthorCommands\">AuthorCommands</a>"],["impl FromArgMatches for <a class=\"enum\" href=\"iroh_docs/cli/enum.DlPolicyCmd.html\" title=\"enum iroh_docs::cli::DlPolicyCmd\">DlPolicyCmd</a>"],["impl FromArgMatches for <a class=\"enum\" href=\"iroh_docs/cli/enum.DocCommands.html\" title=\"enum iroh_docs::cli::DocCommands\">DocCommands</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
