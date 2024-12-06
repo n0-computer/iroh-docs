@@ -14,6 +14,7 @@ use iroh_blobs::{
     util::local_pool::LocalPool,
 };
 use iroh_docs::protocol::Docs;
+use iroh_gossip::net::Gossip;
 use nested_enum_utils::enum_conversions;
 use quic_rpc::transport::{Connector, Listener};
 use serde::{Deserialize, Serialize};
@@ -139,11 +140,7 @@ impl<S: BlobStore> Builder<S> {
         let local_pool = LocalPool::single();
         let mut router = iroh::protocol::Router::builder(endpoint.clone());
         let blobs = Blobs::builder(store.clone()).build(&local_pool, &endpoint);
-        let gossip = iroh_gossip::net::Gossip::from_endpoint(
-            endpoint.clone(),
-            Default::default(),
-            &addr.info,
-        );
+        let gossip = Gossip::builder().spawn(endpoint.clone()).await?;
         let builder = match self.path {
             Some(ref path) => Docs::persistent(path.to_path_buf()),
             None => Docs::memory(),
