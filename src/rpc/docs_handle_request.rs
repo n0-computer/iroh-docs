@@ -27,14 +27,14 @@ use super::{
         SetRequest, SetResponse, ShareRequest, ShareResponse, StartSyncRequest, StartSyncResponse,
         StatusRequest, StatusResponse,
     },
-    RpcError, RpcResult,
+    Handler, RpcError, RpcResult,
 };
-use crate::{engine::Engine, Author, DocTicket, NamespaceSecret};
+use crate::{Author, DocTicket, NamespaceSecret};
 
 /// Capacity for the flume channels to forward sync store iterators to async RPC streams.
 const ITER_CHANNEL_CAP: usize = 64;
 
-impl<D: iroh_blobs::store::Store> Engine<D> {
+impl<D: iroh_blobs::store::Store> Handler<D> {
     pub(super) async fn author_create(
         self,
         _req: AuthorCreateRequest,

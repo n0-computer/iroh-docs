@@ -5,14 +5,16 @@ use std::{
     net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6},
     ops::Deref,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 use iroh::{discovery::Discovery, dns::DnsResolver, key::SecretKey, NodeId, RelayMode};
 use iroh_blobs::{
+    net_protocol::Blobs,
     store::{GcConfig, Store as BlobStore},
     util::local_pool::LocalPool,
 };
+use iroh_docs::protocol::Docs;
+use iroh_gossip::net::Gossip;
 use nested_enum_utils::enum_conversions;
 use quic_rpc::transport::{Connector, Listener};
 use serde::{Deserialize, Serialize};
@@ -134,49 +136,15 @@ impl<S: BlobStore> Builder<S> {
             builder = builder.dns_resolver(dns_resolver);
         }
         let endpoint = builder.bind().await?;
-        let addr = endpoint.node_addr().await?;
         let local_pool = LocalPool::single();
         let mut router = iroh::protocol::Router::builder(endpoint.clone());
-
-        // Setup blobs
-        let downloader = iroh_blobs::downloader::Downloader::new(
-            store.clone(),
-            endpoint.clone(),
-            local_pool.handle().clone(),
-        );
-        let blobs = iroh_blobs::net_protocol::Blobs::new(
-            store.clone(),
-            local_pool.handle().clone(),
-            Default::default(),
-            downloader.clone(),
-            endpoint.clone(),
-        );
-        let gossip = iroh_gossip::net::Gossip::from_endpoint(
-            endpoint.clone(),
-            Default::default(),
-            &addr.info,
-        );
-        let replica_store = match self.path {
-            Some(ref path) => iroh_docs::store::Store::persistent(path.join("docs.redb"))?,
-            None => iroh_docs::store::Store::memory(),
+        let blobs = Blobs::builder(store.clone()).build(&local_pool, &endpoint);
+        let gossip = Gossip::builder().spawn(endpoint.clone()).await?;
+        let builder = match self.path {
+            Some(ref path) => Docs::persistent(path.to_path_buf()),
+            None => Docs::memory(),
         };
-        let author_store = match self.path {
-            Some(ref path) => {
-                iroh_docs::engine::DefaultAuthorStorage::Persistent(path.join("default-author"))
-            }
-            None => iroh_docs::engine::DefaultAuthorStorage::Mem,
-        };
-        let docs = match iroh_docs::engine::Engine::spawn(
-            endpoint,
-            gossip.clone(),
-            replica_store,
-            store.clone(),
-            downloader,
-            author_store,
-            local_pool.handle().clone(),
-        )
-        .await
-        {
+        let docs = match builder.spawn(&blobs, &gossip).await {
             Ok(docs) => docs,
             Err(err) => {
                 store.shutdown().await;
@@ -184,8 +152,8 @@ impl<S: BlobStore> Builder<S> {
             }
         };
         router = router.accept(iroh_blobs::ALPN, blobs.clone());
-        router = router.accept(iroh_docs::ALPN, Arc::new(docs.clone()));
-        router = router.accept(iroh_gossip::ALPN, Arc::new(gossip.clone()));
+        router = router.accept(iroh_docs::ALPN, docs.clone());
+        router = router.accept(iroh_gossip::ALPN, gossip.clone());
 
         // Build the router
         let router = router.spawn().await?;
