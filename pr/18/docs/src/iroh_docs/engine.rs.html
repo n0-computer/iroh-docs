@@ -451,10 +451,6 @@
 <a href="#451" id="451">451</a>
 <a href="#452" id="452">452</a>
 <a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Handlers and actors to for live syncing replicas.
 //!
 //! [`crate::Replica`] is also called documents here.
@@ -499,23 +495,21 @@
 
 <span class="doccomment">/// The sync engine coordinates actors that manage open documents, set-reconciliation syncs with
 /// peers and a gossip swarm for each syncing document.
-</span><span class="attr">#[derive(derive_more::Debug, Clone)]
+</span><span class="attr">#[derive(derive_more::Debug)]
 </span><span class="kw">pub struct </span>Engine&lt;D&gt; {
     <span class="doccomment">/// [`Endpoint`] used by the engine.
     </span><span class="kw">pub </span>endpoint: Endpoint,
     <span class="doccomment">/// Handle to the actor thread.
     </span><span class="kw">pub </span>sync: SyncHandle,
     <span class="doccomment">/// The persistent default author for this engine.
-    </span><span class="kw">pub </span>default_author: Arc&lt;DefaultAuthor&gt;,
+    </span><span class="kw">pub </span>default_author: DefaultAuthor,
     to_live_actor: mpsc::Sender&lt;ToLiveActor&gt;,
     <span class="attr">#[allow(dead_code)]
-    </span>actor_handle: Arc&lt;AbortOnDropHandle&lt;()&gt;&gt;,
+    </span>actor_handle: AbortOnDropHandle&lt;()&gt;,
     <span class="attr">#[debug(<span class="string">"ContentStatusCallback"</span>)]
     </span>content_status_cb: ContentStatusCallback,
     local_pool_handle: LocalPoolHandle,
     blob_store: D,
-    <span class="attr">#[cfg(feature = <span class="string">"rpc"</span>)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) rpc_handler: Arc&lt;std::sync::OnceLock&lt;<span class="kw">crate</span>::rpc::RpcHandler&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;D: iroh_blobs::store::Store&gt; Engine&lt;D&gt; {
@@ -573,24 +567,22 @@
             endpoint,
             sync,
             to_live_actor: live_actor_tx,
-            actor_handle: Arc::new(AbortOnDropHandle::new(actor_handle)),
+            actor_handle: AbortOnDropHandle::new(actor_handle),
             content_status_cb,
-            default_author: Arc::new(default_author),
+            default_author,
             local_pool_handle,
             blob_store: bao_store,
-            <span class="attr">#[cfg(feature = <span class="string">"rpc"</span>)]
-            </span>rpc_handler: Default::default(),
         })
     }
 
     <span class="doccomment">/// Return a callback that can be added to blobs to protect the content of
     /// all docs from garbage collection.
     </span><span class="kw">pub fn </span>protect_cb(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ProtectCb {
-        <span class="kw">let </span>this = <span class="self">self</span>.clone();
+        <span class="kw">let </span>sync = <span class="self">self</span>.sync.clone();
         Box::new(<span class="kw">move </span>|live| {
-            <span class="kw">let </span>this = this.clone();
+            <span class="kw">let </span>sync = sync.clone();
             Box::pin(<span class="kw">async move </span>{
-                <span class="kw">let </span>doc_hashes = <span class="kw">match </span>this.sync.content_hashes().<span class="kw">await </span>{
+                <span class="kw">let </span>doc_hashes = <span class="kw">match </span>sync.content_hashes().<span class="kw">await </span>{
                     <span class="prelude-val">Ok</span>(hashes) =&gt; hashes,
                     <span class="prelude-val">Err</span>(err) =&gt; {
                         <span class="macro">tracing::warn!</span>(<span class="string">"Error getting doc hashes: {}"</span>, err);
@@ -659,7 +651,7 @@
 
         <span class="comment">// Create a future that sends channel senders to the respective actors.
         // We clone `self` so that the future does not capture any lifetimes.
-        </span><span class="kw">let </span>this = <span class="self">self</span>.clone();
+        </span><span class="kw">let </span>this = <span class="self">self</span>;
 
         <span class="comment">// Subscribe to insert events from the replica.
         </span><span class="kw">let </span>a = {

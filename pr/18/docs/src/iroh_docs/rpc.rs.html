@@ -96,9 +96,16 @@
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Quic RPC implementation for docs.
 
-</span><span class="kw">use </span>proto::{Request, RpcService};
+</span><span class="kw">use </span>std::{ops::Deref, sync::Arc};
+
+<span class="kw">use </span>proto::{Request, RpcService};
 <span class="kw">use </span>quic_rpc::{
     server::{ChannelTypes, RpcChannel},
     RpcClient, RpcServer,
@@ -115,15 +122,18 @@
 <span class="kw">type </span>RpcError = serde_error::Error;
 <span class="kw">type </span>RpcResult&lt;T&gt; = std::result::Result&lt;T, RpcError&gt;;
 
-<span class="kw">impl</span>&lt;D: iroh_blobs::store::Store&gt; Engine&lt;D&gt; {
-    <span class="doccomment">/// Get an in memory client to interact with the docs engine.
-    </span><span class="kw">pub fn </span>client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>client::docs::MemClient {
-        <span class="kw-2">&amp;</span><span class="self">self
-            </span>.rpc_handler
-            .get_or_init(|| RpcHandler::new(<span class="self">self</span>))
-            .client
-    }
+<span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Handler&lt;S&gt;(<span class="kw">pub</span>(<span class="kw">crate</span>) Arc&lt;Engine&lt;S&gt;&gt;);
 
+<span class="kw">impl</span>&lt;S&gt; Deref <span class="kw">for </span>Handler&lt;S&gt; {
+    <span class="kw">type </span>Target = Engine&lt;S&gt;;
+
+    <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
+    </span>}
+}
+
+<span class="kw">impl</span>&lt;D: iroh_blobs::store::Store&gt; Handler&lt;D&gt; {
     <span class="doccomment">/// Handle a docs request from the RPC server.
     </span><span class="kw">pub async fn </span>handle_rpc_request&lt;C: ChannelTypes&lt;RpcService&gt;&gt;(
         <span class="self">self</span>,
@@ -184,8 +194,8 @@
 }
 
 <span class="kw">impl </span>RpcHandler {
-    <span class="kw">pub fn </span>new&lt;D: iroh_blobs::store::Store&gt;(engine: <span class="kw-2">&amp;</span>Engine&lt;D&gt;) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>engine = engine.clone();
+    <span class="kw">pub fn </span>new&lt;D: iroh_blobs::store::Store&gt;(engine: Arc&lt;Engine&lt;D&gt;&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>engine = Handler(engine);
         <span class="kw">let </span>(listener, connector) = quic_rpc::transport::flume::channel(<span class="number">1</span>);
         <span class="kw">let </span>listener = RpcServer::new(listener);
         <span class="kw">let </span>client = client::docs::MemClient::new(RpcClient::new(connector));

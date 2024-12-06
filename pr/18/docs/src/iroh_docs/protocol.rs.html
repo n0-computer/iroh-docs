@@ -127,8 +127,6 @@
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! [`ProtocolHandler`] implementation for the docs [`Engine`].
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
@@ -138,11 +136,9 @@
 <span class="kw">use </span>iroh::{endpoint::Connecting, protocol::ProtocolHandler};
 <span class="kw">use </span>iroh_blobs::net_protocol::{Blobs, ProtectCb};
 <span class="kw">use </span>iroh_gossip::net::Gossip;
-<span class="kw">use </span>quic_rpc::server::{ChannelTypes, RpcChannel};
 
 <span class="kw">use crate</span>::{
     engine::{DefaultAuthorStorage, Engine},
-    rpc::proto::{Request, RpcService},
     store::Store,
 };
 
@@ -189,7 +185,7 @@
     </span><span class="kw">pub fn </span>client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::rpc::client::docs::MemClient {
         <span class="kw-2">&amp;</span><span class="self">self
             </span>.rpc_handler
-            .get_or_init(|| <span class="kw">crate</span>::rpc::RpcHandler::new(<span class="kw-2">&amp;</span><span class="self">self</span>.engine))
+            .get_or_init(|| <span class="kw">crate</span>::rpc::RpcHandler::new(<span class="self">self</span>.engine.clone()))
             .client
     }
 
@@ -205,14 +201,14 @@
 
     <span class="doccomment">/// Handle a docs request from the RPC server.
     </span><span class="attr">#[cfg(feature = <span class="string">"rpc"</span>)]
-    </span><span class="kw">pub async fn </span>handle_rpc_request&lt;C: ChannelTypes&lt;RpcService&gt;&gt;(
+    </span><span class="kw">pub async fn </span>handle_rpc_request&lt;
+        C: quic_rpc::server::ChannelTypes&lt;<span class="kw">crate</span>::rpc::proto::RpcService&gt;,
+    &gt;(
         <span class="self">self</span>,
-        msg: Request,
-        chan: RpcChannel&lt;RpcService, C&gt;,
+        msg: <span class="kw">crate</span>::rpc::proto::Request,
+        chan: quic_rpc::server::RpcChannel&lt;<span class="kw">crate</span>::rpc::proto::RpcService, C&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), quic_rpc::server::RpcServerError&lt;C&gt;&gt; {
-        <span class="self">self</span>.engine
-            .as_ref()
-            .clone()
+        <span class="kw">crate</span>::rpc::Handler(<span class="self">self</span>.engine.clone())
             .handle_rpc_request(msg, chan)
             .<span class="kw">await
     </span>}
