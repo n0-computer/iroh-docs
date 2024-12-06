@@ -125,8 +125,6 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! [`ProtocolHandler`] implementation for the docs [`Engine`].
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
@@ -195,7 +193,8 @@
     </span><span class="kw">pub fn </span>new(engine: Engine&lt;S&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             engine: Arc::new(engine),
-            rpc_handler: Default::default(),
+            <span class="attr">#[cfg(feature = <span class="string">"rpc"</span>)]
+            </span>rpc_handler: Default::default(),
         }
     }
 
@@ -250,10 +249,7 @@
             blobs.rt().clone(),
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(Docs {
-            engine: Arc::new(engine),
-            rpc_handler: Default::default(),
-        })
+        <span class="prelude-val">Ok</span>(Docs::new(engine))
     }
 }
 </code></pre></div></section></main></body></html>
