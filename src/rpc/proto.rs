@@ -15,7 +15,7 @@ use super::{
     RpcError, RpcResult,
 };
 use crate::{
-    actor::OpenState,
+    actor::{ImportAuthorAction, OpenState},
     engine::LiveEvent,
     store::{DownloadPolicy, Query},
     Author, AuthorId, Capability, CapabilityKind, DocTicket, Entry, NamespaceId, PeerIdBytes,
@@ -87,7 +87,7 @@ pub enum Request {
     #[rpc(response = RpcResult<AuthorSetDefaultResponse>)]
     AuthorSetDefault(AuthorSetDefaultRequest),
     #[rpc(response = RpcResult<AuthorImportResponse>)]
-    AuthorImport(AuthorImportRequest),
+    AuthorImport(ImportAuthorAction),
     #[rpc(response = RpcResult<AuthorExportResponse>)]
     AuthorExport(AuthorExportRequest),
     #[rpc(response = RpcResult<AuthorDeleteResponse>)]
@@ -522,13 +522,6 @@ pub struct AuthorExportRequest {
 pub struct AuthorExportResponse {
     /// The author
     pub author: Option<Author>,
-}
-
-/// Import author from secret key
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorImportRequest {
-    /// The author to import
-    pub author: Author,
 }
 
 /// Response to [`ImportRequest`]
