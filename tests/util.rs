@@ -144,7 +144,7 @@ impl<S: BlobStore> Builder<S> {
             Some(ref path) => Docs::persistent(path.to_path_buf()),
             None => Docs::memory(),
         };
-        let docs = match builder.build(&blobs, &gossip).await {
+        let docs = match builder.spawn(&blobs, &gossip).await {
             Ok(docs) => docs,
             Err(err) => {
                 store.shutdown().await;

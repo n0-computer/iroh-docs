@@ -1,4 +1,3 @@
-#![cfg(feature = "rpc")]
 //! [`ProtocolHandler`] implementation for the docs [`Engine`].
 
 use std::{path::PathBuf, sync::Arc};
@@ -55,6 +54,7 @@ impl Docs<()> {
 
 impl<S: iroh_blobs::store::Store> Docs<S> {
     /// Get an in memory client to interact with the docs engine.
+    #[cfg(feature = "rpc")]
     pub fn client(&self) -> &crate::rpc::client::docs::MemClient {
         &self
             .rpc_handler
@@ -73,6 +73,7 @@ impl<S: iroh_blobs::store::Store> Docs<S> {
     }
 
     /// Handle a docs request from the RPC server.
+    #[cfg(feature = "rpc")]
     pub async fn handle_rpc_request<C: ChannelTypes<RpcService>>(
         self,
         msg: Request,
@@ -99,7 +100,7 @@ pub struct Builder {
 
 impl Builder {
     /// Build a [`Docs`] protocol given a [`Blobs`] and [`Gossip`] protocol.
-    pub async fn build<S: iroh_blobs::store::Store>(
+    pub async fn spawn<S: iroh_blobs::store::Store>(
         self,
         blobs: &Blobs<S>,
         gossip: &Gossip,
