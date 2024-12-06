@@ -32,11 +32,18 @@ use crate::{
 const ACTION_CAP: usize = 1024;
 pub(crate) const MAX_COMMIT_DELAY: Duration = Duration::from_millis(500);
 
+/// Import an author action.
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct ImportAuthorAction {
+    /// The author to import.
+    pub author: Author,
+}
+
 #[derive(derive_more::Debug, derive_more::Display)]
 enum Action {
     #[display("NewAuthor")]
     ImportAuthor {
-        author: Author,
+        action: ImportAuthorAction,
         #[debug("reply")]
         reply: oneshot::Sender<Result<AuthorId>>,
     },
@@ -221,7 +228,7 @@ struct OpenReplica {
 /// waiting for the actor to finish happens in an async context, and therefore that the final
 /// [`SyncHandle::drop`] will not block.
 #[derive(Debug, Clone)]
-pub struct SyncHandle {
+pub(crate) struct SyncHandle {
     tx: async_channel::Sender<Action>,
     join_handle: Arc<Option<JoinHandle<()>>>,
 }
@@ -500,9 +507,20 @@ impl SyncHandle {
         self.send(Action::ListReplicas { reply }).await
     }
 
+    /// Imports the given author.
+    ///
+    /// Warning: The [`Author`] struct contains sensitive data.
     pub async fn import_author(&self, author: Author) -> Result<AuthorId> {
+        self.import_author_action(ImportAuthorAction { author })
+            .await
+    }
+
+    pub(crate) async fn import_author_action(
+        &self,
+        action: ImportAuthorAction,
+    ) -> Result<AuthorId> {
         let (reply, rx) = oneshot::channel();
-        self.send(Action::ImportAuthor { author, reply }).await?;
+        self.send(Action::ImportAuthor { action, reply }).await?;
         rx.await?
     }
 
@@ -663,9 +681,9 @@ impl Actor {
             Action::Shutdown { .. } => {
                 unreachable!("Shutdown is handled in run()")
             }
-            Action::ImportAuthor { author, reply } => {
-                let id = author.id();
-                send_reply(reply, self.store.import_author(author).map(|_| id))
+            Action::ImportAuthor { action, reply } => {
+                let id = action.author.id();
+                send_reply(reply, self.store.import_author(action.author).map(|_| id))
             }
             Action::ExportAuthor { author, reply } => {
                 send_reply(reply, self.store.get_author(&author))

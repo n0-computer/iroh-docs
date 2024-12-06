@@ -9,13 +9,7 @@ use quic_rpc::{client::BoxedConnector, Connector};
 use super::flatten;
 #[doc(inline)]
 pub use crate::engine::{Origin, SyncEvent, SyncReason};
-use crate::{
-    rpc::proto::{
-        AuthorCreateRequest, AuthorDeleteRequest, AuthorExportRequest, AuthorGetDefaultRequest,
-        AuthorImportRequest, AuthorListRequest, AuthorSetDefaultRequest, RpcService,
-    },
-    Author, AuthorId,
-};
+use crate::{actor::ImportAuthorAction, rpc::proto::RpcService, Author, AuthorId};
 
 /// Iroh docs client.
 #[derive(Debug, Clone)]
@@ -85,7 +79,7 @@ impl<C: Connector<RpcService>> Client<C> {
     ///
     /// Warning: The [`Author`] struct contains sensitive data.
     pub async fn import(&self, author: Author) -> Result<()> {
-        self.rpc.rpc(AuthorImportRequest { author }).await??;
+        self.rpc.rpc(ImportAuthorAction { author }).await??;
         Ok(())
     }
 

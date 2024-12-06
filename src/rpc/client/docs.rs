@@ -20,7 +20,7 @@ use quic_rpc::{
 };
 use serde::{Deserialize, Serialize};
 
-use super::{authors, flatten};
+use super::flatten;
 use crate::{
     actor::OpenState,
     rpc::proto::{
@@ -54,11 +54,6 @@ impl<C: Connector<RpcService>> Client<C> {
     /// Creates a new docs client.
     pub fn new(rpc: quic_rpc::RpcClient<RpcService, C>) -> Self {
         Self { rpc }
-    }
-
-    /// Returns an authors client.
-    pub fn authors(&self) -> authors::Client<C> {
-        authors::Client::new(self.rpc.clone())
     }
 
     /// Creates a client.

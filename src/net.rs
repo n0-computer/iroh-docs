@@ -25,7 +25,7 @@ pub const ALPN: &[u8] = b"/iroh-sync/1";
 mod codec;
 
 /// Connect to a peer and sync a replica
-pub async fn connect_and_sync(
+pub(crate) async fn connect_and_sync(
     endpoint: &Endpoint,
     sync: &SyncHandle,
     namespace: NamespaceId,
@@ -104,7 +104,7 @@ pub enum AcceptOutcome {
 }
 
 /// Handle an iroh-docs connection and sync all shared documents in the replica store.
-pub async fn handle_connection<F, Fut>(
+pub(crate) async fn handle_connection<F, Fut>(
     sync: SyncHandle,
     connecting: iroh::endpoint::Connecting,
     accept_cb: F,

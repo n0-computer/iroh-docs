@@ -18,8 +18,7 @@ use crate::{
     actor::OpenState,
     engine::LiveEvent,
     store::{DownloadPolicy, Query},
-    Author, AuthorId, Capability, CapabilityKind, DocTicket, Entry, NamespaceId, PeerIdBytes,
-    SignedEntry,
+    AuthorId, Capability, CapabilityKind, DocTicket, Entry, NamespaceId, PeerIdBytes, SignedEntry,
 };
 
 /// The RPC service type for the docs protocol.
@@ -78,20 +77,6 @@ pub enum Request {
     SetDownloadPolicy(SetDownloadPolicyRequest),
     #[rpc(response = RpcResult<GetSyncPeersResponse>)]
     GetSyncPeers(GetSyncPeersRequest),
-    #[server_streaming(response = RpcResult<AuthorListResponse>)]
-    AuthorList(AuthorListRequest),
-    #[rpc(response = RpcResult<AuthorCreateResponse>)]
-    AuthorCreate(AuthorCreateRequest),
-    #[rpc(response = RpcResult<AuthorGetDefaultResponse>)]
-    AuthorGetDefault(AuthorGetDefaultRequest),
-    #[rpc(response = RpcResult<AuthorSetDefaultResponse>)]
-    AuthorSetDefault(AuthorSetDefaultRequest),
-    #[rpc(response = RpcResult<AuthorImportResponse>)]
-    AuthorImport(AuthorImportRequest),
-    #[rpc(response = RpcResult<AuthorExportResponse>)]
-    AuthorExport(AuthorExportRequest),
-    #[rpc(response = RpcResult<AuthorDeleteResponse>)]
-    AuthorDelete(AuthorDeleteRequest),
 }
 
 #[allow(missing_docs)]
@@ -120,13 +105,6 @@ pub enum Response {
     SetDownloadPolicy(RpcResult<SetDownloadPolicyResponse>),
     GetSyncPeers(RpcResult<GetSyncPeersResponse>),
     StreamCreated(RpcResult<StreamCreated>),
-    AuthorList(RpcResult<AuthorListResponse>),
-    AuthorCreate(RpcResult<AuthorCreateResponse>),
-    AuthorGetDefault(RpcResult<AuthorGetDefaultResponse>),
-    AuthorSetDefault(RpcResult<AuthorSetDefaultResponse>),
-    AuthorImport(RpcResult<AuthorImportResponse>),
-    AuthorExport(RpcResult<AuthorExportResponse>),
-    AuthorDelete(RpcResult<AuthorDeleteResponse>),
 }
 
 /// Subscribe to events for a document.
@@ -453,87 +431,4 @@ pub struct GetSyncPeersRequest {
 pub struct GetSyncPeersResponse {
     /// List of peers ids
     pub peers: Option<Vec<PeerIdBytes>>,
-}
-
-/// List document authors for which we have a secret key.
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorListRequest {}
-
-/// Response for [`AuthorListRequest`]
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorListResponse {
-    /// The author id
-    pub author_id: AuthorId,
-}
-
-/// Create a new document author.
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorCreateRequest;
-
-/// Response for [`AuthorCreateRequest`]
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorCreateResponse {
-    /// The id of the created author
-    pub author_id: AuthorId,
-}
-
-/// Get the default author.
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorGetDefaultRequest;
-
-/// Response for [`AuthorGetDefaultRequest`]
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorGetDefaultResponse {
-    /// The id of the author
-    pub author_id: AuthorId,
-}
-
-/// Set the default author.
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorSetDefaultRequest {
-    /// The id of the author
-    pub author_id: AuthorId,
-}
-
-/// Response for [`AuthorSetDefaultRequest`]
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorSetDefaultResponse;
-
-/// Delete an author
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorDeleteRequest {
-    /// The id of the author to delete
-    pub author: AuthorId,
-}
-
-/// Response for [`AuthorDeleteRequest`]
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorDeleteResponse;
-
-/// Exports an author
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorExportRequest {
-    /// The id of the author to delete
-    pub author: AuthorId,
-}
-
-/// Response for [`AuthorExportRequest`]
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorExportResponse {
-    /// The author
-    pub author: Option<Author>,
-}
-
-/// Import author from secret key
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorImportRequest {
-    /// The author to import
-    pub author: Author,
-}
-
-/// Response to [`ImportRequest`]
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorImportResponse {
-    /// The author id of the imported author
-    pub author_id: AuthorId,
 }

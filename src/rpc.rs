@@ -65,14 +65,6 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
             SetDownloadPolicy(msg) => chan.rpc(msg, this, Self::doc_set_download_policy).await,
             GetDownloadPolicy(msg) => chan.rpc(msg, this, Self::doc_get_download_policy).await,
             GetSyncPeers(msg) => chan.rpc(msg, this, Self::doc_get_sync_peers).await,
-
-            AuthorList(msg) => chan.server_streaming(msg, this, Self::author_list).await,
-            AuthorCreate(msg) => chan.rpc(msg, this, Self::author_create).await,
-            AuthorImport(msg) => chan.rpc(msg, this, Self::author_import).await,
-            AuthorExport(msg) => chan.rpc(msg, this, Self::author_export).await,
-            AuthorDelete(msg) => chan.rpc(msg, this, Self::author_delete).await,
-            AuthorGetDefault(msg) => chan.rpc(msg, this, Self::author_default).await,
-            AuthorSetDefault(msg) => chan.rpc(msg, this, Self::author_set_default).await,
         }
     }
 }
