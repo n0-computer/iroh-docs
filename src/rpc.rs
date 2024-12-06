@@ -80,13 +80,13 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
 #[derive(Debug)]
 pub(crate) struct RpcHandler {
     /// Client to hand out
-    client: client::docs::MemClient,
+    pub(crate) client: client::docs::MemClient,
     /// Handler task
     _handler: AbortOnDropHandle<()>,
 }
 
 impl RpcHandler {
-    fn new<D: iroh_blobs::store::Store>(engine: &Engine<D>) -> Self {
+    pub fn new<D: iroh_blobs::store::Store>(engine: &Engine<D>) -> Self {
         let engine = engine.clone();
         let (listener, connector) = quic_rpc::transport::flume::channel(1);
         let listener = RpcServer::new(listener);
