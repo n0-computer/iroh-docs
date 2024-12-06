@@ -7,11 +7,9 @@ use futures_lite::future::Boxed as BoxedFuture;
 use iroh::{endpoint::Connecting, protocol::ProtocolHandler};
 use iroh_blobs::net_protocol::{Blobs, ProtectCb};
 use iroh_gossip::net::Gossip;
-use quic_rpc::server::{ChannelTypes, RpcChannel};
 
 use crate::{
     engine::{DefaultAuthorStorage, Engine},
-    rpc::proto::{Request, RpcService},
     store::Store,
 };
 
@@ -74,10 +72,12 @@ impl<S: iroh_blobs::store::Store> Docs<S> {
 
     /// Handle a docs request from the RPC server.
     #[cfg(feature = "rpc")]
-    pub async fn handle_rpc_request<C: ChannelTypes<RpcService>>(
+    pub async fn handle_rpc_request<
+        C: quic_rpc::server::ChannelTypes<crate::rpc::proto::RpcService>,
+    >(
         self,
-        msg: Request,
-        chan: RpcChannel<RpcService, C>,
+        msg: crate::rpc::proto::Request,
+        chan: quic_rpc::server::RpcChannel<crate::rpc::proto::RpcService, C>,
     ) -> Result<(), quic_rpc::server::RpcServerError<C>> {
         crate::rpc::Handler(self.engine.clone())
             .handle_rpc_request(msg, chan)
