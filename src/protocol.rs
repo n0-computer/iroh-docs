@@ -66,6 +66,7 @@ impl<S: iroh_blobs::store::Store> Docs<S> {
     pub fn new(engine: Engine<S>) -> Self {
         Self {
             engine: Arc::new(engine),
+            #[cfg(feature = "rpc")]
             rpc_handler: Default::default(),
         }
     }
@@ -121,9 +122,6 @@ impl Builder {
             blobs.rt().clone(),
         )
         .await?;
-        Ok(Docs {
-            engine: Arc::new(engine),
-            rpc_handler: Default::default(),
-        })
+        Ok(Docs::new(engine))
     }
 }
