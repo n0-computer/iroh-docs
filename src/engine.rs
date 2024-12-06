@@ -42,23 +42,21 @@ const SUBSCRIBE_CHANNEL_CAP: usize = 256;
 
 /// The sync engine coordinates actors that manage open documents, set-reconciliation syncs with
 /// peers and a gossip swarm for each syncing document.
-#[derive(derive_more::Debug, Clone)]
+#[derive(derive_more::Debug)]
 pub struct Engine<D> {
     /// [`Endpoint`] used by the engine.
     pub endpoint: Endpoint,
     /// Handle to the actor thread.
     pub sync: SyncHandle,
     /// The persistent default author for this engine.
-    pub default_author: Arc<DefaultAuthor>,
+    pub default_author: DefaultAuthor,
     to_live_actor: mpsc::Sender<ToLiveActor>,
     #[allow(dead_code)]
-    actor_handle: Arc<AbortOnDropHandle<()>>,
+    actor_handle: AbortOnDropHandle<()>,
     #[debug("ContentStatusCallback")]
     content_status_cb: ContentStatusCallback,
     local_pool_handle: LocalPoolHandle,
     blob_store: D,
-    #[cfg(feature = "rpc")]
-    pub(crate) rpc_handler: Arc<std::sync::OnceLock<crate::rpc::RpcHandler>>,
 }
 
 impl<D: iroh_blobs::store::Store> Engine<D> {
@@ -116,24 +114,22 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
             endpoint,
             sync,
             to_live_actor: live_actor_tx,
-            actor_handle: Arc::new(AbortOnDropHandle::new(actor_handle)),
+            actor_handle: AbortOnDropHandle::new(actor_handle),
             content_status_cb,
-            default_author: Arc::new(default_author),
+            default_author,
             local_pool_handle,
             blob_store: bao_store,
-            #[cfg(feature = "rpc")]
-            rpc_handler: Default::default(),
         })
     }
 
     /// Return a callback that can be added to blobs to protect the content of
     /// all docs from garbage collection.
     pub fn protect_cb(&self) -> ProtectCb {
-        let this = self.clone();
+        let sync = self.sync.clone();
         Box::new(move |live| {
-            let this = this.clone();
+            let sync = sync.clone();
             Box::pin(async move {
-                let doc_hashes = match this.sync.content_hashes().await {
+                let doc_hashes = match sync.content_hashes().await {
                     Ok(hashes) => hashes,
                     Err(err) => {
                         tracing::warn!("Error getting doc hashes: {}", err);
@@ -202,7 +198,7 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
 
         // Create a future that sends channel senders to the respective actors.
         // We clone `self` so that the future does not capture any lifetimes.
-        let this = self.clone();
+        let this = self;
 
         // Subscribe to insert events from the replica.
         let a = {

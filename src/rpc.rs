@@ -1,5 +1,7 @@
 //! Quic RPC implementation for docs.
 
+use std::{ops::Deref, sync::Arc};
+
 use proto::{Request, RpcService};
 use quic_rpc::{
     server::{ChannelTypes, RpcChannel},
@@ -17,15 +19,18 @@ mod docs_handle_request;
 type RpcError = serde_error::Error;
 type RpcResult<T> = std::result::Result<T, RpcError>;
 
-impl<D: iroh_blobs::store::Store> Engine<D> {
-    /// Get an in memory client to interact with the docs engine.
-    pub fn client(&self) -> &client::docs::MemClient {
-        &self
-            .rpc_handler
-            .get_or_init(|| RpcHandler::new(self))
-            .client
-    }
+#[derive(Debug, Clone)]
+pub(crate) struct Handler<S>(pub(crate) Arc<Engine<S>>);
 
+impl<S> Deref for Handler<S> {
+    type Target = Engine<S>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<D: iroh_blobs::store::Store> Handler<D> {
     /// Handle a docs request from the RPC server.
     pub async fn handle_rpc_request<C: ChannelTypes<RpcService>>(
         self,
@@ -86,8 +91,8 @@ pub(crate) struct RpcHandler {
 }
 
 impl RpcHandler {
-    pub fn new<D: iroh_blobs::store::Store>(engine: &Engine<D>) -> Self {
-        let engine = engine.clone();
+    pub fn new<D: iroh_blobs::store::Store>(engine: Arc<Engine<D>>) -> Self {
+        let engine = Handler(engine);
         let (listener, connector) = quic_rpc::transport::flume::channel(1);
         let listener = RpcServer::new(listener);
         let client = client::docs::MemClient::new(RpcClient::new(connector));

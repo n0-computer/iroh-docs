@@ -58,7 +58,7 @@ impl<S: iroh_blobs::store::Store> Docs<S> {
     pub fn client(&self) -> &crate::rpc::client::docs::MemClient {
         &self
             .rpc_handler
-            .get_or_init(|| crate::rpc::RpcHandler::new(&self.engine))
+            .get_or_init(|| crate::rpc::RpcHandler::new(self.engine.clone()))
             .client
     }
 
@@ -79,9 +79,7 @@ impl<S: iroh_blobs::store::Store> Docs<S> {
         msg: Request,
         chan: RpcChannel<RpcService, C>,
     ) -> Result<(), quic_rpc::server::RpcServerError<C>> {
-        self.engine
-            .as_ref()
-            .clone()
+        crate::rpc::Handler(self.engine.clone())
             .handle_rpc_request(msg, chan)
             .await
     }
