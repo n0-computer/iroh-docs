@@ -14,11 +14,11 @@ use super::{
     proto::{
         AuthorCreateRequest, AuthorCreateResponse, AuthorDeleteRequest, AuthorDeleteResponse,
         AuthorExportRequest, AuthorExportResponse, AuthorGetDefaultRequest,
-        AuthorGetDefaultResponse, AuthorImportRequest, AuthorImportResponse, AuthorListRequest,
-        AuthorListResponse, AuthorSetDefaultRequest, AuthorSetDefaultResponse, CloseRequest,
-        CloseResponse, CreateRequest as DocCreateRequest, CreateResponse as DocCreateResponse,
-        DelRequest, DelResponse, DocListRequest, DocSubscribeRequest, DocSubscribeResponse,
-        DropRequest, DropResponse, ExportFileRequest, ExportFileResponse, GetDownloadPolicyRequest,
+        AuthorGetDefaultResponse, AuthorImportResponse, AuthorListRequest, AuthorListResponse,
+        AuthorSetDefaultRequest, AuthorSetDefaultResponse, CloseRequest, CloseResponse,
+        CreateRequest as DocCreateRequest, CreateResponse as DocCreateResponse, DelRequest,
+        DelResponse, DocListRequest, DocSubscribeRequest, DocSubscribeResponse, DropRequest,
+        DropResponse, ExportFileRequest, ExportFileResponse, GetDownloadPolicyRequest,
         GetDownloadPolicyResponse, GetExactRequest, GetExactResponse, GetManyRequest,
         GetManyResponse, GetSyncPeersRequest, GetSyncPeersResponse, ImportFileRequest,
         ImportFileResponse, ImportRequest as DocImportRequest, ImportResponse as DocImportResponse,
@@ -29,7 +29,7 @@ use super::{
     },
     RpcError, RpcResult,
 };
-use crate::{engine::Engine, Author, DocTicket, NamespaceSecret};
+use crate::{actor::ImportAuthorAction, engine::Engine, Author, DocTicket, NamespaceSecret};
 
 /// Capacity for the flume channels to forward sync store iterators to async RPC streams.
 const ITER_CHANNEL_CAP: usize = 64;
@@ -91,13 +91,14 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
 
     pub(super) async fn author_import(
         self,
-        req: AuthorImportRequest,
+        req: ImportAuthorAction,
     ) -> RpcResult<AuthorImportResponse> {
         let author_id = self
             .sync
-            .import_author(req.author)
+            .import_author_action(req)
             .await
             .map_err(|e| RpcError::new(&*e))?;
+
         Ok(AuthorImportResponse { author_id })
     }
 

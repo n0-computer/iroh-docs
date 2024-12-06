@@ -10,9 +10,10 @@ use super::flatten;
 #[doc(inline)]
 pub use crate::engine::{Origin, SyncEvent, SyncReason};
 use crate::{
+    actor::ImportAuthorAction,
     rpc::proto::{
         AuthorCreateRequest, AuthorDeleteRequest, AuthorExportRequest, AuthorGetDefaultRequest,
-        AuthorImportRequest, AuthorListRequest, AuthorSetDefaultRequest, RpcService,
+        AuthorListRequest, AuthorSetDefaultRequest, RpcService,
     },
     Author, AuthorId,
 };
@@ -85,7 +86,7 @@ impl<C: Connector<RpcService>> Client<C> {
     ///
     /// Warning: The [`Author`] struct contains sensitive data.
     pub async fn import(&self, author: Author) -> Result<()> {
-        self.rpc.rpc(AuthorImportRequest { author }).await??;
+        self.rpc.rpc(ImportAuthorAction { author }).await??;
         Ok(())
     }
 
