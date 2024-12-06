@@ -2,7 +2,6 @@
 use anyhow::Result;
 use futures_util::{Stream, StreamExt};
 
-pub mod authors;
 pub mod docs;
 
 fn flatten<T, E1, E2>(

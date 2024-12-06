@@ -74,15 +74,15 @@ impl quic_rpc::Service for Service {
 pub struct Client {
     blobs: iroh_blobs::rpc::client::blobs::Client,
     docs: iroh_docs::rpc::client::docs::Client,
-    authors: iroh_docs::rpc::client::authors::Client,
+    authors: iroh_docs::engine::Authors,
 }
 
 impl Client {
-    fn new(client: quic_rpc::RpcClient<Service>) -> Self {
+    fn new(client: quic_rpc::RpcClient<Service>, authors: iroh_docs::engine::Authors) -> Self {
         Self {
             blobs: iroh_blobs::rpc::client::blobs::Client::new(client.clone().map().boxed()),
             docs: iroh_docs::rpc::client::docs::Client::new(client.clone().map().boxed()),
-            authors: iroh_docs::rpc::client::authors::Client::new(client.map().boxed()),
+            authors,
         }
     }
 
@@ -94,7 +94,7 @@ impl Client {
         &self.docs
     }
 
-    pub fn authors(&self) -> &iroh_docs::rpc::client::authors::Client {
+    pub fn authors(&self) -> &iroh_docs::engine::Authors {
         &self.authors
     }
 }
@@ -235,7 +235,9 @@ impl<S: BlobStore> Builder<S> {
             })?;
         }
 
-        let client = Client::new(client);
+        let authors = docs.authors();
+
+        let client = Client::new(client, authors);
         Ok(Node {
             router,
             client,
@@ -354,5 +356,10 @@ impl<S> Node<S> {
     /// Returns the client
     pub fn client(&self) -> &Client {
         &self.client
+    }
+
+    /// Returns an author api
+    pub fn authors(&self) -> &iroh_docs::engine::Authors {
+        &self.client.authors
     }
 }

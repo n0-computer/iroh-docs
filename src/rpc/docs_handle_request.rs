@@ -12,125 +12,26 @@ use iroh_blobs::{
 use super::{
     client::docs::ShareMode,
     proto::{
-        AuthorCreateRequest, AuthorCreateResponse, AuthorDeleteRequest, AuthorDeleteResponse,
-        AuthorExportRequest, AuthorExportResponse, AuthorGetDefaultRequest,
-        AuthorGetDefaultResponse, AuthorImportResponse, AuthorListRequest, AuthorListResponse,
-        AuthorSetDefaultRequest, AuthorSetDefaultResponse, CloseRequest, CloseResponse,
-        CreateRequest as DocCreateRequest, CreateResponse as DocCreateResponse, DelRequest,
-        DelResponse, DocListRequest, DocSubscribeRequest, DocSubscribeResponse, DropRequest,
-        DropResponse, ExportFileRequest, ExportFileResponse, GetDownloadPolicyRequest,
-        GetDownloadPolicyResponse, GetExactRequest, GetExactResponse, GetManyRequest,
-        GetManyResponse, GetSyncPeersRequest, GetSyncPeersResponse, ImportFileRequest,
-        ImportFileResponse, ImportRequest as DocImportRequest, ImportResponse as DocImportResponse,
-        LeaveRequest, LeaveResponse, ListResponse as DocListResponse, OpenRequest, OpenResponse,
+        CloseRequest, CloseResponse, CreateRequest as DocCreateRequest,
+        CreateResponse as DocCreateResponse, DelRequest, DelResponse, DocListRequest,
+        DocSubscribeRequest, DocSubscribeResponse, DropRequest, DropResponse, ExportFileRequest,
+        ExportFileResponse, GetDownloadPolicyRequest, GetDownloadPolicyResponse, GetExactRequest,
+        GetExactResponse, GetManyRequest, GetManyResponse, GetSyncPeersRequest,
+        GetSyncPeersResponse, ImportFileRequest, ImportFileResponse,
+        ImportRequest as DocImportRequest, ImportResponse as DocImportResponse, LeaveRequest,
+        LeaveResponse, ListResponse as DocListResponse, OpenRequest, OpenResponse,
         SetDownloadPolicyRequest, SetDownloadPolicyResponse, SetHashRequest, SetHashResponse,
         SetRequest, SetResponse, ShareRequest, ShareResponse, StartSyncRequest, StartSyncResponse,
         StatusRequest, StatusResponse,
     },
     RpcError, RpcResult,
 };
-use crate::{actor::ImportAuthorAction, engine::Engine, Author, DocTicket, NamespaceSecret};
+use crate::{engine::Engine, DocTicket, NamespaceSecret};
 
 /// Capacity for the flume channels to forward sync store iterators to async RPC streams.
 const ITER_CHANNEL_CAP: usize = 64;
 
 impl<D: iroh_blobs::store::Store> Engine<D> {
-    pub(super) async fn author_create(
-        self,
-        _req: AuthorCreateRequest,
-    ) -> RpcResult<AuthorCreateResponse> {
-        // TODO: pass rng
-        let author = Author::new(&mut rand::rngs::OsRng {});
-        self.sync
-            .import_author(author.clone())
-            .await
-            .map_err(|e| RpcError::new(&*e))?;
-        Ok(AuthorCreateResponse {
-            author_id: author.id(),
-        })
-    }
-
-    pub(super) async fn author_default(
-        self,
-        _req: AuthorGetDefaultRequest,
-    ) -> RpcResult<AuthorGetDefaultResponse> {
-        let author_id = self.default_author.get();
-        Ok(AuthorGetDefaultResponse { author_id })
-    }
-
-    pub(super) async fn author_set_default(
-        self,
-        req: AuthorSetDefaultRequest,
-    ) -> RpcResult<AuthorSetDefaultResponse> {
-        self.default_author
-            .set(req.author_id, &self.sync)
-            .await
-            .map_err(|e| RpcError::new(&*e))?;
-        Ok(AuthorSetDefaultResponse)
-    }
-
-    pub(super) fn author_list(
-        self,
-        _req: AuthorListRequest,
-    ) -> impl Stream<Item = RpcResult<AuthorListResponse>> + Unpin {
-        let (tx, rx) = async_channel::bounded(ITER_CHANNEL_CAP);
-        let sync = self.sync.clone();
-        // we need to spawn a task to send our request to the sync handle, because the method
-        // itself must be sync.
-        tokio::task::spawn(async move {
-            let tx2 = tx.clone();
-            if let Err(err) = sync.list_authors(tx).await {
-                tx2.send(Err(err)).await.ok();
-            }
-        });
-        rx.boxed().map(|r| {
-            r.map(|author_id| AuthorListResponse { author_id })
-                .map_err(|e| RpcError::new(&*e))
-        })
-    }
-
-    pub(super) async fn author_import(
-        self,
-        req: ImportAuthorAction,
-    ) -> RpcResult<AuthorImportResponse> {
-        let author_id = self
-            .sync
-            .import_author_action(req)
-            .await
-            .map_err(|e| RpcError::new(&*e))?;
-
-        Ok(AuthorImportResponse { author_id })
-    }
-
-    pub(super) async fn author_export(
-        self,
-        req: AuthorExportRequest,
-    ) -> RpcResult<AuthorExportResponse> {
-        let author = self
-            .sync
-            .export_author(req.author)
-            .await
-            .map_err(|e| RpcError::new(&*e))?;
-
-        Ok(AuthorExportResponse { author })
-    }
-
-    pub(super) async fn author_delete(
-        self,
-        req: AuthorDeleteRequest,
-    ) -> RpcResult<AuthorDeleteResponse> {
-        if req.author == self.default_author.get() {
-            return Err(RpcError::new(&*anyhow!(
-                "Deleting the default author is not supported"
-            )));
-        }
-        self.sync
-            .delete_author(req.author)
-            .await
-            .map_err(|e| RpcError::new(&*e))?;
-        Ok(AuthorDeleteResponse)
-    }
-
     pub(super) async fn doc_create(self, _req: DocCreateRequest) -> RpcResult<DocCreateResponse> {
         let namespace = NamespaceSecret::new(&mut rand::rngs::OsRng {});
         let id = namespace.id();

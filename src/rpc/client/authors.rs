@@ -9,14 +9,7 @@ use quic_rpc::{client::BoxedConnector, Connector};
 use super::flatten;
 #[doc(inline)]
 pub use crate::engine::{Origin, SyncEvent, SyncReason};
-use crate::{
-    actor::ImportAuthorAction,
-    rpc::proto::{
-        AuthorCreateRequest, AuthorDeleteRequest, AuthorExportRequest, AuthorGetDefaultRequest,
-        AuthorListRequest, AuthorSetDefaultRequest, RpcService,
-    },
-    Author, AuthorId,
-};
+use crate::{actor::ImportAuthorAction, rpc::proto::RpcService, Author, AuthorId};
 
 /// Iroh docs client.
 #[derive(Debug, Clone)]

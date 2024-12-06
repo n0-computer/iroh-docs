@@ -34,7 +34,7 @@ pub(crate) const MAX_COMMIT_DELAY: Duration = Duration::from_millis(500);
 
 /// Import an author action.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ImportAuthorAction {
+pub(crate) struct ImportAuthorAction {
     /// The author to import.
     pub author: Author,
 }
@@ -228,7 +228,7 @@ struct OpenReplica {
 /// waiting for the actor to finish happens in an async context, and therefore that the final
 /// [`SyncHandle::drop`] will not block.
 #[derive(Debug, Clone)]
-pub struct SyncHandle {
+pub(crate) struct SyncHandle {
     tx: async_channel::Sender<Action>,
     join_handle: Arc<Option<JoinHandle<()>>>,
 }
