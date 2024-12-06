@@ -128,8 +128,8 @@
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
-</pre></div><pre class="rust"><code><span class="attr">#![cfg(feature = <span class="string">"rpc"</span>)]
-</span><span class="doccomment">//! [`ProtocolHandler`] implementation for the docs [`Engine`].
+<a href="#131" id="131">131</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! [`ProtocolHandler`] implementation for the docs [`Engine`].
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
 
@@ -185,6 +185,7 @@
 
 <span class="kw">impl</span>&lt;S: iroh_blobs::store::Store&gt; Docs&lt;S&gt; {
     <span class="doccomment">/// Get an in memory client to interact with the docs engine.
+    </span><span class="attr">#[cfg(feature = <span class="string">"rpc"</span>)]
     </span><span class="kw">pub fn </span>client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::rpc::client::docs::MemClient {
         <span class="kw-2">&amp;</span><span class="self">self
             </span>.rpc_handler
@@ -203,6 +204,7 @@
     }
 
     <span class="doccomment">/// Handle a docs request from the RPC server.
+    </span><span class="attr">#[cfg(feature = <span class="string">"rpc"</span>)]
     </span><span class="kw">pub async fn </span>handle_rpc_request&lt;C: ChannelTypes&lt;RpcService&gt;&gt;(
         <span class="self">self</span>,
         msg: Request,
@@ -229,7 +231,7 @@
 
 <span class="kw">impl </span>Builder {
     <span class="doccomment">/// Build a [`Docs`] protocol given a [`Blobs`] and [`Gossip`] protocol.
-    </span><span class="kw">pub async fn </span>build&lt;S: iroh_blobs::store::Store&gt;(
+    </span><span class="kw">pub async fn </span>spawn&lt;S: iroh_blobs::store::Store&gt;(
         <span class="self">self</span>,
         blobs: <span class="kw-2">&amp;</span>Blobs&lt;S&gt;,
         gossip: <span class="kw-2">&amp;</span>Gossip,
