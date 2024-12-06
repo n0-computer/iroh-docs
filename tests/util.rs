@@ -136,7 +136,6 @@ impl<S: BlobStore> Builder<S> {
             builder = builder.dns_resolver(dns_resolver);
         }
         let endpoint = builder.bind().await?;
-        let addr = endpoint.node_addr().await?;
         let local_pool = LocalPool::single();
         let mut router = iroh::protocol::Router::builder(endpoint.clone());
         let blobs = Blobs::builder(store.clone()).build(&local_pool, &endpoint);
