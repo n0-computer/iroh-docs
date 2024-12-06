@@ -1,3 +1,4 @@
+#![cfg(feature = "rpc")]
 //! [`ProtocolHandler`] implementation for the docs [`Engine`].
 
 use std::{path::PathBuf, sync::Arc};
