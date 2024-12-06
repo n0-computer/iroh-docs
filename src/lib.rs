@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 //! Multi-dimensional key-value documents with an efficient synchronization protocol
 //!
 //! The crate operates on [Replicas](Replica). A replica contains an unlimited number of
