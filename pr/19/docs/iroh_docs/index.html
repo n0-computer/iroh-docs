@@ -32,14 +32,14 @@ the whole store with all replicas to a single file.</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>iroh::{protocol::Router, Endpoint};
 <span class="kw">use </span>iroh_blobs::{net_protocol::Blobs, util::local_pool::LocalPool, ALPN <span class="kw">as </span>BLOBS_ALPN};
-<span class="kw">use </span>iroh_gossip::{net::Gossip, ALPN <span class="kw">as </span>GOSSIP_ALPN};
 <span class="kw">use </span>iroh_docs::{protocol::Docs, ALPN <span class="kw">as </span>DOCS_ALPN};
+<span class="kw">use </span>iroh_gossip::{net::Gossip, ALPN <span class="kw">as </span>GOSSIP_ALPN};
 
 <span class="attr">#[tokio::main]
-</span><span class="kw">async fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), std::fmt::Error&gt; {
+</span><span class="kw">async fn </span>main() -&gt; anyhow::Result&lt;()&gt; {
     <span class="comment">// create an iroh endpoint that includes the standard discovery mechanisms
     // we've built at number0
-    </span><span class="kw">let </span>endpoint = Endpoint::builder().discovery_n0().bind().<span class="kw">await</span>.unwrap();
+    </span><span class="kw">let </span>endpoint = Endpoint::builder().discovery_n0().bind().<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// create a router builder, we will add the
     // protocols to this builder and then spawn
@@ -51,25 +51,22 @@ the whole store with all replicas to a single file.</p>
     <span class="kw">let </span>blobs = Blobs::memory().build(local_pool.handle(), builder.endpoint());
 
     <span class="comment">// build the gossip protocol
-    </span><span class="kw">let </span>gossip = Gossip::builder().spawn(builder.endpoint().clone()).<span class="kw">await</span>.unwrap();
+    </span><span class="kw">let </span>gossip = Gossip::builder().spawn(builder.endpoint().clone()).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// build the docs protocol
-    </span><span class="kw">let </span>docs = Docs::memory().spawn(blobs.clone(), gossip.clone()).<span class="kw">await</span>.unwrap();
+    </span><span class="kw">let </span>docs = Docs::memory().spawn(<span class="kw-2">&amp;</span>blobs, <span class="kw-2">&amp;</span>gossip).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// setup router
     </span><span class="kw">let </span>router = builder
         .accept(BLOBS_ALPN, blobs)
-        .accept(GOSSIP_ALPN, gossip))
-        .accept(DOCS_ALPN, docs.clone())
+        .accept(GOSSIP_ALPN, gossip)
+        .accept(DOCS_ALPN, docs)
         .spawn()
-        .<span class="kw">await
-        </span>.unwrap();
+        .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// do fun stuff with docs!
-
     </span><span class="prelude-val">Ok</span>(())
-}
-  </code></pre></div>
+}</code></pre></div>
 <h2 id="license"><a class="doc-anchor" href="#license">§</a>License</h2>
 <p>This project is licensed under either of</p>
 <ul>
