@@ -33,28 +33,22 @@
 //!
 //! [paper]: https://arxiv.org/abs/2212.13567
 #![deny(missing_docs, rustdoc::broken_intra_doc_links)]
-#![cfg_attr(iroh_docsrs, feature(doc_cfg))]
+#![cfg_attr(iroh_docsrs, feature(doc_auto_cfg))]
 
 pub mod metrics;
 #[cfg(feature = "net")]
-#[cfg_attr(iroh_docsrs, doc(cfg(feature = "net")))]
 pub mod net;
 #[cfg(feature = "engine")]
-#[cfg_attr(iroh_docsrs, doc(cfg(feature = "engine")))]
 pub mod protocol;
 #[cfg(feature = "net")]
-#[cfg_attr(iroh_docsrs, doc(cfg(feature = "net")))]
 mod ticket;
 
 #[cfg(feature = "engine")]
-#[cfg_attr(iroh_docsrs, doc(cfg(feature = "engine")))]
 pub mod engine;
 #[cfg(feature = "rpc")]
-#[cfg_attr(iroh_docsrs, doc(cfg(feature = "rpc")))]
 pub mod rpc;
 
 #[cfg(feature = "cli")]
-#[cfg_attr(iroh_docsrs, doc(cfg(feature = "cli")))]
 pub mod cli;
 
 pub mod actor;
@@ -66,11 +60,9 @@ mod keys;
 mod ranger;
 
 #[cfg(feature = "net")]
-#[cfg_attr(iroh_docsrs, doc(cfg(feature = "net")))]
 #[doc(inline)]
 pub use net::ALPN;
 
 #[cfg(feature = "net")]
-#[cfg_attr(iroh_docsrs, doc(cfg(feature = "net")))]
 pub use self::ticket::DocTicket;
 pub use self::{heads::*, keys::*, sync::*};
