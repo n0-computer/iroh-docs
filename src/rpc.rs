@@ -104,7 +104,7 @@ impl RpcHandler {
     }
 }
 
-/// Options to configure what is included in a [`NodeAddr`] and [`AddrInfo`].
+/// Options to configure what is included in a [`NodeAddr`].
 #[derive(
     Copy,
     Clone,

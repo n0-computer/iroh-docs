@@ -3,7 +3,7 @@
 //!
 //! The crate operates on [Replicas](Replica). A replica contains an unlimited number of
 //! [Entries][Entry]. Each entry is identified by a key, its author, and the replica's
-//! namespace. Its value is the [32-byte BLAKE3 hash](iroh_base::hash::Hash)
+//! namespace. Its value is the [32-byte BLAKE3 hash](iroh_blobs::Hash)
 //! of the entry's content data, the size of this content data, and a timestamp.
 //! The content data itself is not stored or transferred through a replica.
 //!
