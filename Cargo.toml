@@ -36,7 +36,7 @@ futures-lite = "2.3.0"
 futures-util = { version = "0.3.25" }
 hex = "0.4"
 iroh-base = { version = "0.30", features = ["ticket"] }
-iroh-blobs = { version = "0.29", optional = true, features = ["downloader"] }
+iroh-blobs = { version = "0.29" }
 iroh-gossip = { version = "0.29", optional = true, features = ["net"] }
 iroh-metrics = { version = "0.30.0", default-features = false }
 iroh = { version = "0.30", optional = true }
@@ -91,7 +91,7 @@ data-encoding = "2.6.0"
 default = ["net", "metrics", "engine", "test-utils"]
 net = ["dep:iroh", "tokio/io-util", "dep:tokio-stream", "dep:tokio-util"]
 metrics = ["iroh-metrics/metrics", "iroh/metrics"]
-engine = ["net", "dep:iroh-gossip", "dep:iroh-blobs"]
+engine = ["net", "dep:iroh-gossip", "iroh-blobs/downloader"]
 test-utils = ["iroh/test-utils"]
 cli = [
   "rpc",
