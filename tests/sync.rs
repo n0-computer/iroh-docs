@@ -10,13 +10,13 @@ use anyhow::{anyhow, bail, Context, Result};
 use bytes::Bytes;
 use futures_lite::Stream;
 use futures_util::{FutureExt, StreamExt, TryStreamExt};
-use iroh::{
-    key::{PublicKey, SecretKey},
-    AddrInfoOptions, RelayMode,
-};
+use iroh::{PublicKey, RelayMode, SecretKey};
 use iroh_blobs::Hash;
 use iroh_docs::{
-    rpc::client::docs::{Doc, Entry, LiveEvent, ShareMode},
+    rpc::{
+        client::docs::{Doc, Entry, LiveEvent, ShareMode},
+        AddrInfoOptions,
+    },
     store::{DownloadPolicy, FilterKind, Query},
     AuthorId, ContentStatus,
 };
@@ -41,7 +41,7 @@ fn spawn_node(
     i: usize,
     rng: &mut (impl CryptoRng + Rng),
 ) -> impl Future<Output = anyhow::Result<Node<iroh_blobs::store::mem::Store>>> + 'static {
-    let secret_key = SecretKey::generate_with_rng(rng);
+    let secret_key = SecretKey::generate(rng);
     async move {
         let node = test_node(secret_key);
         let node = node.spawn().await?;
@@ -515,7 +515,7 @@ async fn test_sync_via_relay() -> Result<()> {
         .await?;
 
     // remove direct addrs to force connect via relay
-    ticket.nodes[0].info.direct_addresses = Default::default();
+    ticket.nodes[0].direct_addresses = Default::default();
 
     // join
     let doc2 = node2.docs().import(ticket).await?;
@@ -591,7 +591,7 @@ async fn sync_restart_node() -> Result<()> {
     let discovery_server = iroh::test_utils::DnsPkarrServer::run().await?;
 
     let node1_dir = tempfile::TempDir::with_prefix("test-sync_restart_node-node1")?;
-    let secret_key_1 = SecretKey::generate_with_rng(&mut rng);
+    let secret_key_1 = SecretKey::generate(&mut rng);
 
     let node1 = Node::persistent(&node1_dir)
         .secret_key(secret_key_1.clone())
@@ -612,7 +612,7 @@ async fn sync_restart_node() -> Result<()> {
         .await?;
 
     // create node2
-    let secret_key_2 = SecretKey::generate_with_rng(&mut rng);
+    let secret_key_2 = SecretKey::generate(&mut rng);
     let node2 = Node::memory()
         .secret_key(secret_key_2.clone())
         .relay_mode(RelayMode::Custom(relay_map.clone()))

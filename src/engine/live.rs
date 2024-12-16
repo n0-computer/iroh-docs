@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use futures_lite::FutureExt;
-use iroh::{key::PublicKey, Endpoint, NodeAddr, NodeId};
+use iroh::{Endpoint, NodeAddr, NodeId, PublicKey};
 use iroh_blobs::{
     downloader::{DownloadError, DownloadRequest, Downloader},
     get::Stats,
@@ -451,7 +451,7 @@ impl<B: iroh_blobs::store::Store> LiveActor<B> {
             let peer_id = peer.node_id;
             // adding a node address without any addressing info fails with an error,
             // but we still want to include those peers because node discovery might find addresses for them
-            if peer.info.is_empty() {
+            if peer.is_empty() {
                 peer_ids.push(peer_id)
             } else {
                 match self.endpoint.add_node_addr_with_source(peer, SOURCE_NAME) {

@@ -4,10 +4,9 @@ use anyhow::{bail, Result};
 use clap::Parser;
 use derive_more::FromStr;
 use futures_lite::StreamExt;
-use iroh_base::base32::fmt_short;
 
 use super::{AuthorsClient, ConsoleEnv};
-use crate::{Author, AuthorId};
+use crate::{cli::fmt_short, Author, AuthorId};
 
 #[allow(missing_docs)]
 /// Commands to manage authors.
@@ -85,14 +84,14 @@ impl AuthorCommands {
                     println!("{}", author);
                 }
                 None => {
-                    println!("No author found {}", fmt_short(author));
+                    println!("No author found {}", fmt_short(author.as_bytes()));
                 }
             },
             Self::Import { author } => match Author::from_str(&author) {
                 Ok(author) => {
                     let id = author.id();
                     authors.import(author).await?;
-                    println!("Imported {}", fmt_short(id));
+                    println!("Imported {}", fmt_short(id.as_bytes()));
                 }
                 Err(err) => {
                     eprintln!("Invalid author key: {}", err);

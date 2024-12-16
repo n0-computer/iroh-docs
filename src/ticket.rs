@@ -1,6 +1,7 @@
 //! Tickets for [`iroh-docs`] documents.
 
-use iroh::{ticket, NodeAddr};
+use iroh::NodeAddr;
+use iroh_base::ticket;
 use serde::{Deserialize, Serialize};
 
 use crate::Capability;
@@ -64,7 +65,7 @@ impl std::str::FromStr for DocTicket {
 mod tests {
     use std::str::FromStr;
 
-    use iroh::key::PublicKey;
+    use iroh::PublicKey;
     use iroh_test::{assert_eq_hex, hexdump::parse_hexdump};
 
     use super::*;

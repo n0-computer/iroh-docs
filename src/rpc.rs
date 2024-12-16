@@ -2,11 +2,13 @@
 
 use std::{ops::Deref, sync::Arc};
 
+use iroh::NodeAddr;
 use proto::{Request, RpcService};
 use quic_rpc::{
     server::{ChannelTypes, RpcChannel},
     RpcClient, RpcServer,
 };
+use serde::{Deserialize, Serialize};
 use tokio_util::task::AbortOnDropHandle;
 
 use crate::engine::Engine;
@@ -99,5 +101,67 @@ impl RpcHandler {
         let _handler = listener
             .spawn_accept_loop(move |req, chan| engine.clone().handle_rpc_request(req, chan));
         Self { client, _handler }
+    }
+}
+
+/// Options to configure what is included in a [`NodeAddr`] and [`AddrInfo`].
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Default,
+    Debug,
+    derive_more::Display,
+    derive_more::FromStr,
+    Serialize,
+    Deserialize,
+)]
+pub enum AddrInfoOptions {
+    /// Only the Node ID is added.
+    ///
+    /// This usually means that iroh-dns discovery is used to find address information.
+    #[default]
+    Id,
+    /// Includes the Node ID and both the relay URL, and the direct addresses.
+    RelayAndAddresses,
+    /// Includes the Node ID and the relay URL.
+    Relay,
+    /// Includes the Node ID and the direct addresses.
+    Addresses,
+}
+
+impl AddrInfoOptions {
+    /// Apply the options to the given address.
+    pub fn apply(
+        &self,
+        NodeAddr {
+            node_id,
+            relay_url,
+            direct_addresses,
+        }: &NodeAddr,
+    ) -> NodeAddr {
+        match self {
+            Self::Id => NodeAddr {
+                node_id: *node_id,
+                relay_url: None,
+                direct_addresses: Default::default(),
+            },
+            Self::Relay => NodeAddr {
+                node_id: *node_id,
+                relay_url: relay_url.clone(),
+                direct_addresses: Default::default(),
+            },
+            Self::Addresses => NodeAddr {
+                node_id: *node_id,
+                relay_url: None,
+                direct_addresses: direct_addresses.clone(),
+            },
+            Self::RelayAndAddresses => NodeAddr {
+                node_id: *node_id,
+                relay_url: relay_url.clone(),
+                direct_addresses: direct_addresses.clone(),
+            },
+        }
     }
 }

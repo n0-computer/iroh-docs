@@ -11,7 +11,7 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use futures_lite::{Stream, StreamExt};
-use iroh::{key::PublicKey, Endpoint, NodeAddr};
+use iroh::{Endpoint, NodeAddr, PublicKey};
 use iroh_blobs::{
     downloader::Downloader, net_protocol::ProtectCb, store::EntryStatus,
     util::local_pool::LocalPoolHandle, Hash,

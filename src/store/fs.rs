@@ -11,7 +11,7 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use ed25519_dalek::{SignatureError, VerifyingKey};
-use iroh_base::hash::Hash;
+use iroh_blobs::Hash;
 use rand_core::CryptoRngCore;
 use redb::{Database, DatabaseError, ReadableMultimapTable, ReadableTable, ReadableTableMetadata};
 

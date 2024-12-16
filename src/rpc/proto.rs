@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use bytes::Bytes;
-use iroh::{AddrInfoOptions, NodeAddr};
+use iroh::NodeAddr;
 use iroh_blobs::{export::ExportProgress, store::ExportMode, Hash};
 use nested_enum_utils::enum_conversions;
 use quic_rpc::pattern::try_server_streaming::StreamCreated;
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     client::docs::{ImportProgress, ShareMode},
-    RpcError, RpcResult,
+    AddrInfoOptions, RpcError, RpcResult,
 };
 use crate::{
     actor::OpenState,
