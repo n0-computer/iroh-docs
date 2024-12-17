@@ -1142,7 +1142,14 @@
 <a href="#1141" id="1141">1141</a>
 <a href="#1142" id="1142">1142</a>
 <a href="#1143" id="1143">1143</a>
-<a href="#1144" id="1144">1144</a></pre></div><pre class="rust"><code><span class="doccomment">//! On disk storage for replicas.
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a></pre></div><pre class="rust"><code><span class="doccomment">//! On disk storage for replicas.
 
 </span><span class="kw">use </span>std::{
     cmp::Ordering,
@@ -1158,6 +1165,7 @@
 <span class="kw">use </span>iroh_blobs::Hash;
 <span class="kw">use </span>rand_core::CryptoRngCore;
 <span class="kw">use </span>redb::{Database, DatabaseError, ReadableMultimapTable, ReadableTable, ReadableTableMetadata};
+<span class="kw">use </span>tracing::warn;
 
 <span class="kw">use super</span>::{
     pubkeys::MemPublicKeyStore, DownloadPolicy, ImportNamespaceOutcome, OpenError, PublicKeyStore,
@@ -1197,6 +1205,14 @@
     transaction: CurrentTransaction,
     open_replicas: HashSet&lt;NamespaceId&gt;,
     pubkeys: MemPublicKeyStore,
+}
+
+<span class="kw">impl </span>Drop <span class="kw">for </span>Store {
+    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.flush() {
+            <span class="macro">warn!</span>(<span class="string">"failed to trigger final flush: {:?}"</span>, err);
+        }
+    }
 }
 
 <span class="kw">impl </span>AsRef&lt;Store&gt; <span class="kw">for </span>Store {
@@ -2265,7 +2281,6 @@
             </span>.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;&gt;()<span class="question-mark">?</span>;
 
         <span class="macro">assert_eq!</span>(expected, actual);
-        store.flush()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -2282,8 +2297,7 @@
         }
 
         <span class="comment">// TODO: write test checking that the indexing is done correctly
-        </span>store.flush()<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
+        </span><span class="prelude-val">Ok</span>(())
     }
 }
 </code></pre></div></section></main></body></html>
