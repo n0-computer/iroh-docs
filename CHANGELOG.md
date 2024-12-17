@@ -2,6 +2,22 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.30.0](https://github.com/n0-computer/iroh-docs/compare/v0.29.0..0.30.0) - 2024-12-17
+
+### ⛰️  Features
+
+- [**breaking**] Remove rpc from the default feature flag set - ([5897668](https://github.com/n0-computer/iroh-docs/commit/5897668996cf509fcbcb0f9801925a3d3ad89148))
+- [**breaking**] Add Docs<S> which wraps the Engine<S> ([#18](https://github.com/n0-computer/iroh-docs/issues/18)) - ([857f0dc](https://github.com/n0-computer/iroh-docs/commit/857f0dc7e9b14d27b2a21e0f12ff00609b077a52))
+- [**breaking**] Update to iroh@0.30.0 & MSRV 1.81 - ([31b6698](https://github.com/n0-computer/iroh-docs/commit/31b66980a8216a7f52183a6f46bb9455c58726ae))
+
+### 🚜 Refactor
+
+- Adapt to new ProtocolHandler ([#15](https://github.com/n0-computer/iroh-docs/issues/15)) - ([b6c7616](https://github.com/n0-computer/iroh-docs/commit/b6c7616c401ac7c465beafebdc49f866263cf026))
+
+### 📚 Documentation
+
+- Add "Getting Started" section to the README and add the readme to the docs ([#19](https://github.com/n0-computer/iroh-docs/issues/19)) - ([98e2e17](https://github.com/n0-computer/iroh-docs/commit/98e2e170bcf4c1f23aa1479ae6c2b21b92c1146d))
+
 ## [0.29.0](https://github.com/n0-computer/iroh-docs/compare/v0.28.0..0.29.0) - 2024-12-04
 
 ### ⛰️  Features
