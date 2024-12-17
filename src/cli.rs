@@ -18,8 +18,6 @@ use dialoguer::Confirm;
 use futures_buffered::BufferedStreamExt;
 use futures_lite::{Stream, StreamExt};
 use indicatif::{HumanBytes, HumanDuration, MultiProgress, ProgressBar, ProgressStyle};
-use iroh::{hash::Hash, AddrInfoOptions};
-use iroh_base::base32::fmt_short;
 use iroh_blobs::{
     provider::AddProgress,
     rpc::client::blobs::{self, WrapOption},
@@ -27,7 +25,7 @@ use iroh_blobs::{
         fs::{path_content_info, path_to_key, PathContent},
         SetTagOption,
     },
-    Tag,
+    Hash, Tag,
 };
 use serde::{Deserialize, Serialize};
 use tokio::io::AsyncReadExt;
@@ -35,7 +33,10 @@ use tracing::warn;
 
 use crate::{
     engine::Origin,
-    rpc::client::docs::{self, Doc, Entry, LiveEvent, ShareMode},
+    rpc::{
+        client::docs::{self, Doc, Entry, LiveEvent, ShareMode},
+        AddrInfoOptions,
+    },
     store::{DownloadPolicy, FilterKind, Query, SortDirection},
     AuthorId, ContentStatus, DocTicket, NamespaceId,
 };
@@ -531,6 +532,13 @@ impl From<Sorting> for crate::store::SortBy {
     }
 }
 
+fn fmt_short(bytes: &[u8]) -> String {
+    let len = bytes.len().min(10);
+    data_encoding::BASE32_NOPAD
+        .encode(&bytes[..len])
+        .to_ascii_lowercase()
+}
+
 impl DocCommands {
     /// Runs the document command given the iroh client and the console environment.
     pub async fn run(
@@ -617,7 +625,7 @@ impl DocCommands {
                     println!("Deleted {removed} entries.");
                     println!(
                         "Inserted an empty entry for author {} with key {prefix}.",
-                        fmt_short(author)
+                        fmt_short(author.as_bytes())
                     );
                 } else {
                     println!("Aborted.")
@@ -674,7 +682,7 @@ impl DocCommands {
             Self::Leave { doc } => {
                 let doc = get_doc(docs, env, doc).await?;
                 doc.leave().await?;
-                println!("Doc {} is now inactive", fmt_short(doc.id()));
+                println!("Doc {} is now inactive", fmt_short(doc.id().as_bytes()));
             }
             Self::Import {
                 doc,
@@ -823,14 +831,14 @@ impl DocCommands {
                                 Ok(details) => {
                                     println!(
                                         "synced peer {} ({origin}, received {}, sent {}",
-                                        fmt_short(event.peer),
+                                        fmt_short(event.peer.as_bytes()),
                                         details.entries_received,
                                         details.entries_sent
                                     )
                                 }
                                 Err(err) => println!(
                                     "failed to sync with peer {} ({origin}): {err}",
-                                    fmt_short(event.peer)
+                                    fmt_short(event.peer.as_bytes())
                                 ),
                             }
                         }
@@ -852,14 +860,14 @@ impl DocCommands {
                     "Deleting a document will permanently remove the document secret key, all document entries, \n\
                     and all content blobs which are not referenced from other docs or tags."
                 );
-                let prompt = format!("Delete document {}?", fmt_short(doc.id()));
+                let prompt = format!("Delete document {}?", fmt_short(doc.id().as_bytes()));
                 if Confirm::new()
                     .with_prompt(prompt)
                     .interact()
                     .unwrap_or(false)
                 {
                     docs.drop_doc(doc.id()).await?;
-                    println!("Doc {} has been deleted.", fmt_short(doc.id()));
+                    println!("Doc {} has been deleted.", fmt_short(doc.id().as_bytes()));
                 } else {
                     println!("Aborted.")
                 }
@@ -981,7 +989,7 @@ async fn fmt_entry(blobs: &blobs::Client, entry: &Entry, mode: DisplayContentMod
     let key = std::str::from_utf8(entry.key())
         .unwrap_or("<bad key>")
         .bold();
-    let author = fmt_short(entry.author());
+    let author = fmt_short(entry.author().as_bytes());
     let (Ok(content) | Err(content)) = fmt_content(blobs, entry, mode).await;
     let len = human_len(entry);
     format!("@{author}: {key} = {content} ({len})")
@@ -1150,7 +1158,7 @@ impl ImportProgressBar {
         add.set_position(0);
         add.enable_steady_tick(Duration::from_millis(500));
 
-        let doc_id = fmt_short(doc_id.to_bytes());
+        let doc_id = fmt_short(doc_id.as_bytes());
         let import = mp.add(ProgressBar::new(0));
         import.set_style(ProgressStyle::default_bar()
             .template("{msg}\n{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} ({per_sec}, eta {eta})").unwrap()

@@ -11,9 +11,10 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use ed25519_dalek::{SignatureError, VerifyingKey};
-use iroh_base::hash::Hash;
+use iroh_blobs::Hash;
 use rand_core::CryptoRngCore;
 use redb::{Database, DatabaseError, ReadableMultimapTable, ReadableTable, ReadableTableMetadata};
+use tracing::warn;
 
 use super::{
     pubkeys::MemPublicKeyStore, DownloadPolicy, ImportNamespaceOutcome, OpenError, PublicKeyStore,
@@ -53,6 +54,14 @@ pub struct Store {
     transaction: CurrentTransaction,
     open_replicas: HashSet<NamespaceId>,
     pubkeys: MemPublicKeyStore,
+}
+
+impl Drop for Store {
+    fn drop(&mut self) {
+        if let Err(err) = self.flush() {
+            warn!("failed to trigger final flush: {:?}", err);
+        }
+    }
 }
 
 impl AsRef<Store> for Store {
@@ -1121,7 +1130,6 @@ mod tests {
             .collect::<Result<Vec<_>>>()?;
 
         assert_eq!(expected, actual);
-
         Ok(())
     }
 
@@ -1138,7 +1146,6 @@ mod tests {
         }
 
         // TODO: write test checking that the indexing is done correctly
-
         Ok(())
     }
 }

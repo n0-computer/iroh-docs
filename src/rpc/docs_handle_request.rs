@@ -207,12 +207,12 @@ impl<D: iroh_blobs::store::Store> Handler<D> {
             mode,
             addr_options,
         } = req;
-        let mut me = self
+        let me = self
             .endpoint
             .node_addr()
             .await
             .map_err(|e| RpcError::new(&*e))?;
-        me.apply_options(addr_options);
+        let me = addr_options.apply(&me);
 
         let capability = match mode {
             ShareMode::Read => crate::Capability::Read(doc_id),

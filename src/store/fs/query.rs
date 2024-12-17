@@ -1,5 +1,5 @@
 use anyhow::Result;
-use iroh_base::hash::Hash;
+use iroh_blobs::Hash;
 
 use super::{
     bounds::{ByKeyBounds, RecordsBounds},

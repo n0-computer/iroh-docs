@@ -3,7 +3,7 @@ use std::future::Future;
 use anyhow::{anyhow, ensure};
 use bytes::{Buf, BufMut, BytesMut};
 use futures_util::SinkExt;
-use iroh::key::PublicKey;
+use iroh::PublicKey;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_stream::StreamExt;
@@ -294,7 +294,8 @@ impl BobState {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use iroh::{hash::Hash, key::SecretKey};
+    use iroh::SecretKey;
+    use iroh_blobs::Hash;
     use rand_core::{CryptoRngCore, SeedableRng};
 
     use super::*;
@@ -489,8 +490,8 @@ mod tests {
                     "bob & alice each using {num_authors} authors and inserting {num_messages} messages per author"
                 );
 
-                let alice_node_pubkey = SecretKey::generate_with_rng(&mut rng).public();
-                let bob_node_pubkey = SecretKey::generate_with_rng(&mut rng).public();
+                let alice_node_pubkey = SecretKey::generate(&mut rng).public();
+                let bob_node_pubkey = SecretKey::generate(&mut rng).public();
                 let namespace = NamespaceSecret::new(&mut rng);
 
                 let mut all_messages = vec![];
@@ -629,8 +630,8 @@ mod tests {
 
     async fn test_sync_timestamps(mut alice_store: Store, mut bob_store: Store) -> Result<()> {
         let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(99);
-        let alice_node_pubkey = SecretKey::generate_with_rng(&mut rng).public();
-        let bob_node_pubkey = SecretKey::generate_with_rng(&mut rng).public();
+        let alice_node_pubkey = SecretKey::generate(&mut rng).public();
+        let bob_node_pubkey = SecretKey::generate(&mut rng).public();
         let namespace = NamespaceSecret::new(&mut rng);
 
         let author = alice_store.new_author(&mut rng)?;

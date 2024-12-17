@@ -51,7 +51,8 @@ impl GossipState {
             hash_map::Entry::Vacant(entry) => {
                 let sub = self
                     .gossip
-                    .join_with_opts(namespace.into(), JoinOptions::with_bootstrap(bootstrap));
+                    .subscribe_with_opts(namespace.into(), JoinOptions::with_bootstrap(bootstrap));
+
                 let (sender, stream) = sub.split();
                 let abort_handle = self.active_tasks.spawn(
                     receive_loop(

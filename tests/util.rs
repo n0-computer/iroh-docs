@@ -7,7 +7,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use iroh::{discovery::Discovery, dns::DnsResolver, key::SecretKey, NodeId, RelayMode};
+use iroh::{discovery::Discovery, dns::DnsResolver, NodeId, RelayMode, SecretKey};
 use iroh_blobs::{
     net_protocol::Blobs,
     store::{GcConfig, Store as BlobStore},

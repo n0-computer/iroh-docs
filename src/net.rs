@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use iroh::{endpoint::get_remote_node_id, key::PublicKey, Endpoint, NodeAddr};
+use iroh::{endpoint::get_remote_node_id, Endpoint, NodeAddr, PublicKey};
 #[cfg(feature = "metrics")]
 use iroh_metrics::inc;
 use serde::{Deserialize, Serialize};

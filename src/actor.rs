@@ -11,7 +11,7 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use futures_util::FutureExt;
-use iroh_base::hash::Hash;
+use iroh_blobs::Hash;
 use iroh_metrics::inc;
 use serde::{Deserialize, Serialize};
 use tokio::{sync::oneshot, task::JoinSet};

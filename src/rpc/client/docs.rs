@@ -12,7 +12,7 @@ use anyhow::{anyhow, Context as _, Result};
 use bytes::Bytes;
 use derive_more::{Display, FromStr};
 use futures_lite::{Stream, StreamExt};
-use iroh::{AddrInfoOptions, NodeAddr};
+use iroh::NodeAddr;
 use iroh_blobs::{export::ExportProgress, store::ExportMode, Hash};
 use portable_atomic::{AtomicBool, Ordering};
 use quic_rpc::{
@@ -23,12 +23,15 @@ use serde::{Deserialize, Serialize};
 use super::{authors, flatten};
 use crate::{
     actor::OpenState,
-    rpc::proto::{
-        CloseRequest, CreateRequest, DelRequest, DelResponse, DocListRequest, DocSubscribeRequest,
-        DropRequest, ExportFileRequest, GetDownloadPolicyRequest, GetExactRequest, GetManyRequest,
-        GetSyncPeersRequest, ImportFileRequest, ImportRequest, LeaveRequest, OpenRequest,
-        RpcService, SetDownloadPolicyRequest, SetHashRequest, SetRequest, ShareRequest,
-        StartSyncRequest, StatusRequest,
+    rpc::{
+        proto::{
+            CloseRequest, CreateRequest, DelRequest, DelResponse, DocListRequest,
+            DocSubscribeRequest, DropRequest, ExportFileRequest, GetDownloadPolicyRequest,
+            GetExactRequest, GetManyRequest, GetSyncPeersRequest, ImportFileRequest, ImportRequest,
+            LeaveRequest, OpenRequest, RpcService, SetDownloadPolicyRequest, SetHashRequest,
+            SetRequest, ShareRequest, StartSyncRequest, StatusRequest,
+        },
+        AddrInfoOptions,
     },
     store::{DownloadPolicy, Query},
     AuthorId, Capability, CapabilityKind, DocTicket, NamespaceId, PeerIdBytes,
