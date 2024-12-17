@@ -2218,8 +2218,9 @@ dependencies = [
 
 [[package]]
 name = "iroh-gossip"
-version = "0.29.0"
-source = "git+https://github.com/n0-computer/iroh-gossip?branch=iroh-v0-30-0#bde5a28f00e8f104dbeba85e1e227da22412103f"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5c9713c6ba4834857dee19d5e210e86c29476de2ae627963afcd2e6935e628f"
 dependencies = [
  "anyhow",
  "async-channel",
