@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli.rs`."><title>cli.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-b21aa549bf6d91ff.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="iroh_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.0-nightly (c987ad527 2024-05-01)" data-channel="nightly" data-search-js="search-bf21c90c8c1d92b1.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-e32f0c247825364d.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-09095024cf37855e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../iroh_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Type ‘S’ or ‘/’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings">Settings</a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli.rs`."><title>cli.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-dbdb5eec.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="iroh_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.85.0-nightly (d10a6823f 2024-11-29)" data-channel="nightly" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../../static.files/storage-59e33391.js"></script><script defer src="../../static.files/src-script-56102188.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">iroh_docs/</div>cli.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers">
+<a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1257,7 +1258,14 @@
 <a href="#1257" id="1257">1257</a>
 <a href="#1258" id="1258">1258</a>
 <a href="#1259" id="1259">1259</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! Define commands for interacting with documents in Iroh.
+<a href="#1260" id="1260">1260</a>
+<a href="#1261" id="1261">1261</a>
+<a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a></pre></div><pre class="rust"><code><span class="doccomment">//! Define commands for interacting with documents in Iroh.
 
 </span><span class="kw">use </span>std::{
     cell::RefCell,
@@ -1277,8 +1285,6 @@
 <span class="kw">use </span>futures_buffered::BufferedStreamExt;
 <span class="kw">use </span>futures_lite::{Stream, StreamExt};
 <span class="kw">use </span>indicatif::{HumanBytes, HumanDuration, MultiProgress, ProgressBar, ProgressStyle};
-<span class="kw">use </span>iroh::{hash::Hash, AddrInfoOptions};
-<span class="kw">use </span>iroh_base::base32::fmt_short;
 <span class="kw">use </span>iroh_blobs::{
     provider::AddProgress,
     rpc::client::blobs::{<span class="self">self</span>, WrapOption},
@@ -1286,7 +1292,7 @@
         fs::{path_content_info, path_to_key, PathContent},
         SetTagOption,
     },
-    Tag,
+    Hash, Tag,
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>tokio::io::AsyncReadExt;
@@ -1294,7 +1300,10 @@
 
 <span class="kw">use crate</span>::{
     engine::Origin,
-    rpc::client::docs::{<span class="self">self</span>, Doc, Entry, LiveEvent, ShareMode},
+    rpc::{
+        client::docs::{<span class="self">self</span>, Doc, Entry, LiveEvent, ShareMode},
+        AddrInfoOptions,
+    },
     store::{DownloadPolicy, FilterKind, Query, SortDirection},
     AuthorId, ContentStatus, DocTicket, NamespaceId,
 };
@@ -1790,6 +1799,13 @@
     }
 }
 
+<span class="kw">fn </span>fmt_short(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; String {
+    <span class="kw">let </span>len = bytes.len().min(<span class="number">10</span>);
+    data_encoding::BASE32_NOPAD
+        .encode(<span class="kw-2">&amp;</span>bytes[..len])
+        .to_ascii_lowercase()
+}
+
 <span class="kw">impl </span>DocCommands {
     <span class="doccomment">/// Runs the document command given the iroh client and the console environment.
     </span><span class="kw">pub async fn </span>run(
@@ -1876,7 +1892,7 @@
                     <span class="macro">println!</span>(<span class="string">"Deleted {removed} entries."</span>);
                     <span class="macro">println!</span>(
                         <span class="string">"Inserted an empty entry for author {} with key {prefix}."</span>,
-                        fmt_short(author)
+                        fmt_short(author.as_bytes())
                     );
                 } <span class="kw">else </span>{
                     <span class="macro">println!</span>(<span class="string">"Aborted."</span>)
@@ -1933,7 +1949,7 @@
             <span class="self">Self</span>::Leave { doc } =&gt; {
                 <span class="kw">let </span>doc = get_doc(docs, env, doc).<span class="kw">await</span><span class="question-mark">?</span>;
                 doc.leave().<span class="kw">await</span><span class="question-mark">?</span>;
-                <span class="macro">println!</span>(<span class="string">"Doc {} is now inactive"</span>, fmt_short(doc.id()));
+                <span class="macro">println!</span>(<span class="string">"Doc {} is now inactive"</span>, fmt_short(doc.id().as_bytes()));
             }
             <span class="self">Self</span>::Import {
                 doc,
@@ -2082,14 +2098,14 @@
                                 <span class="prelude-val">Ok</span>(details) =&gt; {
                                     <span class="macro">println!</span>(
                                         <span class="string">"synced peer {} ({origin}, received {}, sent {}"</span>,
-                                        fmt_short(event.peer),
+                                        fmt_short(event.peer.as_bytes()),
                                         details.entries_received,
                                         details.entries_sent
                                     )
                                 }
                                 <span class="prelude-val">Err</span>(err) =&gt; <span class="macro">println!</span>(
                                     <span class="string">"failed to sync with peer {} ({origin}): {err}"</span>,
-                                    fmt_short(event.peer)
+                                    fmt_short(event.peer.as_bytes())
                                 ),
                             }
                         }
@@ -2111,14 +2127,14 @@
                     <span class="string">"Deleting a document will permanently remove the document secret key, all document entries, \n\
                     and all content blobs which are not referenced from other docs or tags."
                 </span>);
-                <span class="kw">let </span>prompt = <span class="macro">format!</span>(<span class="string">"Delete document {}?"</span>, fmt_short(doc.id()));
+                <span class="kw">let </span>prompt = <span class="macro">format!</span>(<span class="string">"Delete document {}?"</span>, fmt_short(doc.id().as_bytes()));
                 <span class="kw">if </span>Confirm::new()
                     .with_prompt(prompt)
                     .interact()
                     .unwrap_or(<span class="bool-val">false</span>)
                 {
                     docs.drop_doc(doc.id()).<span class="kw">await</span><span class="question-mark">?</span>;
-                    <span class="macro">println!</span>(<span class="string">"Doc {} has been deleted."</span>, fmt_short(doc.id()));
+                    <span class="macro">println!</span>(<span class="string">"Doc {} has been deleted."</span>, fmt_short(doc.id().as_bytes()));
                 } <span class="kw">else </span>{
                     <span class="macro">println!</span>(<span class="string">"Aborted."</span>)
                 }
@@ -2240,7 +2256,7 @@
     <span class="kw">let </span>key = std::str::from_utf8(entry.key())
         .unwrap_or(<span class="string">"&lt;bad key&gt;"</span>)
         .bold();
-    <span class="kw">let </span>author = fmt_short(entry.author());
+    <span class="kw">let </span>author = fmt_short(entry.author().as_bytes());
     <span class="kw">let </span>(<span class="prelude-val">Ok</span>(content) | <span class="prelude-val">Err</span>(content)) = fmt_content(blobs, entry, mode).<span class="kw">await</span>;
     <span class="kw">let </span>len = human_len(entry);
     <span class="macro">format!</span>(<span class="string">"@{author}: {key} = {content} ({len})"</span>)
@@ -2409,7 +2425,7 @@
         add.set_position(<span class="number">0</span>);
         add.enable_steady_tick(Duration::from_millis(<span class="number">500</span>));
 
-        <span class="kw">let </span>doc_id = fmt_short(doc_id.to_bytes());
+        <span class="kw">let </span>doc_id = fmt_short(doc_id.as_bytes());
         <span class="kw">let </span>import = mp.add(ProgressBar::new(<span class="number">0</span>));
         import.set_style(ProgressStyle::default_bar()
             .template(<span class="string">"{msg}\n{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} ({per_sec}, eta {eta})"</span>).unwrap()
