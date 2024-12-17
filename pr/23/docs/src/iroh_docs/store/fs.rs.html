@@ -2265,7 +2265,7 @@
             </span>.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;&gt;()<span class="question-mark">?</span>;
 
         <span class="macro">assert_eq!</span>(expected, actual);
-
+        store.flush()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -2282,8 +2282,8 @@
         }
 
         <span class="comment">// TODO: write test checking that the indexing is done correctly
-
-        </span><span class="prelude-val">Ok</span>(())
+        </span>store.flush()<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
     }
 }
 </code></pre></div></section></main></body></html>
