@@ -1358,7 +1358,9 @@ mod tests {
         assert_eq!(entries_second.len(), 12);
         assert_eq!(entries, entries_second.into_iter().collect::<Vec<_>>());
 
-        test_lru_cache_like_behaviour(&mut store, myspace.id())
+        test_lru_cache_like_behaviour(&mut store, myspace.id())?;
+        store.flush()?;
+        Ok(())
     }
 
     /// Test that [`Store::register_useful_peer`] behaves like a LRUCache of size
@@ -1585,7 +1587,7 @@ mod tests {
             .get_exact(namespace.id(), author.id(), key, false)?
             .unwrap();
         assert_eq!(res, entry);
-
+        store.flush()?;
         Ok(())
     }
 
@@ -1637,7 +1639,8 @@ mod tests {
         check_entries(&mut alice_store, &myspace.id(), &author, &bob_set)?;
         check_entries(&mut bob_store, &myspace.id(), &author, &alice_set)?;
         check_entries(&mut bob_store, &myspace.id(), &author, &bob_set)?;
-
+        alice_store.flush()?;
+        bob_store.flush()?;
         Ok(())
     }
 
@@ -1700,7 +1703,8 @@ mod tests {
             get_content_hash(&mut alice_store, namespace.id(), author.id(), key)?,
             Some(alice_hash_2)
         );
-
+        alice_store.flush()?;
+        bob_store.flush()?;
         Ok(())
     }
 
@@ -1758,7 +1762,7 @@ mod tests {
             get_entry(&mut store, namespace.id(), author.id(), key)?,
             entry2
         );
-
+        store.flush()?;
         Ok(())
     }
 
@@ -1772,6 +1776,7 @@ mod tests {
         let hash = Hash::new(b"");
         let res = replica.insert(b"foo", &alice, hash, 0);
         assert!(matches!(res, Err(InsertError::EntryIsEmpty)));
+        store.flush()?;
         Ok(())
     }
 
@@ -1824,7 +1829,7 @@ mod tests {
             store.get_exact(myspace.id(), alice.id(), b"foo", false)?,
             None
         );
-
+        store.flush()?;
         Ok(())
     }
 
@@ -1876,7 +1881,8 @@ mod tests {
         sync(&mut alice, &mut bob)?;
         check_entries(&mut alice_store, &myspace.id(), &author, &["fog", "fooz"])?;
         check_entries(&mut bob_store, &myspace.id(), &author, &["fog", "fooz"])?;
-
+        alice_store.flush()?;
+        bob_store.flush()?;
         Ok(())
     }
 
@@ -1928,6 +1934,7 @@ mod tests {
             .get_many(namespace.id(), Query::all())?
             .collect::<Vec<_>>();
         assert_eq!(res.len(), 1);
+        store.flush()?;
         Ok(())
     }
 
@@ -1994,6 +2001,7 @@ mod tests {
             namespace.id(),
             vec![vec![1u8, 0u8], vec![1u8, 2u8]],
         );
+        store.flush()?;
         Ok(())
     }
 
@@ -2033,7 +2041,7 @@ mod tests {
         let mut latest_keys: Vec<Vec<u8>> = latest.iter().map(|r| r.2.to_vec()).collect();
         latest_keys.sort();
         assert_eq!(latest_keys, vec![b"a0.2".to_vec(), b"a1.1".to_vec()]);
-
+        store.flush()?;
         Ok(())
     }
 
@@ -2083,6 +2091,7 @@ mod tests {
             namespace.id(),
             vec![vec![1u8, 0u8], vec![1u8, 2u8], vec![0u8, 255u8]],
         );
+        store.flush()?;
         Ok(())
     }
 
@@ -2130,6 +2139,7 @@ mod tests {
         let mut replica = store.open_replica(&namespace.id())?;
         let res = replica.hash_and_insert(b"foo", &author, b"bar");
         assert!(res.is_ok());
+        store.flush()?;
         Ok(())
     }
 
@@ -2246,7 +2256,8 @@ mod tests {
         assert_eq!(state1.num_recv, 0);
         assert_eq!(state2.num_sent, 0);
         assert_eq!(state2.num_recv, 1);
-
+        store1.flush()?;
+        store2.flush()?;
         Ok(())
     }
 
@@ -2436,7 +2447,7 @@ mod tests {
                 ("hi", &a3),
             ],
         );
-
+        store.flush()?;
         Ok(())
     }
 
@@ -2470,6 +2481,7 @@ mod tests {
         store.set_download_policy(&id, policy.clone())?;
         let retrieved_policy = store.get_download_policy(&id)?;
         assert_eq!(retrieved_policy, policy);
+        store.flush()?;
         Ok(())
     }
 

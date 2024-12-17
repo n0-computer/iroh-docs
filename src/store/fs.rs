@@ -1121,7 +1121,7 @@ mod tests {
             .collect::<Result<Vec<_>>>()?;
 
         assert_eq!(expected, actual);
-
+        store.flush()?;
         Ok(())
     }
 
@@ -1138,7 +1138,7 @@ mod tests {
         }
 
         // TODO: write test checking that the indexing is done correctly
-
+        store.flush()?;
         Ok(())
     }
 }
