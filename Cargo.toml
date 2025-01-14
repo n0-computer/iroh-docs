@@ -35,11 +35,11 @@ futures-buffered = "0.2.4"
 futures-lite = "2.3.0"
 futures-util = { version = "0.3.25" }
 hex = "0.4"
-iroh-base = { version = "0.30", features = ["ticket"] }
-iroh-blobs = { version = "0.30" }
-iroh-gossip = { version = "0.30", optional = true, features = ["net"] }
+iroh-base = { version = "0.31", features = ["ticket"] }
+iroh-blobs = { version = "0.31" }
+iroh-gossip = { version = "0.31", optional = true, features = ["net"] }
 iroh-metrics = { version = "0.31", default-features = false }
-iroh = { version = "0.30", optional = true }
+iroh = { version = "0.31", optional = true }
 num_enum = "0.7"
 postcard = { version = "1", default-features = false, features = ["alloc", "use-std", "experimental-derive"] }
 rand = "0.8.5"
@@ -73,7 +73,7 @@ colored = { version = "2.1", optional = true }
 shellexpand = { version = "3.1", optional = true }
 
 [dev-dependencies]
-iroh-test = "0.30"
+iroh-test = "0.31"
 rand_chacha = "0.3.1"
 tokio = { version = "1", features = ["sync", "macros"] }
 proptest = "1.2.0"
@@ -117,10 +117,3 @@ rpc = [
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "iroh_docsrs"]
-
-[patch.crates-io]
-iroh = { git = "https://github.com/n0-computer/iroh.git", branch = "iroh-0-31-0" }
-iroh-test = { git = "https://github.com/n0-computer/iroh.git", branch = "iroh-0-31-0" }
-iroh-base = { git = "https://github.com/n0-computer/iroh.git", branch = "iroh-0-31-0" }
-iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs.git", branch = "iroh-0-31-0" }
-iroh-gossip = { git = "https://github.com/n0-computer/iroh-gossip.git", branch = "iroh-0-31-0" }
