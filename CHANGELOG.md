@@ -2,6 +2,15 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.31.0](https://github.com/n0-computer/iroh-docs/compare/v0.30.0..0.31.0) - 2025-01-14
+
+### ⚙️ Miscellaneous Tasks
+
+- Add project tracking ([#24](https://github.com/n0-computer/iroh-docs/issues/24)) - ([a5219d1](https://github.com/n0-computer/iroh-docs/commit/a5219d186eeeed0c05f9c8082adf02719fdf8e1f))
+- Pin nextest version ([#25](https://github.com/n0-computer/iroh-docs/issues/25)) - ([9340e32](https://github.com/n0-computer/iroh-docs/commit/9340e32db71a634e06026c4861e8981774736c16))
+- Fix URL to actions by using a variable ([#27](https://github.com/n0-computer/iroh-docs/issues/27)) - ([7667e46](https://github.com/n0-computer/iroh-docs/commit/7667e46a03d9ac34e23b4e2e25c8f9b9a0b414a3))
+- Upgrade to `iroh@v0.31.0` ([#28](https://github.com/n0-computer/iroh-docs/issues/28)) - ([7911992](https://github.com/n0-computer/iroh-docs/commit/7911992383b8bfe633a6f56f749beaaeb5a96f64))
+
 ## [0.30.0](https://github.com/n0-computer/iroh-docs/compare/v0.29.0..0.30.0) - 2024-12-17
 
 ### ⛰️  Features
