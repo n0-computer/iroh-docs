@@ -93,6 +93,7 @@ net = ["dep:iroh", "tokio/io-util", "dep:tokio-stream", "dep:tokio-util"]
 metrics = ["iroh-metrics/metrics", "iroh/metrics"]
 engine = ["net", "dep:iroh-gossip", "iroh-blobs/downloader"]
 test-utils = ["iroh/test-utils"]
+examples = ["rpc", "iroh-gossip/rpc", "dep:dialoguer"]
 cli = [
   "rpc",
   "dep:clap",
@@ -113,6 +114,10 @@ rpc = [
   "dep:portable-atomic",
   "iroh-blobs/rpc",
 ]
+ 
+[[example]]
+name = "chat"
+required-features = ["examples"]
 
 [package.metadata.docs.rs]
 all-features = true
