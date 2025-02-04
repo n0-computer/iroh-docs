@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use iroh::{endpoint::get_remote_node_id, Endpoint, NodeAddr, PublicKey};
+use iroh::{Endpoint, NodeAddr, PublicKey};
 #[cfg(feature = "metrics")]
 use iroh_metrics::inc;
 use serde::{Deserialize, Serialize};
@@ -115,7 +115,7 @@ where
 {
     let t_start = Instant::now();
     let connection = connecting.await.map_err(AcceptError::connect)?;
-    let peer = get_remote_node_id(&connection).map_err(AcceptError::connect)?;
+    let peer = connection.remote_node_id().map_err(AcceptError::connect)?;
     let (mut send_stream, mut recv_stream) = connection
         .accept_bi()
         .await

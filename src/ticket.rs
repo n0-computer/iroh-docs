@@ -65,8 +65,8 @@ impl std::str::FromStr for DocTicket {
 mod tests {
     use std::str::FromStr;
 
+    use anyhow::{ensure, Context, Result};
     use iroh::PublicKey;
-    use iroh_test::{assert_eq_hex, hexdump::parse_hexdump};
 
     use super::*;
     use crate::NamespaceId;
@@ -106,6 +106,34 @@ mod tests {
             00 # no relay url
             00 # no direct addresses
         ").unwrap();
-        assert_eq_hex!(base32, expected);
+        assert_eq!(base32, expected);
+    }
+
+    /// Parses a commented multi line hexdump into a vector of bytes.
+    ///
+    /// This is useful to write wire level protocol tests.
+    pub fn parse_hexdump(s: &str) -> Result<Vec<u8>> {
+        let mut result = Vec::new();
+
+        for (line_number, line) in s.lines().enumerate() {
+            let data_part = line.split('#').next().unwrap_or("");
+            let cleaned: String = data_part.chars().filter(|c| !c.is_whitespace()).collect();
+
+            ensure!(
+                cleaned.len() % 2 == 0,
+                "Non-even number of hex chars detected on line {}.",
+                line_number + 1
+            );
+
+            for i in (0..cleaned.len()).step_by(2) {
+                let byte_str = &cleaned[i..i + 2];
+                let byte = u8::from_str_radix(byte_str, 16)
+                    .with_context(|| format!("Invalid hex data on line {}.", line_number + 1))?;
+
+                result.push(byte);
+            }
+        }
+
+        Ok(result)
     }
 }

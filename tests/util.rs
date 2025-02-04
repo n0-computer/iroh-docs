@@ -11,7 +11,6 @@ use iroh::{discovery::Discovery, dns::DnsResolver, NodeId, RelayMode, SecretKey}
 use iroh_blobs::{
     net_protocol::Blobs,
     store::{GcConfig, Store as BlobStore},
-    util::local_pool::LocalPool,
 };
 use iroh_docs::protocol::Docs;
 use iroh_gossip::net::Gossip;
@@ -38,7 +37,6 @@ pub struct Node<S> {
     router: iroh::protocol::Router,
     client: Client,
     store: S,
-    local_pool: LocalPool,
     rpc_task: AbortOnDropHandle<()>,
 }
 
@@ -136,9 +134,8 @@ impl<S: BlobStore> Builder<S> {
             builder = builder.dns_resolver(dns_resolver);
         }
         let endpoint = builder.bind().await?;
-        let local_pool = LocalPool::single();
         let mut router = iroh::protocol::Router::builder(endpoint.clone());
-        let blobs = Blobs::builder(store.clone()).build(&local_pool, &endpoint);
+        let blobs = Blobs::builder(store.clone()).build(&endpoint);
         let gossip = Gossip::builder().spawn(endpoint.clone()).await?;
         let builder = match self.path {
             Some(ref path) => Docs::persistent(path.to_path_buf()),
@@ -209,7 +206,6 @@ impl<S: BlobStore> Builder<S> {
             client,
             store,
             rpc_task: AbortOnDropHandle::new(rpc_task),
-            local_pool,
         })
     }
 
@@ -314,7 +310,6 @@ impl<S> Node<S> {
     /// Shuts down the node
     pub async fn shutdown(self) -> anyhow::Result<()> {
         self.router.shutdown().await?;
-        self.local_pool.shutdown().await;
         self.rpc_task.abort();
         Ok(())
     }

@@ -9,15 +9,15 @@ use iroh_docs::store::Query;
 use rand::RngCore;
 use testresult::TestResult;
 use tokio::io::AsyncWriteExt;
+use tracing_test::traced_test;
 use util::Node;
 
 mod util;
 
 /// Test that closing a doc does not close other instances.
 #[tokio::test]
+#[traced_test]
 async fn test_doc_close() -> Result<()> {
-    let _guard = iroh_test::logging::setup();
-
     let node = Node::memory().spawn().await?;
     let author = node.authors().default().await?;
     // open doc two times
@@ -38,9 +38,8 @@ async fn test_doc_close() -> Result<()> {
 }
 
 #[tokio::test]
+#[traced_test]
 async fn test_doc_import_export() -> TestResult<()> {
-    let _guard = iroh_test::logging::setup();
-
     let node = Node::memory().spawn().await?;
 
     // create temp file
@@ -156,9 +155,8 @@ async fn test_default_author_memory() -> Result<()> {
 }
 
 #[tokio::test]
+#[traced_test]
 async fn test_default_author_persist() -> TestResult<()> {
-    let _guard = iroh_test::logging::setup();
-
     let iroh_root_dir = tempfile::TempDir::new()?;
     let iroh_root = iroh_root_dir.path();
 
