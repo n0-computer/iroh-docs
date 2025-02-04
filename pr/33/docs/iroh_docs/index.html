@@ -47,8 +47,7 @@ the whole store with all replicas to a single file.</p>
     </span><span class="kw">let </span>builder = Router::builder(endpoint);
 
     <span class="comment">// build the blobs protocol
-    </span><span class="kw">let </span>local_pool = LocalPool::default();
-    <span class="kw">let </span>blobs = Blobs::memory().build(local_pool.handle(), builder.endpoint());
+    </span><span class="kw">let </span>blobs = Blobs::memory().build(builder.endpoint());
 
     <span class="comment">// build the gossip protocol
     </span><span class="kw">let </span>gossip = Gossip::builder().spawn(builder.endpoint().clone()).<span class="kw">await</span><span class="question-mark">?</span>;
