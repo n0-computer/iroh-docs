@@ -36,7 +36,7 @@ futures-lite = "2.3.0"
 futures-util = { version = "0.3.25" }
 hex = "0.4"
 iroh-base = { version = "0.32", features = ["ticket"] }
-iroh-blobs = { version = "0.31" }
+iroh-blobs = { version = "0.32" }
 iroh-gossip = { version = "0.32", optional = true, features = ["net"] }
 iroh-metrics = { version = "0.31", default-features = false }
 iroh = { version = "0.32", optional = true }
@@ -117,6 +117,3 @@ rpc = [
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "iroh_docsrs"]
-
-[patch.crates-io]
-iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs.git", branch = "iroh-0-32-0" }
