@@ -59,8 +59,7 @@ async fn main() -> anyhow::Result<()> {
     let builder = Router::builder(endpoint);
 
     // build the blobs protocol
-    let local_pool = LocalPool::default();
-    let blobs = Blobs::memory().build(local_pool.handle(), builder.endpoint());
+    let blobs = Blobs::memory().build(builder.endpoint());
 
     // build the gossip protocol
     let gossip = Gossip::builder().spawn(builder.endpoint().clone()).await?;
