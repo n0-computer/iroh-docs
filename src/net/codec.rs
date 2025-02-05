@@ -297,6 +297,7 @@ mod tests {
     use iroh::SecretKey;
     use iroh_blobs::Hash;
     use rand_core::{CryptoRngCore, SeedableRng};
+    use tracing_test::traced_test;
 
     use super::*;
     use crate::{
@@ -419,16 +420,16 @@ mod tests {
     }
 
     #[tokio::test]
+    #[traced_test]
     async fn test_sync_many_authors_memory() -> Result<()> {
-        let _guard = iroh_test::logging::setup();
         let alice_store = store::Store::memory();
         let bob_store = store::Store::memory();
         test_sync_many_authors(alice_store, bob_store).await
     }
 
     #[tokio::test]
+    #[traced_test]
     async fn test_sync_many_authors_fs() -> Result<()> {
-        let _guard = iroh_test::logging::setup();
         let tmpdir = tempfile::tempdir()?;
         let alice_store = store::fs::Store::persistent(tmpdir.path().join("a.db"))?;
         let bob_store = store::fs::Store::persistent(tmpdir.path().join("b.db"))?;
@@ -612,16 +613,16 @@ mod tests {
     }
 
     #[tokio::test]
+    #[traced_test]
     async fn test_sync_timestamps_memory() -> Result<()> {
-        let _guard = iroh_test::logging::setup();
         let alice_store = store::Store::memory();
         let bob_store = store::Store::memory();
         test_sync_timestamps(alice_store, bob_store).await
     }
 
     #[tokio::test]
+    #[traced_test]
     async fn test_sync_timestamps_fs() -> Result<()> {
-        let _guard = iroh_test::logging::setup();
         let tmpdir = tempfile::tempdir()?;
         let alice_store = store::fs::Store::persistent(tmpdir.path().join("a.db"))?;
         let bob_store = store::fs::Store::persistent(tmpdir.path().join("b.db"))?;

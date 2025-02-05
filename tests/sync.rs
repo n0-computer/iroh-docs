@@ -22,7 +22,7 @@ use iroh_docs::{
 };
 use rand::{CryptoRng, Rng, SeedableRng};
 use tracing::{debug, error_span, info, Instrument};
-use tracing_subscriber::{prelude::*, EnvFilter};
+use tracing_test::traced_test;
 mod util;
 use util::{Builder, Node};
 
@@ -73,8 +73,8 @@ macro_rules! match_event {
 
 /// This tests the simplest scenario: A node connects to another node, and performs sync.
 #[tokio::test]
+#[traced_test]
 async fn sync_simple() -> Result<()> {
-    setup_logging();
     let mut rng = test_rng(b"sync_simple");
     let nodes = spawn_nodes(2, &mut rng).await?;
     let clients = nodes.iter().map(|node| node.client()).collect::<Vec<_>>();
@@ -133,9 +133,9 @@ async fn sync_simple() -> Result<()> {
 
 /// Test subscribing to replica events (without sync)
 #[tokio::test]
+#[traced_test]
 async fn sync_subscribe_no_sync() -> Result<()> {
     let mut rng = test_rng(b"sync_subscribe");
-    setup_logging();
     let node = spawn_node(0, &mut rng).await?;
     let client = node.client();
     let doc = client.docs().create().await?;
@@ -152,12 +152,12 @@ async fn sync_subscribe_no_sync() -> Result<()> {
 }
 
 #[tokio::test]
+#[traced_test]
 async fn sync_gossip_bulk() -> Result<()> {
     let n_entries: usize = std::env::var("N_ENTRIES")
         .map(|x| x.parse().expect("N_ENTRIES must be a number"))
         .unwrap_or(100);
     let mut rng = test_rng(b"sync_gossip_bulk");
-    setup_logging();
 
     let nodes = spawn_nodes(2, &mut rng).await?;
     let clients = nodes.iter().map(|node| node.client()).collect::<Vec<_>>();
@@ -242,10 +242,10 @@ async fn sync_gossip_bulk() -> Result<()> {
 
 /// This tests basic sync and gossip with 3 peers.
 #[tokio::test]
+#[traced_test]
 #[ignore = "flaky"]
 async fn sync_full_basic() -> testresult::TestResult<()> {
     let mut rng = test_rng(b"sync_full_basic");
-    setup_logging();
     let mut nodes = spawn_nodes(2, &mut rng).await?;
     let mut clients = nodes
         .iter()
@@ -424,9 +424,9 @@ async fn sync_full_basic() -> testresult::TestResult<()> {
 }
 
 #[tokio::test]
+#[traced_test]
 async fn sync_open_close() -> Result<()> {
     let mut rng = test_rng(b"sync_subscribe_stop_close");
-    setup_logging();
     let node = spawn_node(0, &mut rng).await?;
     let client = node.client();
 
@@ -448,9 +448,9 @@ async fn sync_open_close() -> Result<()> {
 }
 
 #[tokio::test]
+#[traced_test]
 async fn sync_subscribe_stop_close() -> Result<()> {
     let mut rng = test_rng(b"sync_subscribe_stop_close");
-    setup_logging();
     let node = spawn_node(0, &mut rng).await?;
     let client = node.client();
 
@@ -487,9 +487,9 @@ async fn sync_subscribe_stop_close() -> Result<()> {
 }
 
 #[tokio::test]
+#[traced_test]
 #[cfg(feature = "test-utils")]
 async fn test_sync_via_relay() -> Result<()> {
-    let _guard = iroh_test::logging::setup();
     let (relay_map, _relay_url, _guard) = iroh::test_utils::run_relay_server().await?;
 
     let node1 = Node::memory()
@@ -581,11 +581,11 @@ async fn test_sync_via_relay() -> Result<()> {
 }
 
 #[tokio::test]
+#[traced_test]
 #[cfg(feature = "test-utils")]
 #[ignore = "flaky"]
 async fn sync_restart_node() -> Result<()> {
     let mut rng = test_rng(b"sync_restart_node");
-    setup_logging();
     let (relay_map, _relay_url, _guard) = iroh::test_utils::run_relay_server().await?;
 
     let discovery_server = iroh::test_utils::DnsPkarrServer::run().await?;
@@ -752,7 +752,6 @@ async fn test_download_policies() -> Result<()> {
     const EXPECTED_B_DOWNLOADED: usize = 3;
 
     let mut rng = test_rng(b"sync_download_policies");
-    setup_logging();
     let nodes = spawn_nodes(2, &mut rng).await?;
     let clients = nodes.iter().map(|node| node.client()).collect::<Vec<_>>();
 
@@ -860,9 +859,9 @@ async fn test_download_policies() -> Result<()> {
 
 /// Test sync between many nodes with propagation through sync reports.
 #[tokio::test(flavor = "multi_thread")]
+#[traced_test]
 #[ignore = "flaky"]
 async fn sync_big() -> Result<()> {
-    setup_logging();
     let mut rng = test_rng(b"sync_big");
     let n_nodes = std::env::var("NODES")
         .map(|v| v.parse().expect("NODES must be a number"))
@@ -982,6 +981,7 @@ async fn sync_big() -> Result<()> {
 }
 
 #[tokio::test]
+#[traced_test]
 #[cfg(feature = "test-utils")]
 async fn test_list_docs_stream() -> testresult::TestResult<()> {
     let node = Node::memory()
@@ -1156,6 +1156,7 @@ impl PartialEq<ExpectedEntry> for (Entry, Bytes) {
 }
 
 #[tokio::test]
+#[traced_test]
 async fn doc_delete() -> Result<()> {
     let node = Node::memory()
         .gc_interval(Some(Duration::from_millis(100)))
@@ -1185,9 +1186,9 @@ async fn doc_delete() -> Result<()> {
 }
 
 #[tokio::test]
+#[traced_test]
 async fn sync_drop_doc() -> Result<()> {
     let mut rng = test_rng(b"sync_drop_doc");
-    setup_logging();
     let node = spawn_node(0, &mut rng).await?;
     let client = node.client();
 
@@ -1239,14 +1240,6 @@ async fn get_latest(
         .ok_or_else(|| anyhow!("entry not found"))??;
     let content = blobs.read_to_bytes(entry.content_hash()).await?;
     Ok(content.to_vec())
-}
-
-fn setup_logging() {
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
-        .with(EnvFilter::from_default_env())
-        .try_init()
-        .ok();
 }
 
 async fn next<T: std::fmt::Debug>(mut stream: impl Stream<Item = Result<T>> + Unpin) -> T {
