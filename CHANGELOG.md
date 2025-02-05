@@ -2,6 +2,13 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.32.0](https://github.com/n0-computer/iroh-docs/compare/v0.31.0..0.32.0) - 2025-02-05
+
+### ⚙️ Miscellaneous Tasks
+
+- Remove individual repo project tracking ([#29](https://github.com/n0-computer/iroh-docs/issues/29)) - ([7c4c871](https://github.com/n0-computer/iroh-docs/commit/7c4c8715cc2dd76649bd89d8f667d516a15a7a9f))
+- Upgrade to `iroh`, `iroh-gossip`, and `iroh-blobs` v0.32.0 ([#33](https://github.com/n0-computer/iroh-docs/issues/33)) - ([85ea65d](https://github.com/n0-computer/iroh-docs/commit/85ea65d033ed604a9332f4c3a3ac5b003692c461))
+
 ## [0.31.0](https://github.com/n0-computer/iroh-docs/compare/v0.30.0..0.31.0) - 2025-01-14
 
 ### ⚙️ Miscellaneous Tasks
