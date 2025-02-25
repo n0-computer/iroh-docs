@@ -35,11 +35,11 @@ futures-buffered = "0.2.4"
 futures-lite = "2.3.0"
 futures-util = { version = "0.3.25" }
 hex = "0.4"
-iroh-base = { version = "0.32", features = ["ticket"] }
-iroh-blobs = { version = "0.32" }
-iroh-gossip = { version = "0.32", optional = true, features = ["net"] }
+iroh-base = { version = "0.33", features = ["ticket"] }
+iroh-blobs = { version = "0.33" }
+iroh-gossip = { version = "0.33", optional = true, features = ["net"] }
 iroh-metrics = { version = "0.31", default-features = false }
-iroh = { version = "0.32", optional = true }
+iroh = { version = "0.33", optional = true }
 num_enum = "0.7"
 postcard = { version = "1", default-features = false, features = ["alloc", "use-std", "experimental-derive"] }
 rand = "0.8.5"
@@ -117,10 +117,3 @@ rpc = [
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "iroh_docsrs"]
-
-[patch.crates-io]
-iroh = { git = "https://github.com/n0-computer/iroh.git", branch = "main" }
-quic-rpc = { git = "https://github.com/n0-computer/quic-rpc.git", branch = "main" }
-iroh-base = { git = "https://github.com/n0-computer/iroh.git", branch = "main" }
-iroh-gossip = { git = "https://github.com/n0-computer/iroh-gossip.git", branch = "main" }
-iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs.git", branch = "main" }
