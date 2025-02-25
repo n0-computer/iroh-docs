@@ -2,6 +2,13 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.33.0](https://github.com/n0-computer/iroh-docs/compare/v0.32.0..0.33.0) - 2025-02-25
+
+### ⚙️ Miscellaneous Tasks
+
+- Patch to use main branch of iroh dependencies ([#35](https://github.com/n0-computer/iroh-docs/issues/35)) - ([8c6951a](https://github.com/n0-computer/iroh-docs/commit/8c6951abef4f62d633e592bd25a18827243d4e85))
+- Upgrade to latest `iroh`, `iroh-gossip` and `iroh-blobs` ([#36](https://github.com/n0-computer/iroh-docs/issues/36)) - ([911a8cc](https://github.com/n0-computer/iroh-docs/commit/911a8cc4553cb7805aa3f92db81b29759c73b25e))
+
 ## [0.32.0](https://github.com/n0-computer/iroh-docs/compare/v0.31.0..0.32.0) - 2025-02-05
 
 ### ⚙️ Miscellaneous Tasks
