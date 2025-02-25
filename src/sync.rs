@@ -511,7 +511,7 @@ where
     /// Create the initial message for the set reconciliation flow with a remote peer.
     pub fn sync_initial_message(&mut self) -> anyhow::Result<crate::ranger::Message<SignedEntry>> {
         self.info.ensure_open().map_err(anyhow::Error::from)?;
-        self.store.initial_message().map_err(Into::into)
+        self.store.initial_message()
     }
 
     /// Process a set reconciliation message from a remote peer.
