@@ -3071,7 +3071,7 @@
     <span class="doccomment">/// Create the initial message for the set reconciliation flow with a remote peer.
     </span><span class="kw">pub fn </span>sync_initial_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="kw">crate</span>::ranger::Message&lt;SignedEntry&gt;&gt; {
         <span class="self">self</span>.info.ensure_open().map_err(anyhow::Error::from)<span class="question-mark">?</span>;
-        <span class="self">self</span>.store.initial_message().map_err(Into::into)
+        <span class="self">self</span>.store.initial_message()
     }
 
     <span class="doccomment">/// Process a set reconciliation message from a remote peer.
