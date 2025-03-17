@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["iroh_docs",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/ops/deref/trait.Deref.html\" title=\"trait core::ops::deref::Deref\">Deref</a> for <a class=\"struct\" href=\"iroh_docs/sync/struct.Entry.html\" title=\"struct iroh_docs::sync::Entry\">Entry</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/ops/deref/trait.Deref.html\" title=\"trait core::ops::deref::Deref\">Deref</a> for <a class=\"struct\" href=\"iroh_docs/sync/struct.SignedEntry.html\" title=\"struct iroh_docs::sync::SignedEntry\">SignedEntry</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[571]}
