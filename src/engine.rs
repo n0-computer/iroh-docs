@@ -227,7 +227,7 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
     }
 
     /// Handle an incoming iroh-docs connection.
-    pub async fn handle_connection(&self, conn: iroh::endpoint::Connecting) -> anyhow::Result<()> {
+    pub async fn handle_connection(&self, conn: iroh::endpoint::Connection) -> anyhow::Result<()> {
         self.to_live_actor
             .send(ToLiveActor::HandleConnection { conn })
             .await?;

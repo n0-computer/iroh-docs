@@ -4,7 +4,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Result;
 use futures_lite::future::Boxed as BoxedFuture;
-use iroh::{endpoint::Connecting, protocol::ProtocolHandler};
+use iroh::{endpoint::Connection, protocol::ProtocolHandler};
 use iroh_blobs::net_protocol::{Blobs, ProtectCb};
 use iroh_gossip::net::Gossip;
 
@@ -14,7 +14,7 @@ use crate::{
 };
 
 impl<S: iroh_blobs::store::Store> ProtocolHandler for Docs<S> {
-    fn accept(&self, conn: Connecting) -> BoxedFuture<Result<()>> {
+    fn accept(&self, conn: Connection) -> BoxedFuture<Result<()>> {
         let this = self.engine.clone();
         Box::pin(async move { this.handle_connection(conn).await })
     }
