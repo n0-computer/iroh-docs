@@ -1049,7 +1049,7 @@
         </span>reply: sync::oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;()&gt;&gt;,
     },
     HandleConnection {
-        conn: iroh::endpoint::Connecting,
+        conn: iroh::endpoint::Connection,
     },
     AcceptSyncRequest {
         namespace: NamespaceId,
@@ -1722,7 +1722,7 @@
     }
 
     <span class="attr">#[instrument(<span class="string">"accept"</span>, skip_all)]
-    </span><span class="kw">pub async fn </span>handle_connection(<span class="kw-2">&amp;mut </span><span class="self">self</span>, conn: iroh::endpoint::Connecting) {
+    </span><span class="kw">pub async fn </span>handle_connection(<span class="kw-2">&amp;mut </span><span class="self">self</span>, conn: iroh::endpoint::Connection) {
         <span class="kw">let </span>to_actor_tx = <span class="self">self</span>.sync_actor_tx.clone();
         <span class="kw">let </span>accept_request_cb = <span class="kw">move </span>|namespace, peer| {
             <span class="kw">let </span>to_actor_tx = to_actor_tx.clone();

@@ -680,7 +680,7 @@
     }
 
     <span class="doccomment">/// Handle an incoming iroh-docs connection.
-    </span><span class="kw">pub async fn </span>handle_connection(<span class="kw-2">&amp;</span><span class="self">self</span>, conn: iroh::endpoint::Connecting) -&gt; anyhow::Result&lt;()&gt; {
+    </span><span class="kw">pub async fn </span>handle_connection(<span class="kw-2">&amp;</span><span class="self">self</span>, conn: iroh::endpoint::Connection) -&gt; anyhow::Result&lt;()&gt; {
         <span class="self">self</span>.to_live_actor
             .send(ToLiveActor::HandleConnection { conn })
             .<span class="kw">await</span><span class="question-mark">?</span>;

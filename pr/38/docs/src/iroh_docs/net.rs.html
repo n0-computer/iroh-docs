@@ -365,8 +365,7 @@
 <a href="#364" id="364">364</a>
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
-<a href="#367" id="367">367</a>
-<a href="#368" id="368">368</a></pre></div><pre class="rust"><code><span class="doccomment">//! Network implementation of the iroh-docs protocol
+<a href="#367" id="367">367</a></pre></div><pre class="rust"><code><span class="doccomment">//! Network implementation of the iroh-docs protocol
 
 </span><span class="kw">use </span>std::{
     future::Future,
@@ -474,7 +473,7 @@
 <span class="doccomment">/// Handle an iroh-docs connection and sync all shared documents in the replica store.
 </span><span class="kw">pub async fn </span>handle_connection&lt;F, Fut&gt;(
     sync: SyncHandle,
-    connecting: iroh::endpoint::Connecting,
+    connection: iroh::endpoint::Connection,
     accept_cb: F,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;SyncFinished, AcceptError&gt;
 <span class="kw">where
@@ -482,7 +481,6 @@
     Fut: Future&lt;Output = AcceptOutcome&gt;,
 {
     <span class="kw">let </span>t_start = Instant::now();
-    <span class="kw">let </span>connection = connecting.<span class="kw">await</span>.map_err(AcceptError::connect)<span class="question-mark">?</span>;
     <span class="kw">let </span>peer = connection.remote_node_id().map_err(AcceptError::connect)<span class="question-mark">?</span>;
     <span class="kw">let </span>(<span class="kw-2">mut </span>send_stream, <span class="kw-2">mut </span>recv_stream) = connection
         .accept_bi()
