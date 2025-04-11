@@ -127,11 +127,18 @@ impl<S: BlobStore> Builder<S> {
         let mut builder = iroh::Endpoint::builder()
             .bind_addr_v4(addr_v4)
             .bind_addr_v6(addr_v6)
-            .discovery_n0()
             .relay_mode(self.relay_mode.clone())
             .insecure_skip_relay_cert_verify(self.insecure_skip_relay_cert_verify);
         if let Some(dns_resolver) = self.dns_resolver.clone() {
             builder = builder.dns_resolver(dns_resolver);
+        }
+        if let Some(secret_key) = self.secret_key {
+            builder = builder.secret_key(secret_key);
+        }
+        if let Some(discovery) = self.node_discovery {
+            builder = builder.discovery(discovery);
+        } else {
+            builder = builder.discovery_n0();
         }
         let endpoint = builder.bind().await?;
         let mut router = iroh::protocol::Router::builder(endpoint.clone());

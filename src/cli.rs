@@ -1198,70 +1198,70 @@ impl ImportProgressBar {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
 
-    #[tokio::test]
-    #[ignore]
-    #[allow(unused_variables, unreachable_code, clippy::diverging_sub_expression)]
-    async fn test_doc_import() -> Result<()> {
-        let temp_dir = tempfile::tempdir().context("tempdir")?;
+    // #[tokio::test]
+    // #[ignore]
+    // #[allow(unused_variables, unreachable_code, clippy::diverging_sub_expression)]
+    // async fn test_doc_import() -> Result<()> {
+    //     let temp_dir = tempfile::tempdir().context("tempdir")?;
 
-        tokio::fs::create_dir_all(temp_dir.path())
-            .await
-            .context("create dir all")?;
+    //     tokio::fs::create_dir_all(temp_dir.path())
+    //         .await
+    //         .context("create dir all")?;
 
-        let foobar = temp_dir.path().join("foobar");
-        tokio::fs::write(foobar, "foobar")
-            .await
-            .context("write foobar")?;
-        let foo = temp_dir.path().join("foo");
-        tokio::fs::write(foo, "foo").await.context("write foo")?;
+    //     let foobar = temp_dir.path().join("foobar");
+    //     tokio::fs::write(foobar, "foobar")
+    //         .await
+    //         .context("write foobar")?;
+    //     let foo = temp_dir.path().join("foo");
+    //     tokio::fs::write(foo, "foo").await.context("write foo")?;
 
-        let data_dir = tempfile::tempdir()?;
+    //     let data_dir = tempfile::tempdir()?;
 
-        //  let node = crate::commands::start::start_node(data_dir.path(), None, None).await?;
-        // let node = todo!();
-        // let client = node.client();
-        let docs: docs::Client = todo!();
-        let authors = docs.authors();
-        let doc = docs.create().await.context("doc create")?;
-        let author = authors.create().await.context("author create")?;
+    //     //  let node = crate::commands::start::start_node(data_dir.path(), None, None).await?;
+    //     // let node = todo!();
+    //     // let client = node.client();
+    //     let docs: docs::Client = todo!();
+    //     let authors = docs.authors();
+    //     let doc = docs.create().await.context("doc create")?;
+    //     let author = authors.create().await.context("author create")?;
 
-        // set up command, getting iroh node
-        let cli = ConsoleEnv::for_console(data_dir.path().to_owned(), &authors)
-            .await
-            .context("ConsoleEnv")?;
-        // let iroh = iroh::client::Iroh::connect_path(data_dir.path())
-        //     .await
-        //     .context("rpc connect")?;
-        // let iroh = todo!();
-        let docs = todo!();
-        let blobs = todo!();
+    //     // set up command, getting iroh node
+    //     let cli = ConsoleEnv::for_console(data_dir.path().to_owned(), &authors)
+    //         .await
+    //         .context("ConsoleEnv")?;
+    //     // let iroh = iroh::client::Iroh::connect_path(data_dir.path())
+    //     //     .await
+    //     //     .context("rpc connect")?;
+    //     // let iroh = todo!();
+    //     let docs = todo!();
+    //     let blobs = todo!();
 
-        let command = DocCommands::Import {
-            doc: Some(doc.id()),
-            author: Some(author),
-            prefix: None,
-            path: temp_dir.path().to_string_lossy().into(),
-            in_place: false,
-            no_prompt: true,
-        };
+    //     let command = DocCommands::Import {
+    //         doc: Some(doc.id()),
+    //         author: Some(author),
+    //         prefix: None,
+    //         path: temp_dir.path().to_string_lossy().into(),
+    //         in_place: false,
+    //         no_prompt: true,
+    //     };
 
-        command
-            .run(&docs, &blobs, &cli)
-            .await
-            .context("DocCommands run")?;
+    //     command
+    //         .run(&docs, &blobs, &cli)
+    //         .await
+    //         .context("DocCommands run")?;
 
-        let keys: Vec<_> = doc
-            .get_many(Query::all())
-            .await
-            .context("doc get many")?
-            .try_collect()
-            .await?;
-        assert_eq!(2, keys.len());
+    //     let keys: Vec<_> = doc
+    //         .get_many(Query::all())
+    //         .await
+    //         .context("doc get many")?
+    //         .try_collect()
+    //         .await?;
+    //     assert_eq!(2, keys.len());
 
-        // todo
-        // iroh.shutdown(false).await?;
-        Ok(())
-    }
+    //     // todo
+    //     // iroh.shutdown(false).await?;
+    //     Ok(())
+    // }
 }
