@@ -2465,71 +2465,71 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="comment">// use super::*;
 
-    <span class="attr">#[tokio::test]
-    #[ignore]
-    #[allow(unused_variables, unreachable_code, clippy::diverging_sub_expression)]
-    </span><span class="kw">async fn </span>test_doc_import() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>temp_dir = tempfile::tempdir().context(<span class="string">"tempdir"</span>)<span class="question-mark">?</span>;
+    // #[tokio::test]
+    // #[ignore]
+    // #[allow(unused_variables, unreachable_code, clippy::diverging_sub_expression)]
+    // async fn test_doc_import() -&gt; Result&lt;()&gt; {
+    //     let temp_dir = tempfile::tempdir().context("tempdir")?;
 
-        tokio::fs::create_dir_all(temp_dir.path())
-            .<span class="kw">await
-            </span>.context(<span class="string">"create dir all"</span>)<span class="question-mark">?</span>;
+    //     tokio::fs::create_dir_all(temp_dir.path())
+    //         .await
+    //         .context("create dir all")?;
 
-        <span class="kw">let </span>foobar = temp_dir.path().join(<span class="string">"foobar"</span>);
-        tokio::fs::write(foobar, <span class="string">"foobar"</span>)
-            .<span class="kw">await
-            </span>.context(<span class="string">"write foobar"</span>)<span class="question-mark">?</span>;
-        <span class="kw">let </span>foo = temp_dir.path().join(<span class="string">"foo"</span>);
-        tokio::fs::write(foo, <span class="string">"foo"</span>).<span class="kw">await</span>.context(<span class="string">"write foo"</span>)<span class="question-mark">?</span>;
+    //     let foobar = temp_dir.path().join("foobar");
+    //     tokio::fs::write(foobar, "foobar")
+    //         .await
+    //         .context("write foobar")?;
+    //     let foo = temp_dir.path().join("foo");
+    //     tokio::fs::write(foo, "foo").await.context("write foo")?;
 
-        <span class="kw">let </span>data_dir = tempfile::tempdir()<span class="question-mark">?</span>;
+    //     let data_dir = tempfile::tempdir()?;
 
-        <span class="comment">//  let node = crate::commands::start::start_node(data_dir.path(), None, None).await?;
-        // let node = todo!();
-        // let client = node.client();
-        </span><span class="kw">let </span>docs: docs::Client = <span class="macro">todo!</span>();
-        <span class="kw">let </span>authors = docs.authors();
-        <span class="kw">let </span>doc = docs.create().<span class="kw">await</span>.context(<span class="string">"doc create"</span>)<span class="question-mark">?</span>;
-        <span class="kw">let </span>author = authors.create().<span class="kw">await</span>.context(<span class="string">"author create"</span>)<span class="question-mark">?</span>;
+    //     //  let node = crate::commands::start::start_node(data_dir.path(), None, None).await?;
+    //     // let node = todo!();
+    //     // let client = node.client();
+    //     let docs: docs::Client = todo!();
+    //     let authors = docs.authors();
+    //     let doc = docs.create().await.context("doc create")?;
+    //     let author = authors.create().await.context("author create")?;
 
-        <span class="comment">// set up command, getting iroh node
-        </span><span class="kw">let </span>cli = ConsoleEnv::for_console(data_dir.path().to_owned(), <span class="kw-2">&amp;</span>authors)
-            .<span class="kw">await
-            </span>.context(<span class="string">"ConsoleEnv"</span>)<span class="question-mark">?</span>;
-        <span class="comment">// let iroh = iroh::client::Iroh::connect_path(data_dir.path())
-        //     .await
-        //     .context("rpc connect")?;
-        // let iroh = todo!();
-        </span><span class="kw">let </span>docs = <span class="macro">todo!</span>();
-        <span class="kw">let </span>blobs = <span class="macro">todo!</span>();
+    //     // set up command, getting iroh node
+    //     let cli = ConsoleEnv::for_console(data_dir.path().to_owned(), &amp;authors)
+    //         .await
+    //         .context("ConsoleEnv")?;
+    //     // let iroh = iroh::client::Iroh::connect_path(data_dir.path())
+    //     //     .await
+    //     //     .context("rpc connect")?;
+    //     // let iroh = todo!();
+    //     let docs = todo!();
+    //     let blobs = todo!();
 
-        <span class="kw">let </span>command = DocCommands::Import {
-            doc: <span class="prelude-val">Some</span>(doc.id()),
-            author: <span class="prelude-val">Some</span>(author),
-            prefix: <span class="prelude-val">None</span>,
-            path: temp_dir.path().to_string_lossy().into(),
-            in_place: <span class="bool-val">false</span>,
-            no_prompt: <span class="bool-val">true</span>,
-        };
+    //     let command = DocCommands::Import {
+    //         doc: Some(doc.id()),
+    //         author: Some(author),
+    //         prefix: None,
+    //         path: temp_dir.path().to_string_lossy().into(),
+    //         in_place: false,
+    //         no_prompt: true,
+    //     };
 
-        command
-            .run(<span class="kw-2">&amp;</span>docs, <span class="kw-2">&amp;</span>blobs, <span class="kw-2">&amp;</span>cli)
-            .<span class="kw">await
-            </span>.context(<span class="string">"DocCommands run"</span>)<span class="question-mark">?</span>;
+    //     command
+    //         .run(&amp;docs, &amp;blobs, &amp;cli)
+    //         .await
+    //         .context("DocCommands run")?;
 
-        <span class="kw">let </span>keys: Vec&lt;<span class="kw">_</span>&gt; = doc
-            .get_many(Query::all())
-            .<span class="kw">await
-            </span>.context(<span class="string">"doc get many"</span>)<span class="question-mark">?
-            </span>.try_collect()
-            .<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="macro">assert_eq!</span>(<span class="number">2</span>, keys.len());
+    //     let keys: Vec&lt;_&gt; = doc
+    //         .get_many(Query::all())
+    //         .await
+    //         .context("doc get many")?
+    //         .try_collect()
+    //         .await?;
+    //     assert_eq!(2, keys.len());
 
-        <span class="comment">// todo
-        // iroh.shutdown(false).await?;
-        </span><span class="prelude-val">Ok</span>(())
-    }
-}
+    //     // todo
+    //     // iroh.shutdown(false).await?;
+    //     Ok(())
+    // }
+</span>}
 </code></pre></div></section></main></body></html>
