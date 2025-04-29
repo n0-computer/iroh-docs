@@ -28,7 +28,8 @@ pub use self::{
     state::{Origin, SyncReason},
 };
 use crate::{
-    actor::SyncHandle, Author, AuthorId, ContentStatus, ContentStatusCallback, Entry, NamespaceId,
+    actor::SyncHandle, metrics::Metrics, Author, AuthorId, ContentStatus, ContentStatusCallback,
+    Entry, NamespaceId,
 };
 
 mod gossip;
@@ -90,6 +91,7 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
             downloader,
             to_live_actor_recv,
             live_actor_tx.clone(),
+            sync.metrics().clone(),
         );
         let actor_handle = tokio::task::spawn(
             async move {
@@ -153,6 +155,11 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
     /// Get the blob store.
     pub fn blob_store(&self) -> &D {
         &self.blob_store
+    }
+
+    /// Returns the metrics tracked for this engine.
+    pub fn metrics(&self) -> &Arc<Metrics> {
+        self.sync.metrics()
     }
 
     /// Start to sync a document.

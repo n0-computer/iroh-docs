@@ -12,7 +12,6 @@ use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use futures_util::FutureExt;
 use iroh_blobs::Hash;
-use iroh_metrics::inc;
 use serde::{Deserialize, Serialize};
 use tokio::{sync::oneshot, task::JoinSet};
 use tracing::{debug, error, error_span, trace, warn};
@@ -224,6 +223,7 @@ struct OpenReplica {
 pub struct SyncHandle {
     tx: async_channel::Sender<Action>,
     join_handle: Arc<Option<JoinHandle<()>>>,
+    metrics: Arc<Metrics>,
 }
 
 /// Options when opening a replica.
@@ -255,6 +255,7 @@ impl SyncHandle {
         content_status_callback: Option<ContentStatusCallback>,
         me: String,
     ) -> SyncHandle {
+        let metrics = Arc::new(Metrics::default());
         let (action_tx, action_rx) = async_channel::bounded(ACTION_CAP);
         let actor = Actor {
             store,
@@ -262,6 +263,7 @@ impl SyncHandle {
             action_rx,
             content_status_callback,
             tasks: Default::default(),
+            metrics: metrics.clone(),
         };
         let join_handle = std::thread::Builder::new()
             .name("sync-actor".to_string())
@@ -278,7 +280,13 @@ impl SyncHandle {
         SyncHandle {
             tx: action_tx,
             join_handle,
+            metrics,
         }
+    }
+
+    /// Returns the metrics collected in this sync actor.
+    pub fn metrics(&self) -> &Arc<Metrics> {
+        &self.metrics
     }
 
     pub async fn open(&self, namespace: NamespaceId, opts: OpenOpts) -> Result<()> {
@@ -599,6 +607,7 @@ struct Actor {
     action_rx: async_channel::Receiver<Action>,
     content_status_callback: Option<ContentStatusCallback>,
     tasks: JoinSet<()>,
+    metrics: Arc<Metrics>,
 }
 
 impl Actor {
@@ -634,7 +643,7 @@ impl Actor {
                 }
             };
             trace!(%action, "tick");
-            inc!(Metrics, actor_tick_main);
+            self.metrics.actor_tick_main.inc();
             match action {
                 Action::Shutdown { reply } => {
                     break reply;
@@ -750,6 +759,8 @@ impl Actor {
                 let author = get_author(&mut this.store, &author)?;
                 let mut replica = this.states.replica(namespace, &mut this.store)?;
                 replica.insert(&key, &author, hash, len)?;
+                this.metrics.new_entries_local.inc();
+                this.metrics.new_entries_local_size.inc_by(len);
                 Ok(())
             }),
             ReplicaAction::DeletePrefix { author, key, reply } => {
@@ -769,7 +780,10 @@ impl Actor {
                 let mut replica = this
                     .states
                     .replica_if_syncing(&namespace, &mut this.store)?;
+                let len = entry.content_len();
                 replica.insert_remote_entry(entry, from, content_status)?;
+                this.metrics.new_entries_remote.inc();
+                this.metrics.new_entries_remote_size.inc_by(len);
                 Ok(())
             }),
 
