@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["iroh_docs",[["impl ValueEnum for <a class=\"enum\" href=\"iroh_docs/cli/enum.DisplayContentMode.html\" title=\"enum iroh_docs::cli::DisplayContentMode\">DisplayContentMode</a>"],["impl ValueEnum for <a class=\"enum\" href=\"iroh_docs/cli/enum.FetchKind.html\" title=\"enum iroh_docs::cli::FetchKind\">FetchKind</a>"],["impl ValueEnum for <a class=\"enum\" href=\"iroh_docs/cli/enum.Sorting.html\" title=\"enum iroh_docs::cli::Sorting\">Sorting</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[453]}
