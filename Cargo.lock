@@ -2020,7 +2020,7 @@ checksum = "469fb0b9cefa57e3ef31275ee7cacb78f2fdca44e4765491884a2b119d4eb130"
 [[package]]
 name = "iroh"
 version = "0.34.1"
-source = "git+https://github.com/n0-computer/iroh?branch=Frando/metrics2#3d22b7e9dca1467a9bf26689ca28ffe1d1393af0"
+source = "git+https://github.com/n0-computer/iroh?branch=Frando/metrics#88f77d396212a14a82b9265db91c0a98b0231376"
 dependencies = [
  "aead",
  "anyhow",
@@ -2096,12 +2096,13 @@ dependencies = [
 [[package]]
 name = "iroh-base"
 version = "0.34.1"
-source = "git+https://github.com/n0-computer/iroh?branch=Frando/metrics2#3d22b7e9dca1467a9bf26689ca28ffe1d1393af0"
+source = "git+https://github.com/n0-computer/iroh?branch=Frando/metrics#88f77d396212a14a82b9265db91c0a98b0231376"
 dependencies = [
  "curve25519-dalek",
  "data-encoding",
  "derive_more",
  "ed25519-dalek",
+ "postcard",
  "rand_core 0.6.4",
  "serde",
  "thiserror 2.0.11",
@@ -2124,7 +2125,7 @@ dependencies = [
 [[package]]
 name = "iroh-blobs"
 version = "0.34.1"
-source = "git+https://github.com/n0-computer/iroh-blobs?branch=Frando/metrics#f8c1f9367eb0c08581e4c9080d940c8e9ea1d4d2"
+source = "git+https://github.com/n0-computer/iroh-blobs?branch=Frando/metrics#26cbf40dc3354c0e6db3e96d5e04a489ecf71fb6"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -2141,7 +2142,7 @@ dependencies = [
  "hashlink",
  "hex",
  "iroh",
- "iroh-base 0.34.0",
+ "iroh-base 0.34.1",
  "iroh-io",
  "iroh-metrics",
  "nested_enum_utils",
@@ -2232,7 +2233,7 @@ dependencies = [
 [[package]]
 name = "iroh-gossip"
 version = "0.34.1"
-source = "git+https://github.com/n0-computer/iroh-gossip?branch=refactor/metrics2#e0277ad43bbf82be8515bd70587309b4204f8f95"
+source = "git+https://github.com/n0-computer/iroh-gossip?branch=refactor/metrics#20904f71e5b34c7993c4ea1df28c6c2b0a8a1cca"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -2274,8 +2275,9 @@ dependencies = [
 
 [[package]]
 name = "iroh-metrics"
-version = "0.33.0"
-source = "git+https://github.com/n0-computer/iroh-metrics?branch=Frando/derive-metricsgroupset#ff3c5270a5e5e6bd909e9cd0214d659f899f0073"
+version = "0.34.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f70466f14caff7420a14373676947e25e2917af6a5b1bec45825beb2bf1eb6a7"
 dependencies = [
  "http-body-util",
  "hyper",
@@ -2284,15 +2286,16 @@ dependencies = [
  "itoa",
  "reqwest",
  "serde",
- "thiserror 2.0.11",
+ "snafu",
  "tokio",
  "tracing",
 ]
 
 [[package]]
 name = "iroh-metrics-derive"
-version = "0.1.0"
-source = "git+https://github.com/n0-computer/iroh-metrics?branch=Frando/derive-metricsgroupset#ff3c5270a5e5e6bd909e9cd0214d659f899f0073"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d12f5c45c4ed2436302a4e03cad9a0ad34b2962ad0c5791e1019c0ee30eeb09"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -2358,7 +2361,7 @@ dependencies = [
 [[package]]
 name = "iroh-relay"
 version = "0.34.1"
-source = "git+https://github.com/n0-computer/iroh?branch=Frando/metrics2#3d22b7e9dca1467a9bf26689ca28ffe1d1393af0"
+source = "git+https://github.com/n0-computer/iroh?branch=Frando/metrics#88f77d396212a14a82b9265db91c0a98b0231376"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2815,7 +2818,7 @@ dependencies = [
 [[package]]
 name = "netwatch"
 version = "0.4.0"
-source = "git+https://github.com/n0-computer/net-tools?branch=Frando/metrics2#647b31b2c4468b7fe8651f8a31d5fea5411ee549"
+source = "git+https://github.com/n0-computer/net-tools?branch=Frando/metrics#54f4557ee760b0fb4c3a25f1b5596592aca55194"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -3363,7 +3366,7 @@ checksum = "280dc24453071f1b63954171985a0b0d30058d287960968b9b2aca264c8d4ee6"
 [[package]]
 name = "portmapper"
 version = "0.4.1"
-source = "git+https://github.com/n0-computer/net-tools?branch=Frando/metrics2#647b31b2c4468b7fe8651f8a31d5fea5411ee549"
+source = "git+https://github.com/n0-computer/net-tools?branch=Frando/metrics#54f4557ee760b0fb4c3a25f1b5596592aca55194"
 dependencies = [
  "base64",
  "bytes",
@@ -3373,7 +3376,7 @@ dependencies = [
  "igd-next",
  "iroh-metrics",
  "libc",
- "netwatch 0.4.0 (git+https://github.com/n0-computer/net-tools?branch=Frando/metrics2)",
+ "netwatch 0.4.0 (git+https://github.com/n0-computer/net-tools?branch=Frando/metrics)",
  "num_enum",
  "rand 0.8.5",
  "serde",
@@ -4518,6 +4521,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "snafu"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "223891c85e2a29c3fe8fb900c1fae5e69c2e42415e3177752e8718475efa5019"
+dependencies = [
+ "snafu-derive",
+]
+
+[[package]]
+name = "snafu-derive"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03c3c6b7927ffe7ecaa769ee0e3994da3b8cafc8f444578982c83ecb161af917"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.98",
 ]
 
 [[package]]

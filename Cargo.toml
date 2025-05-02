@@ -38,7 +38,7 @@ hex = "0.4"
 iroh-base = { version = "0.34", features = ["ticket"] }
 iroh-blobs = { version = "0.34" }
 iroh-gossip = { version = "0.34", optional = true, features = ["net"] }
-iroh-metrics = { version = "0.33", default-features = false }
+iroh-metrics = { version = "0.34", default-features = false }
 iroh = { version = "0.34", optional = true }
 num_enum = "0.7"
 postcard = { version = "1", default-features = false, features = ["alloc", "use-std", "experimental-derive"] }
@@ -119,7 +119,6 @@ all-features = true
 rustdoc-args = ["--cfg", "iroh_docsrs"]
 
 [patch.crates-io]
-iroh = { git = "https://github.com/n0-computer/iroh", branch = "Frando/metrics2" }
+iroh = { git = "https://github.com/n0-computer/iroh", branch = "Frando/metrics" }
 iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs", branch = "Frando/metrics" }
-iroh-gossip = { git = "https://github.com/n0-computer/iroh-gossip", branch = "refactor/metrics2" }
-iroh-metrics = { git = "https://github.com/n0-computer/iroh-metrics", branch = "Frando/derive-metricsgroupset" }
+iroh-gossip = { git = "https://github.com/n0-computer/iroh-gossip", branch = "refactor/metrics" }
