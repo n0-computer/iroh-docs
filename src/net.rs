@@ -6,15 +6,12 @@ use std::{
 };
 
 use iroh::{Endpoint, NodeAddr, PublicKey};
-#[cfg(feature = "metrics")]
-use iroh_metrics::inc;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error_span, trace, Instrument};
 
-#[cfg(feature = "metrics")]
-use crate::metrics::Metrics;
 use crate::{
     actor::SyncHandle,
+    metrics::Metrics,
     net::codec::{run_alice, BobState},
     NamespaceId, SyncOutcome,
 };
@@ -30,6 +27,7 @@ pub async fn connect_and_sync(
     sync: &SyncHandle,
     namespace: NamespaceId,
     peer: NodeAddr,
+    metrics: Option<&Metrics>,
 ) -> Result<SyncFinished, ConnectError> {
     let t_start = Instant::now();
     let peer_id = peer.node_id;
@@ -54,11 +52,12 @@ pub async fn connect_and_sync(
         .await
         .map_err(ConnectError::close)?;
 
-    #[cfg(feature = "metrics")]
-    if res.is_ok() {
-        inc!(Metrics, sync_via_connect_success);
-    } else {
-        inc!(Metrics, sync_via_connect_failure);
+    if let Some(metrics) = metrics {
+        if res.is_ok() {
+            metrics.sync_via_connect_success.inc();
+        } else {
+            metrics.sync_via_connect_failure.inc();
+        }
     }
 
     let t_process = t_start.elapsed() - t_connect;
@@ -108,6 +107,7 @@ pub async fn handle_connection<F, Fut>(
     sync: SyncHandle,
     connection: iroh::endpoint::Connection,
     accept_cb: F,
+    metrics: Option<&Metrics>,
 ) -> Result<SyncFinished, AcceptError>
 where
     F: Fn(NamespaceId, PublicKey) -> Fut,
@@ -132,11 +132,12 @@ where
         .instrument(span.clone())
         .await;
 
-    #[cfg(feature = "metrics")]
-    if res.is_ok() {
-        inc!(Metrics, sync_via_accept_success);
-    } else {
-        inc!(Metrics, sync_via_accept_failure);
+    if let Some(metrics) = metrics {
+        if res.is_ok() {
+            metrics.sync_via_accept_success.inc();
+        } else {
+            metrics.sync_via_accept_failure.inc();
+        }
     }
 
     let namespace = state.namespace();

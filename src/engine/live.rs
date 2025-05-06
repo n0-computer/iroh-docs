@@ -2,6 +2,7 @@
 
 use std::{
     collections::{HashMap, HashSet},
+    sync::Arc,
     time::SystemTime,
 };
 
@@ -15,7 +16,6 @@ use iroh_blobs::{
     Hash, HashAndFormat,
 };
 use iroh_gossip::net::Gossip;
-use iroh_metrics::inc;
 use serde::{Deserialize, Serialize};
 use tokio::{
     sync::{self, mpsc, oneshot},
@@ -180,6 +180,7 @@ pub struct LiveActor<B: iroh_blobs::store::Store> {
 
     /// Sync state per replica and peer
     state: NamespaceStates,
+    metrics: Arc<Metrics>,
 }
 impl<B: iroh_blobs::store::Store> LiveActor<B> {
     /// Create the live actor.
@@ -192,6 +193,7 @@ impl<B: iroh_blobs::store::Store> LiveActor<B> {
         downloader: Downloader,
         inbox: mpsc::Receiver<ToLiveActor>,
         sync_actor_tx: mpsc::Sender<ToLiveActor>,
+        metrics: Arc<Metrics>,
     ) -> Self {
         let (replica_events_tx, replica_events_rx) = async_channel::bounded(1024);
         let gossip_state = GossipState::new(gossip, sync.clone(), sync_actor_tx.clone());
@@ -212,6 +214,7 @@ impl<B: iroh_blobs::store::Store> LiveActor<B> {
             state: Default::default(),
             missing_hashes: Default::default(),
             queued_hashes: Default::default(),
+            metrics,
         }
     }
 
@@ -236,13 +239,13 @@ impl<B: iroh_blobs::store::Store> LiveActor<B> {
         loop {
             i += 1;
             trace!(?i, "tick wait");
-            inc!(Metrics, doc_live_tick_main);
+            self.metrics.doc_live_tick_main.inc();
             tokio::select! {
                 biased;
                 msg = self.inbox.recv() => {
                     let msg = msg.context("to_actor closed")?;
                     trace!(?i, %msg, "tick: to_actor");
-                    inc!(Metrics, doc_live_tick_actor);
+                    self.metrics.doc_live_tick_actor.inc();
                     match msg {
                         ToLiveActor::Shutdown { reply } => {
                             break Ok(reply);
@@ -254,7 +257,7 @@ impl<B: iroh_blobs::store::Store> LiveActor<B> {
                 }
                 event = self.replica_events_rx.recv() => {
                     trace!(?i, "tick: replica_event");
-                    inc!(Metrics, doc_live_tick_replica_event);
+                    self.metrics.doc_live_tick_replica_event.inc();
                     let event = event.context("replica_events closed")?;
                     if let Err(err) = self.on_replica_event(event).await {
                         error!(?err, "Failed to process replica event");
@@ -262,20 +265,20 @@ impl<B: iroh_blobs::store::Store> LiveActor<B> {
                 }
                 Some(res) = self.running_sync_connect.join_next(), if !self.running_sync_connect.is_empty() => {
                     trace!(?i, "tick: running_sync_connect");
-                    inc!(Metrics, doc_live_tick_running_sync_connect);
+                    self.metrics.doc_live_tick_running_sync_connect.inc();
                     let (namespace, peer, reason, res) = res.context("running_sync_connect closed")?;
                     self.on_sync_via_connect_finished(namespace, peer, reason, res).await;
 
                 }
                 Some(res) = self.running_sync_accept.join_next(), if !self.running_sync_accept.is_empty() => {
                     trace!(?i, "tick: running_sync_accept");
-                    inc!(Metrics, doc_live_tick_running_sync_accept);
+                    self.metrics.doc_live_tick_running_sync_accept.inc();
                     let res = res.context("running_sync_accept closed")?;
                     self.on_sync_via_accept_finished(res).await;
                 }
                 Some(res) = self.download_tasks.join_next(), if !self.download_tasks.is_empty() => {
                     trace!(?i, "tick: pending_downloads");
-                    inc!(Metrics, doc_live_tick_pending_downloads);
+                    self.metrics.doc_live_tick_pending_downloads.inc();
                     let (namespace, hash, res) = res.context("pending_downloads closed")?;
                     self.on_download_ready(namespace, hash, res).await;
                 }
@@ -362,8 +365,16 @@ impl<B: iroh_blobs::store::Store> LiveActor<B> {
         }
         let endpoint = self.endpoint.clone();
         let sync = self.sync.clone();
+        let metrics = self.metrics.clone();
         let fut = async move {
-            let res = connect_and_sync(&endpoint, &sync, namespace, NodeAddr::new(peer)).await;
+            let res = connect_and_sync(
+                &endpoint,
+                &sync,
+                namespace,
+                NodeAddr::new(peer),
+                Some(&metrics),
+            )
+            .await;
             (namespace, peer, reason, res)
         }
         .instrument(Span::current());
@@ -787,8 +798,9 @@ impl<B: iroh_blobs::store::Store> LiveActor<B> {
         };
         debug!("incoming connection");
         let sync = self.sync.clone();
+        let metrics = self.metrics.clone();
         self.running_sync_accept.spawn(
-            async move { handle_connection(sync, conn, accept_request_cb).await }
+            async move { handle_connection(sync, conn, accept_request_cb, Some(&metrics)).await }
                 .instrument(Span::current()),
         );
     }
