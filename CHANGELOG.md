@@ -2,6 +2,20 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.35.0](https://github.com/n0-computer/iroh-docs/compare/v0.34.0..0.35.0) - 2025-05-12
+
+### 🐛 Bug Fixes
+
+- Flaky tests ([#40](https://github.com/n0-computer/iroh-docs/issues/40)) - ([faa929c](https://github.com/n0-computer/iroh-docs/commit/faa929ccfea052d2c3f14bea2b35aef7aa893f9a))
+
+### 🚜 Refactor
+
+- [**breaking**] Update to iroh 0.35 and non-global metrics tracking ([#41](https://github.com/n0-computer/iroh-docs/issues/41)) - ([8721c39](https://github.com/n0-computer/iroh-docs/commit/8721c39a2b33a8b9d3858778f1e983494919cc56))
+
+### ⚙️ Miscellaneous Tasks
+
+- Update sccache github action ([#42](https://github.com/n0-computer/iroh-docs/issues/42)) - ([e8b89a8](https://github.com/n0-computer/iroh-docs/commit/e8b89a82ab05c1174c2e20180d226f0fcfc18277))
+
 ## [0.34.0](https://github.com/n0-computer/iroh-docs/compare/v0.33.0..0.34.0) - 2025-03-18
 
 ### ⚙️ Miscellaneous Tasks
