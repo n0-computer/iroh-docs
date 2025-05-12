@@ -17,13 +17,9 @@ use std::{
 use bytes::{Bytes, BytesMut};
 use ed25519_dalek::{Signature, SignatureError};
 use iroh_blobs::Hash;
-#[cfg(feature = "metrics")]
-use iroh_metrics::{inc, inc_by};
 use serde::{Deserialize, Serialize};
 
 pub use crate::heads::AuthorHeads;
-#[cfg(feature = "metrics")]
-use crate::metrics::Metrics;
 use crate::{
     keys::{Author, AuthorId, AuthorPublicKey, NamespaceId, NamespacePublicKey, NamespaceSecret},
     ranger::{self, Fingerprint, InsertOutcome, RangeEntry, RangeKey, RangeValue, Store},
@@ -433,9 +429,6 @@ where
     ) -> Result<usize, InsertError> {
         let namespace = self.id();
 
-        #[cfg(feature = "metrics")]
-        let len = entry.content_len();
-
         let store = &self.store;
         validate_entry(system_time_now(), store, namespace, &entry, &origin)?;
 
@@ -448,24 +441,11 @@ where
         };
 
         let insert_event = match origin {
-            InsertOrigin::Local => {
-                #[cfg(feature = "metrics")]
-                {
-                    inc!(Metrics, new_entries_local);
-                    inc_by!(Metrics, new_entries_local_size, len);
-                }
-                Event::LocalInsert { namespace, entry }
-            }
+            InsertOrigin::Local => Event::LocalInsert { namespace, entry },
             InsertOrigin::Sync {
                 from,
                 remote_content_status,
             } => {
-                #[cfg(feature = "metrics")]
-                {
-                    inc!(Metrics, new_entries_remote);
-                    inc_by!(Metrics, new_entries_remote_size, len);
-                }
-
                 let download_policy = self
                     .store
                     .get_download_policy(&self.id())

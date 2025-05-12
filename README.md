@@ -72,8 +72,7 @@ async fn main() -> anyhow::Result<()> {
         .accept(BLOBS_ALPN, blobs)
         .accept(GOSSIP_ALPN, gossip)
         .accept(DOCS_ALPN, docs)
-        .spawn()
-        .await?;
+        .spawn();
 
     // do fun stuff with docs!
     Ok(())
