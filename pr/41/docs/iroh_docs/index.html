@@ -60,8 +60,7 @@ the whole store with all replicas to a single file.</p>
         .accept(BLOBS_ALPN, blobs)
         .accept(GOSSIP_ALPN, gossip)
         .accept(DOCS_ALPN, docs)
-        .spawn()
-        .<span class="kw">await</span><span class="question-mark">?</span>;
+        .spawn();
 
     <span class="comment">// do fun stuff with docs!
     </span><span class="prelude-val">Ok</span>(())
