@@ -160,7 +160,7 @@ impl<S: BlobStore> Builder<S> {
         router = router.accept(iroh_gossip::ALPN, gossip.clone());
 
         // Build the router
-        let router = router.spawn().await?;
+        let router = router.spawn();
 
         // Setup RPC
         let (internal_rpc, controller) =
