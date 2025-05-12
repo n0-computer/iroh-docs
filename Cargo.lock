@@ -2150,7 +2150,7 @@ dependencies = [
 [[package]]
 name = "iroh-blobs"
 version = "0.34.1"
-source = "git+https://github.com/n0-computer/iroh-blobs.git?branch=main#0308a77f9bc949a6f75750b514cdb99cfc1143f7"
+source = "git+https://github.com/n0-computer/iroh-blobs.git?branch=patch-iroh-main#2578c438dd01f4363dd848cd48932e6986cf00b0"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -2258,7 +2258,7 @@ dependencies = [
 [[package]]
 name = "iroh-gossip"
 version = "0.34.1"
-source = "git+https://github.com/n0-computer/iroh-gossip.git?branch=main#2a372144b08f6db43f67536e8694659b4b326698"
+source = "git+https://github.com/n0-computer/iroh-gossip.git?branch=patch-iroh-main#963ff20da4aad33b55ce41c9eeaad562da4f80b1"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -3626,7 +3626,7 @@ dependencies = [
 [[package]]
 name = "quic-rpc"
 version = "0.19.0"
-source = "git+https://github.com/n0-computer/quic-rpc.git?branch=main#3e2b3ee982c934ecb3527bb163be4a8570f62483"
+source = "git+https://github.com/n0-computer/quic-rpc.git?branch=patch-iroh-main#7211bf5ccadc2c80fc107e1b6ff093ac27eda85a"
 dependencies = [
  "anyhow",
  "document-features",
