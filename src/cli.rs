@@ -591,7 +591,7 @@ impl DocCommands {
             } => {
                 let doc = get_doc(docs, env, doc).await?;
                 let ticket = doc.share(mode, addr_options).await?;
-                println!("{}", ticket);
+                println!("{ticket}");
             }
             Self::Set {
                 doc,
@@ -604,7 +604,7 @@ impl DocCommands {
                 let key = key.as_bytes().to_vec();
                 let value = value.as_bytes().to_vec();
                 let hash = doc.set_bytes(author, key, value).await?;
-                println!("{}", hash);
+                println!("{hash}");
             }
             Self::Del {
                 doc,

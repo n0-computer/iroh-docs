@@ -211,7 +211,7 @@ async fn test_default_author_persist() -> TestResult<()> {
         drop(iroh);
         let iroh = Node::persistent(iroh_root).spawn().await;
         if let Err(cause) = iroh.as_ref() {
-            panic!("failed to start node: {:?}", cause);
+            panic!("failed to start node: {cause:?}");
         }
         iroh?.shutdown().await?;
     }

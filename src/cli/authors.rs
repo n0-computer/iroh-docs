@@ -48,7 +48,7 @@ impl AuthorCommands {
             Self::List => {
                 let mut stream = authors.list().await?;
                 while let Some(author_id) = stream.try_next().await? {
-                    println!("{}", author_id);
+                    println!("{author_id}");
                 }
             }
             Self::Default { switch } => {
@@ -56,7 +56,7 @@ impl AuthorCommands {
                     bail!("The --switch flag is only supported within the Iroh console.");
                 }
                 let author_id = authors.default().await?;
-                println!("{}", author_id);
+                println!("{author_id}");
                 if switch {
                     env.set_author(author_id)?;
                     println!("Active author is now {}", fmt_short(author_id.as_bytes()));
@@ -68,7 +68,7 @@ impl AuthorCommands {
                 }
 
                 let author_id = authors.create().await?;
-                println!("{}", author_id);
+                println!("{author_id}");
 
                 if switch {
                     env.set_author(author_id)?;
@@ -81,7 +81,7 @@ impl AuthorCommands {
             }
             Self::Export { author } => match authors.export(author).await? {
                 Some(author) => {
-                    println!("{}", author);
+                    println!("{author}");
                 }
                 None => {
                     println!("No author found {}", fmt_short(author.as_bytes()));
@@ -94,7 +94,7 @@ impl AuthorCommands {
                     println!("Imported {}", fmt_short(id.as_bytes()));
                 }
                 Err(err) => {
-                    eprintln!("Invalid author key: {}", err);
+                    eprintln!("Invalid author key: {err}");
                 }
             },
         }

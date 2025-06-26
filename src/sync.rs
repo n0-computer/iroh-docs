@@ -2516,7 +2516,7 @@ mod tests {
         while let Some(msg) = next_to_bob.take() {
             assert!(rounds < 100, "too many rounds");
             rounds += 1;
-            println!("round {}", rounds);
+            println!("round {rounds}");
             if let Some(msg) = bob.sync_process_message(msg, alice_peer_id, &mut bob_state)? {
                 next_to_bob = alice.sync_process_message(msg, bob_peer_id, &mut alice_state)?
             }
