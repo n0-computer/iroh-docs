@@ -1203,12 +1203,7 @@ mod tests {
                     e.key()
                 );
             }
-            assert_eq!(
-                expected.len(),
-                self.alice.len().unwrap(),
-                "{}: (alice)",
-                ctx
-            );
+            assert_eq!(expected.len(), self.alice.len().unwrap(), "{ctx}: (alice)");
         }
 
         fn assert_bob_set(&mut self, ctx: &str, expected: &[(K, V)]) {
@@ -1218,12 +1213,10 @@ mod tests {
                 assert_eq!(
                     self.bob.get(e.key()).unwrap().as_ref(),
                     Some(e),
-                    "{}: (bob) missing key {:?}",
-                    ctx,
-                    e
+                    "{ctx}: (bob) missing key {e:?}"
                 );
             }
-            assert_eq!(expected.len(), self.bob.len().unwrap(), "{}: (bob)", ctx);
+            assert_eq!(expected.len(), self.bob.len().unwrap(), "{ctx}: (bob)");
         }
     }
 
@@ -1360,8 +1353,7 @@ mod tests {
                     for (e, _) in values {
                         assert!(
                             alice_sent.insert(e.key(), e).is_none(),
-                            "alice: duplicate {:?}",
-                            e
+                            "alice: duplicate {e:?}"
                         );
                     }
                 }
@@ -1375,8 +1367,7 @@ mod tests {
                     for (e, _) in values {
                         assert!(
                             bob_sent.insert(e.key(), e).is_none(),
-                            "bob: duplicate {:?}",
-                            e
+                            "bob: duplicate {e:?}"
                         );
                     }
                 }
