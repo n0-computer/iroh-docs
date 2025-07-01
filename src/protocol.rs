@@ -32,8 +32,8 @@ impl ProtocolHandler for Docs {
 #[derive(Debug, Clone)]
 pub struct Docs {
     engine: Arc<Engine>,
-    #[cfg(feature = "rpc")]
-    pub(crate) rpc_handler: Arc<std::sync::OnceLock<crate::rpc::RpcHandler>>,
+    // #[cfg(feature = "rpc")]
+    // pub(crate) rpc_handler: Arc<std::sync::OnceLock<crate::rpc::RpcHandler>>,
 }
 
 impl Docs {
@@ -65,8 +65,8 @@ impl Docs {
     pub fn new(engine: Engine) -> Self {
         Self {
             engine: Arc::new(engine),
-            #[cfg(feature = "rpc")]
-            rpc_handler: Default::default(),
+            // #[cfg(feature = "rpc")]
+            // rpc_handler: Default::default(),
         }
     }
 
