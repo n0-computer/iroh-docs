@@ -10,9 +10,12 @@ use anyhow::{Context, Result};
 use futures_lite::FutureExt;
 use iroh::{Endpoint, NodeAddr, NodeId, PublicKey};
 use iroh_blobs::{
-    downloader::{DownloadError, DownloadRequest, Downloader},
+    api::{
+        blobs::BlobStatus,
+        downloader::{DownloadRequest, Downloader},
+        Store,
+    },
     get::Stats,
-    store::EntryStatus,
     Hash, HashAndFormat,
 };
 use iroh_gossip::net::Gossip;
@@ -148,12 +151,12 @@ type SyncAcceptRes = Result<SyncFinished, AcceptError>;
 type DownloadRes = (NamespaceId, Hash, Result<Stats, DownloadError>);
 
 // Currently peers might double-sync in both directions.
-pub struct LiveActor<B: iroh_blobs::store::Store> {
+pub struct LiveActor {
     /// Receiver for actor messages.
     inbox: mpsc::Receiver<ToLiveActor>,
     sync: SyncHandle,
     endpoint: Endpoint,
-    bao_store: B,
+    bao_store: Store,
     downloader: Downloader,
     replica_events_tx: async_channel::Sender<crate::Event>,
     replica_events_rx: async_channel::Receiver<crate::Event>,
@@ -182,14 +185,14 @@ pub struct LiveActor<B: iroh_blobs::store::Store> {
     state: NamespaceStates,
     metrics: Arc<Metrics>,
 }
-impl<B: iroh_blobs::store::Store> LiveActor<B> {
+impl LiveActor {
     /// Create the live actor.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         sync: SyncHandle,
         endpoint: Endpoint,
         gossip: Gossip,
-        bao_store: B,
+        bao_store: Store,
         downloader: Downloader,
         inbox: mpsc::Receiver<ToLiveActor>,
         sync_actor_tx: mpsc::Sender<ToLiveActor>,
@@ -750,8 +753,8 @@ impl<B: iroh_blobs::store::Store> LiveActor<B> {
         node: PublicKey,
         only_if_missing: bool,
     ) {
-        let entry_status = self.bao_store.entry_status(&hash).await;
-        if matches!(entry_status, Ok(EntryStatus::Complete)) {
+        let entry_status = self.bao_store.blobs().status(hash).await;
+        if matches!(entry_status, Ok(BlobStatus::Complete { .. })) {
             self.missing_hashes.remove(&hash);
             return;
         }

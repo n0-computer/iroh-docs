@@ -40,7 +40,8 @@ pub type PeerIdBytes = [u8; 32];
 pub const MAX_TIMESTAMP_FUTURE_SHIFT: u64 = 10 * 60 * Duration::from_secs(1).as_millis() as u64;
 
 /// Callback that may be set on a replica to determine the availability status for a content hash.
-pub type ContentStatusCallback = Arc<dyn Fn(Hash) -> ContentStatus + Send + Sync + 'static>;
+pub type ContentStatusCallback =
+    Arc<dyn Fn(Hash) -> n0_future::boxed::BoxFuture<ContentStatus> + Send + Sync + 'static>;
 
 /// Event emitted by sync when entries are added.
 #[derive(Debug, Clone)]

@@ -13,8 +13,8 @@ use anyhow::{bail, Context, Result};
 use futures_lite::{Stream, StreamExt};
 use iroh::{Endpoint, NodeAddr, PublicKey};
 use iroh_blobs::{
-    downloader::Downloader, net_protocol::ProtectCb, store::EntryStatus,
-    util::local_pool::LocalPoolHandle, Hash,
+    api::{blobs::BlobStatus, downloader::Downloader, Store},
+    Hash,
 };
 use iroh_gossip::net::Gossip;
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,7 @@ const SUBSCRIBE_CHANNEL_CAP: usize = 256;
 /// The sync engine coordinates actors that manage open documents, set-reconciliation syncs with
 /// peers and a gossip swarm for each syncing document.
 #[derive(derive_more::Debug)]
-pub struct Engine<D> {
+pub struct Engine {
     /// [`Endpoint`] used by the engine.
     pub endpoint: Endpoint,
     /// Handle to the actor thread.
@@ -56,11 +56,10 @@ pub struct Engine<D> {
     actor_handle: AbortOnDropHandle<()>,
     #[debug("ContentStatusCallback")]
     content_status_cb: ContentStatusCallback,
-    local_pool_handle: LocalPoolHandle,
-    blob_store: D,
+    blob_store: iroh_blobs::api::Store,
 }
 
-impl<D: iroh_blobs::store::Store> Engine<D> {
+impl Engine {
     /// Start the sync engine.
     ///
     /// This will spawn two tokio tasks for the live sync coordination and gossip actors, and a
@@ -69,17 +68,22 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
         endpoint: Endpoint,
         gossip: Gossip,
         replica_store: crate::store::Store,
-        bao_store: D,
+        bao_store: iroh_blobs::api::Store,
         downloader: Downloader,
         default_author_storage: DefaultAuthorStorage,
-        local_pool_handle: LocalPoolHandle,
     ) -> anyhow::Result<Self> {
         let (live_actor_tx, to_live_actor_recv) = mpsc::channel(ACTOR_CHANNEL_CAP);
         let me = endpoint.node_id().fmt_short();
 
-        let content_status_cb = {
+        let content_status_cb: ContentStatusCallback = {
             let bao_store = bao_store.clone();
-            Arc::new(move |hash| entry_to_content_status(bao_store.entry_status_sync(&hash)))
+            Arc::new(move |hash: iroh_blobs::Hash| {
+                let fut = Box::pin(async move {
+                    let blob_status = bao_store.blobs().status(hash).await;
+                    entry_to_content_status(blob_status)
+                });
+                fut
+            })
         };
         let sync = SyncHandle::spawn(replica_store, Some(content_status_cb.clone()), me.clone());
 
@@ -119,41 +123,41 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
             actor_handle: AbortOnDropHandle::new(actor_handle),
             content_status_cb,
             default_author,
-            local_pool_handle,
             blob_store: bao_store,
         })
     }
 
-    /// Return a callback that can be added to blobs to protect the content of
-    /// all docs from garbage collection.
-    pub fn protect_cb(&self) -> ProtectCb {
-        let sync = self.sync.clone();
-        Box::new(move |live| {
-            let sync = sync.clone();
-            Box::pin(async move {
-                let doc_hashes = match sync.content_hashes().await {
-                    Ok(hashes) => hashes,
-                    Err(err) => {
-                        tracing::warn!("Error getting doc hashes: {}", err);
-                        return;
-                    }
-                };
-                for hash in doc_hashes {
-                    match hash {
-                        Ok(hash) => {
-                            live.insert(hash);
-                        }
-                        Err(err) => {
-                            tracing::error!("Error getting doc hash: {}", err);
-                        }
-                    }
-                }
-            })
-        })
-    }
+    // TODO(Frando): We can't port iroh-docs to 0.90 without something like this.
+    // /// Return a callback that can be added to blobs to protect the content of
+    // /// all docs from garbage collection.
+    // pub fn protect_cb(&self) -> ProtectCb {
+    //     let sync = self.sync.clone();
+    //     Box::new(move |live| {
+    //         let sync = sync.clone();
+    //         Box::pin(async move {
+    //             let doc_hashes = match sync.content_hashes().await {
+    //                 Ok(hashes) => hashes,
+    //                 Err(err) => {
+    //                     tracing::warn!("Error getting doc hashes: {}", err);
+    //                     return;
+    //                 }
+    //             };
+    //             for hash in doc_hashes {
+    //                 match hash {
+    //                     Ok(hash) => {
+    //                         live.insert(hash);
+    //                     }
+    //                     Err(err) => {
+    //                         tracing::error!("Error getting doc hash: {}", err);
+    //                     }
+    //                 }
+    //             }
+    //         })
+    //     })
+    // }
 
     /// Get the blob store.
-    pub fn blob_store(&self) -> &D {
+    pub fn blob_store(&self) -> &Store {
         &self.blob_store
     }
 
@@ -250,19 +254,14 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
         reply_rx.await?;
         Ok(())
     }
-
-    /// Returns the stored `LocalPoolHandle`.
-    pub fn local_pool_handle(&self) -> &LocalPoolHandle {
-        &self.local_pool_handle
-    }
 }
 
-/// Converts an [`EntryStatus`] into a ['ContentStatus'].
-pub fn entry_to_content_status(entry: io::Result<EntryStatus>) -> ContentStatus {
+/// Converts an [`BlobStatus`] into a ['ContentStatus'].
+fn entry_to_content_status(entry: irpc::Result<BlobStatus>) -> ContentStatus {
     match entry {
-        Ok(EntryStatus::Complete) => ContentStatus::Complete,
-        Ok(EntryStatus::Partial) => ContentStatus::Incomplete,
-        Ok(EntryStatus::NotFound) => ContentStatus::Missing,
+        Ok(BlobStatus::Complete) => ContentStatus::Complete,
+        Ok(BlobStatus::Partial) => ContentStatus::Incomplete,
+        Ok(BlobStatus::NotFound) => ContentStatus::Missing,
         Err(cause) => {
             tracing::warn!("Error while checking entry status: {cause:?}");
             ContentStatus::Missing
