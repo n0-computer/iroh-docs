@@ -9,6 +9,7 @@ use iroh_gossip::net::Gossip;
 
 use crate::{
     engine::{DefaultAuthorStorage, Engine},
+    rpc2::api::DocsApi,
     store::Store,
 };
 
@@ -32,8 +33,8 @@ impl ProtocolHandler for Docs {
 #[derive(Debug, Clone)]
 pub struct Docs {
     engine: Arc<Engine>,
-    // #[cfg(feature = "rpc")]
-    // pub(crate) rpc_handler: Arc<std::sync::OnceLock<crate::rpc::RpcHandler>>,
+    api: DocsApi, // #[cfg(feature = "rpc")]
+                  // pub(crate) rpc_handler: Arc<std::sync::OnceLock<crate::rpc::RpcHandler>>,
 }
 
 impl Docs {
@@ -46,6 +47,11 @@ impl Docs {
     /// in the given directory.
     pub fn persistent(path: PathBuf) -> Builder {
         Builder { path: Some(path) }
+    }
+
+    /// Returns the API for this docs instance.
+    pub fn api(&self) -> &DocsApi {
+        &self.api
     }
 }
 
@@ -63,10 +69,12 @@ impl Docs {
     ///
     /// Note that usually you would use the [`Builder`] to create a new docs protocol.
     pub fn new(engine: Engine) -> Self {
+        let engine = Arc::new(engine);
+        let api = DocsApi::spawn(engine.clone());
         Self {
-            engine: Arc::new(engine),
-            // #[cfg(feature = "rpc")]
-            // rpc_handler: Default::default(),
+            engine,
+            api, // #[cfg(feature = "rpc")]
+                 // rpc_handler: Default::default(),
         }
     }
 

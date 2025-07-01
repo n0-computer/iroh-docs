@@ -52,6 +52,8 @@ pub mod actor;
 pub mod store;
 pub mod sync;
 
+pub mod rpc2;
+
 mod heads;
 mod keys;
 mod ranger;

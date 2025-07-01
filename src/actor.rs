@@ -12,6 +12,7 @@ use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use futures_util::FutureExt;
 use iroh_blobs::Hash;
+use irpc::channel::mpsc;
 use serde::{Deserialize, Serialize};
 use tokio::{sync::oneshot, task::JoinSet};
 use tracing::{debug, error, error_span, trace, warn};
@@ -19,13 +20,16 @@ use tracing::{debug, error, error_span, trace, warn};
 use crate::{
     metrics::Metrics,
     ranger::Message,
+    rpc2::{
+        protocol::{AuthorListResponse, ListResponse},
+        RpcError, RpcResult,
+    },
     store::{
         fs::{ContentHashesIterator, StoreInstance},
         DownloadPolicy, ImportNamespaceOutcome, Query, Store,
     },
-    Author, AuthorHeads, AuthorId, Capability, CapabilityKind, ContentStatus,
-    ContentStatusCallback, Event, NamespaceId, NamespaceSecret, PeerIdBytes, Replica, ReplicaInfo,
-    SignedEntry, SyncOutcome,
+    Author, AuthorHeads, AuthorId, Capability, ContentStatus, ContentStatusCallback, Event,
+    NamespaceId, NamespaceSecret, PeerIdBytes, Replica, ReplicaInfo, SignedEntry, SyncOutcome,
 };
 
 const ACTION_CAP: usize = 1024;
@@ -60,12 +64,12 @@ enum Action {
     #[display("ListAuthors")]
     ListAuthors {
         #[debug("reply")]
-        reply: async_channel::Sender<Result<AuthorId>>,
+        reply: mpsc::Sender<RpcResult<AuthorListResponse>>,
     },
     #[display("ListReplicas")]
     ListReplicas {
         #[debug("reply")]
-        reply: async_channel::Sender<Result<(NamespaceId, CapabilityKind)>>,
+        reply: mpsc::Sender<RpcResult<ListResponse>>,
     },
     #[display("ContentHashes")]
     ContentHashes {
@@ -165,7 +169,7 @@ enum ReplicaAction {
     },
     GetMany {
         query: Query,
-        reply: async_channel::Sender<Result<SignedEntry>>,
+        reply: mpsc::Sender<RpcResult<SignedEntry>>,
     },
     DropReplica {
         reply: oneshot::Sender<Result<()>>,
@@ -290,6 +294,7 @@ impl SyncHandle {
     }
 
     pub async fn open(&self, namespace: NamespaceId, opts: OpenOpts) -> Result<()> {
+        tracing::debug!("SyncHandle::open called");
         let (reply, rx) = oneshot::channel();
         let action = ReplicaAction::Open { reply, opts };
         self.send_replica(namespace, action).await?;
@@ -443,7 +448,7 @@ impl SyncHandle {
         &self,
         namespace: NamespaceId,
         query: Query,
-        reply: async_channel::Sender<Result<SignedEntry>>,
+        reply: mpsc::Sender<RpcResult<SignedEntry>>,
     ) -> Result<()> {
         let action = ReplicaAction::GetMany { query, reply };
         self.send_replica(namespace, action).await?;
@@ -497,14 +502,14 @@ impl SyncHandle {
         Ok(store)
     }
 
-    pub async fn list_authors(&self, reply: async_channel::Sender<Result<AuthorId>>) -> Result<()> {
+    pub async fn list_authors(
+        &self,
+        reply: mpsc::Sender<RpcResult<AuthorListResponse>>,
+    ) -> Result<()> {
         self.send(Action::ListAuthors { reply }).await
     }
 
-    pub async fn list_replicas(
-        &self,
-        reply: async_channel::Sender<Result<(NamespaceId, CapabilityKind)>>,
-    ) -> Result<()> {
+    pub async fn list_replicas(&self, reply: mpsc::Sender<RpcResult<ListResponse>>) -> Result<()> {
         self.send(Action::ListReplicas { reply }).await
     }
 
@@ -696,15 +701,18 @@ impl Actor {
                 let iter = self
                     .store
                     .list_authors()
-                    .map(|a| a.map(|a| a.map(|a| a.id())));
+                    .map(|a| a.map(|a| a.map(|a| AuthorListResponse { author_id: a.id() })));
                 self.tasks
-                    .spawn_local(iter_to_channel_async(reply, iter).map(|_| ()));
+                    .spawn_local(iter_to_irpc(reply, iter).map(|_| ()));
                 Ok(())
             }
             Action::ListReplicas { reply } => {
                 let iter = self.store.list_namespaces();
+                let iter = iter.map(|inner| {
+                    inner.map(|res| res.map(|(id, capability)| ListResponse { id, capability }))
+                });
                 self.tasks
-                    .spawn_local(iter_to_channel_async(reply, iter).map(|_| ()));
+                    .spawn_local(iter_to_irpc(reply, iter).map(|_| ()));
                 Ok(())
             }
             Action::ContentHashes { reply } => {
@@ -838,7 +846,7 @@ impl Actor {
                     .ensure_open(&namespace)
                     .and_then(|_| self.store.get_many(namespace, query));
                 self.tasks
-                    .spawn_local(iter_to_channel_async(reply, iter).map(|_| ()));
+                    .spawn_local(iter_to_irpc(reply, iter).map(|_| ()));
                 Ok(())
             }
             ReplicaAction::DropReplica { reply } => send_reply_with(reply, self, |this| {
@@ -984,6 +992,7 @@ impl OpenReplicas {
             }
             hash_map::Entry::Occupied(mut e) => {
                 let state = e.get_mut();
+                tracing::debug!("STATE {state:?}");
                 state.handles = state.handles.wrapping_sub(1);
                 if state.handles == 0 {
                     let _ = e.remove_entry();
@@ -1001,14 +1010,18 @@ impl OpenReplicas {
     }
 }
 
-async fn iter_to_channel_async<T: Send + 'static>(
-    channel: async_channel::Sender<Result<T>>,
+async fn iter_to_irpc<T: irpc::RpcMessage>(
+    channel: mpsc::Sender<RpcResult<T>>,
     iter: Result<impl Iterator<Item = Result<T>>>,
 ) -> Result<(), SendReplyError> {
     match iter {
-        Err(err) => channel.send(Err(err)).await.map_err(send_reply_error)?,
+        Err(err) => channel
+            .send(Err(RpcError::new(&*err)))
+            .await
+            .map_err(send_reply_error)?,
         Ok(iter) => {
             for item in iter {
+                let item = item.map_err(|err| RpcError::new(&*err));
                 channel.send(item).await.map_err(send_reply_error)?;
             }
         }
