@@ -3,7 +3,6 @@
 //! [`crate::Replica`] is also called documents here.
 
 use std::{
-    io,
     path::PathBuf,
     str::FromStr,
     sync::{Arc, RwLock},
@@ -76,13 +75,13 @@ impl Engine {
         let me = endpoint.node_id().fmt_short();
 
         let content_status_cb: ContentStatusCallback = {
-            let bao_store = bao_store.clone();
+            let blobs = bao_store.blobs().clone();
             Arc::new(move |hash: iroh_blobs::Hash| {
-                let fut = Box::pin(async move {
-                    let blob_status = bao_store.blobs().status(hash).await;
+                let blobs = blobs.clone();
+                Box::pin(async move {
+                    let blob_status = blobs.status(hash).await;
                     entry_to_content_status(blob_status)
-                });
-                fut
+                })
             })
         };
         let sync = SyncHandle::spawn(replica_store, Some(content_status_cb.clone()), me.clone());
@@ -205,17 +204,18 @@ impl Engine {
         &self,
         namespace: NamespaceId,
     ) -> Result<impl Stream<Item = Result<LiveEvent>> + Unpin + 'static> {
-        let content_status_cb = self.content_status_cb.clone();
-
         // Create a future that sends channel senders to the respective actors.
         // We clone `self` so that the future does not capture any lifetimes.
-        let this = self;
+        let content_status_cb = self.content_status_cb.clone();
 
         // Subscribe to insert events from the replica.
         let a = {
             let (s, r) = async_channel::bounded(SUBSCRIBE_CHANNEL_CAP);
-            this.sync.subscribe(namespace, s).await?;
-            Box::pin(r).map(move |ev| LiveEvent::from_replica_event(ev, &content_status_cb))
+            self.sync.subscribe(namespace, s).await?;
+            Box::pin(r).then(move |ev| {
+                let content_status_cb = content_status_cb.clone();
+                Box::pin(async move { LiveEvent::from_replica_event(ev, &content_status_cb).await })
+            })
         };
 
         // Subscribe to events from the [`live::Actor`].
@@ -223,7 +223,7 @@ impl Engine {
             let (s, r) = async_channel::bounded(SUBSCRIBE_CHANNEL_CAP);
             let r = Box::pin(r);
             let (reply, reply_rx) = oneshot::channel();
-            this.to_live_actor
+            self.to_live_actor
                 .send(ToLiveActor::Subscribe {
                     namespace,
                     sender: s,
@@ -259,8 +259,8 @@ impl Engine {
 /// Converts an [`BlobStatus`] into a ['ContentStatus'].
 fn entry_to_content_status(entry: irpc::Result<BlobStatus>) -> ContentStatus {
     match entry {
-        Ok(BlobStatus::Complete) => ContentStatus::Complete,
-        Ok(BlobStatus::Partial) => ContentStatus::Incomplete,
+        Ok(BlobStatus::Complete { .. }) => ContentStatus::Complete,
+        Ok(BlobStatus::Partial { .. }) => ContentStatus::Incomplete,
         Ok(BlobStatus::NotFound) => ContentStatus::Missing,
         Err(cause) => {
             tracing::warn!("Error while checking entry status: {cause:?}");
@@ -322,7 +322,7 @@ impl From<live::Event> for LiveEvent {
 }
 
 impl LiveEvent {
-    fn from_replica_event(
+    async fn from_replica_event(
         ev: crate::Event,
         content_status_cb: &ContentStatusCallback,
     ) -> Result<Self> {
@@ -331,7 +331,7 @@ impl LiveEvent {
                 entry: entry.into(),
             },
             crate::Event::RemoteInsert { entry, from, .. } => Self::InsertRemote {
-                content_status: content_status_cb(entry.content_hash()),
+                content_status: content_status_cb(entry.content_hash()).await,
                 entry: entry.into(),
                 from: PublicKey::from_bytes(&from)?,
             },

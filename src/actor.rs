@@ -649,7 +649,7 @@ impl Actor {
                     break reply;
                 }
                 action => {
-                    if self.on_action(action).is_err() {
+                    if self.on_action(action).await.is_err() {
                         warn!("failed to send reply: receiver dropped");
                     }
                 }
@@ -667,7 +667,7 @@ impl Actor {
         }
     }
 
-    fn on_action(&mut self, action: Action) -> Result<(), SendReplyError> {
+    async fn on_action(&mut self, action: Action) -> Result<(), SendReplyError> {
         match action {
             Action::Shutdown { .. } => {
                 unreachable!("Shutdown is handled in run()")
@@ -711,11 +711,11 @@ impl Actor {
                 send_reply_with(reply, self, |this| this.store.content_hashes())
             }
             Action::FlushStore { reply } => send_reply(reply, self.store.flush()),
-            Action::Replica(namespace, action) => self.on_replica_action(namespace, action),
+            Action::Replica(namespace, action) => self.on_replica_action(namespace, action).await,
         }
     }
 
-    fn on_replica_action(
+    async fn on_replica_action(
         &mut self,
         namespace: NamespaceId,
         action: ReplicaAction,
@@ -801,13 +801,19 @@ impl Actor {
                 from,
                 mut state,
                 reply,
-            } => send_reply_with(reply, self, move |this| {
-                let mut replica = this
-                    .states
-                    .replica_if_syncing(&namespace, &mut this.store)?;
-                let res = replica.sync_process_message(message, from, &mut state)?;
-                Ok((res, state))
-            }),
+            } => {
+                let res = async {
+                    let mut replica = self
+                        .states
+                        .replica_if_syncing(&namespace, &mut self.store)?;
+                    let res = replica
+                        .sync_process_message(message, from, &mut state)
+                        .await?;
+                    Ok((res, state))
+                }
+                .await;
+                reply.send(res).map_err(send_reply_error)
+            }
             ReplicaAction::GetSyncPeers { reply } => send_reply_with(reply, self, move |this| {
                 this.states.ensure_open(&namespace)?;
                 let peers = this.store.get_sync_peers(&namespace)?;

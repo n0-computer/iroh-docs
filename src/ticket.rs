@@ -35,11 +35,10 @@ impl ticket::Ticket for DocTicket {
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, ticket::ParseError> {
-        let res: TicketWireFormat =
-            postcard::from_bytes(bytes).map_err(ticket::ParseError::Postcard)?;
+        let res: TicketWireFormat = postcard::from_bytes(bytes)?;
         let TicketWireFormat::Variant0(res) = res;
         if res.nodes.is_empty() {
-            return Err(ticket::ParseError::Verify(
+            return Err(ticket::ParseError::verification_failed(
                 "addressing info cannot be empty",
             ));
         }
