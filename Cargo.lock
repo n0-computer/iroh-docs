@@ -2003,8 +2003,7 @@ dependencies = [
 [[package]]
 name = "iroh-blobs"
 version = "0.90.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5b6e39e8a3e9dded2eb0083fe5decf8a17000f22ba9b0b500ae1f476ce877b4"
+source = "git+https://github.com/n0-computer/iroh-blobs?branch=Frando/gc-protect#8f397c45c5730ea46aaee903368ed98069a3768b"
 dependencies = [
  "anyhow",
  "arrayvec",

@@ -7,7 +7,8 @@ use std::{
 };
 
 use iroh::{discovery::IntoDiscovery, dns::DnsResolver, NodeId, RelayMode, SecretKey};
-use iroh_docs::protocol::Docs;
+use iroh_blobs::store::fs::options::{GcConfig, Options};
+use iroh_docs::{engine::ProtectCallbackHandler, protocol::Docs};
 use iroh_gossip::net::Gossip;
 
 /// Default bind address for the node.
@@ -74,7 +75,11 @@ pub struct Builder {
 
 impl Builder {
     /// Spawns the node
-    async fn spawn0(self, blobs: iroh_blobs::api::Store) -> anyhow::Result<Node> {
+    async fn spawn0(
+        self,
+        blobs: iroh_blobs::api::Store,
+        protect_cb: Option<ProtectCallbackHandler>,
+    ) -> anyhow::Result<Node> {
         let mut addr_v4 = DEFAULT_BIND_ADDR_V4;
         let mut addr_v6 = DEFAULT_BIND_ADDR_V6;
         if self.bind_random_port {
@@ -88,12 +93,14 @@ impl Builder {
         builder = builder.discovery_n0();
         let endpoint = builder.bind().await?;
         let mut router = iroh::protocol::Router::builder(endpoint.clone());
-        // let blobs = Blobs::builder(store.clone()).build(&endpoint);
         let gossip = Gossip::builder().spawn(endpoint.clone());
-        let docs_builder = match self.path {
+        let mut docs_builder = match self.path {
             Some(ref path) => Docs::persistent(path.to_path_buf()),
             None => Docs::memory(),
         };
+        if let Some(protect_cb) = protect_cb {
+            docs_builder = docs_builder.protect_handler(protect_cb);
+        }
         let docs = match docs_builder
             .spawn(endpoint.clone(), blobs.clone(), gossip.clone())
             .await
@@ -113,44 +120,6 @@ impl Builder {
 
         // Build the router
         let router = router.spawn();
-
-        // Setup RPC
-        // let (internal_rpc, controller) =
-        //     quic_rpc::transport::flume::channel::<Request, Response>(1);
-        // let controller = controller.boxed();
-        // let internal_rpc = internal_rpc.boxed();
-        // let internal_rpc = quic_rpc::RpcServer::<Service>::new(internal_rpc);
-
-        // let docs2 = docs.clone();
-        // let blobs2 = blobs.clone();
-        // let rpc_task: tokio::task::JoinHandle<()> = tokio::task::spawn(async move {
-        //     loop {
-        //         let request = internal_rpc.accept().await;
-        //         match request {
-        //             Ok(accepting) => {
-        //                 let blobs = blobs2.clone();
-        //                 let docs = docs2.clone();
-        //                 tokio::task::spawn(async move {
-        //                     let (msg, chan) = accepting.read_first().await?;
-        //                     match msg {
-        //                         Request::BlobsOrTags(msg) => {
-        //                             blobs.handle_rpc_request(msg, chan.map().boxed()).await?;
-        //                         }
-        //                         Request::Docs(msg) => {
-        //                             docs.handle_rpc_request(msg, chan.map().boxed()).await?;
-        //                         }
-        //                     }
-        //                     anyhow::Ok(())
-        //                 });
-        //             }
-        //             Err(err) => {
-        //                 tracing::warn!("rpc error: {:?}", err);
-        //             }
-        //         }
-        //     }
-        // });
-
-        // let client = quic_rpc::RpcClient::new(controller);
 
         // TODO: Make this work again.
         // if let Some(period) = self.gc_interval {
@@ -241,17 +210,29 @@ impl Node {
 impl Builder {
     /// Spawns the node
     pub async fn spawn(self) -> anyhow::Result<Node> {
-        let store = match self.path {
+        let (store, protect_handler) = match self.path {
             None => {
                 let store = iroh_blobs::store::mem::MemStore::new();
-                (&*store).clone()
+                ((*store).clone(), None)
             }
             Some(ref path) => {
-                let store = iroh_blobs::store::fs::FsStore::load(path.clone()).await?;
-                (&*store).clone()
+                let db_path = path.join("blobs.db");
+                let mut opts = Options::new(path);
+                let protect_handler = if let Some(interval) = self.gc_interval {
+                    let (handler, cb) = ProtectCallbackHandler::new();
+                    opts.gc = Some(GcConfig {
+                        interval,
+                        add_protected: Some(cb),
+                    });
+                    Some(handler)
+                } else {
+                    None
+                };
+                let store = iroh_blobs::store::fs::FsStore::load_with_opts(db_path, opts).await?;
+                ((*store).clone(), protect_handler)
             }
         };
-        self.spawn0(store).await
+        self.spawn0(store, protect_handler).await
     }
 }
 

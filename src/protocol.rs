@@ -9,7 +9,7 @@ use iroh_gossip::net::Gossip;
 
 use crate::{
     api::DocsApi,
-    engine::{DefaultAuthorStorage, Engine},
+    engine::{DefaultAuthorStorage, Engine, ProtectCallbackHandler},
     store::Store,
 };
 
@@ -29,7 +29,10 @@ impl Docs {
     /// Create a new [`Builder`] for the docs protocol, using a persistent replica and author storage
     /// in the given directory.
     pub fn persistent(path: PathBuf) -> Builder {
-        Builder { path: Some(path) }
+        Builder {
+            path: Some(path),
+            protect_cb: None,
+        }
     }
 
     /// Creates a new [`Docs`] from an [`Engine`].
@@ -79,9 +82,18 @@ impl ProtocolHandler for Docs {
 #[derive(Debug, Default)]
 pub struct Builder {
     path: Option<PathBuf>,
+    protect_cb: Option<ProtectCallbackHandler>,
 }
 
 impl Builder {
+    /// Set the gc protect handler
+    ///
+    /// TODO(Frando): Expand docs.
+    pub fn protect_handler(mut self, protect_handler: ProtectCallbackHandler) -> Self {
+        self.protect_cb = Some(protect_handler);
+        self
+    }
+
     /// Build a [`Docs`] protocol given a [`Blobs`] and [`Gossip`] protocol.
     pub async fn spawn(
         self,
@@ -105,6 +117,7 @@ impl Builder {
             blobs,
             downloader,
             author_store,
+            self.protect_cb,
         )
         .await?;
         Ok(Docs::new(engine))

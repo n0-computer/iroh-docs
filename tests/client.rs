@@ -1,8 +1,8 @@
 #![cfg(feature = "rpc")]
 use anyhow::{Context, Result};
-use futures_util::TryStreamExt;
 use iroh_blobs::api::blobs::{ExportMode, ImportMode};
 use iroh_docs::store::Query;
+use n0_future::StreamExt;
 use rand::RngCore;
 use testresult::TestResult;
 use tokio::io::AsyncWriteExt;
@@ -40,8 +40,9 @@ async fn test_doc_close() -> Result<()> {
 }
 
 #[tokio::test]
-#[traced_test]
+// #[traced_test]
 async fn test_doc_import_export() -> TestResult<()> {
+    tracing_subscriber::fmt::init();
     let node = Node::memory().spawn().await?;
 
     // create temp file
@@ -99,14 +100,21 @@ async fn test_doc_import_export() -> TestResult<()> {
     let key = entry.key().to_vec();
     let path = key_to_path(key, None, Some(out_root))?;
     // TODO(Frando): iroh-blobs should do this IMO.
-    tokio::fs::create_dir_all(path.parent().unwrap()).await?;
-    let _export_outcome = doc
+    // tokio::fs::create_dir_all(path.parent().unwrap()).await?;
+    let progress = doc
         .export_file(blobs, entry, path.clone(), ExportMode::Copy)
-        .await
-        .context("export file")?
-        .finish()
-        .await
-        .context("export finish")?;
+        .await?;
+    let mut progress = progress.stream().await;
+    while let Some(msg) = progress.next().await {
+        println!("MSG {msg:?}");
+    }
+    // let _export_outcome = doc
+    //     .export_file(blobs, entry, path.clone(), ExportMode::Copy)
+    //     .await
+    //     .context("export file")?
+    //     .finish()
+    //     .await
+    //     .context("export finish")?;
 
     let got_bytes = tokio::fs::read(path).await.context("tokio read")?;
     assert_eq!(buf, got_bytes);

@@ -13,6 +13,7 @@ use futures_lite::{Stream, StreamExt};
 use iroh::{Endpoint, NodeAddr, PublicKey};
 use iroh_blobs::{
     api::{blobs::BlobStatus, downloader::Downloader, Store},
+    store::fs::options::{ProtectCb, ProtectOutcome},
     Hash,
 };
 use iroh_gossip::net::Gossip;
@@ -56,6 +57,7 @@ pub struct Engine {
     #[debug("ContentStatusCallback")]
     content_status_cb: ContentStatusCallback,
     blob_store: iroh_blobs::api::Store,
+    _gc_protect_task: AbortOnDropHandle<()>,
 }
 
 impl Engine {
@@ -70,6 +72,7 @@ impl Engine {
         bao_store: iroh_blobs::api::Store,
         downloader: Downloader,
         default_author_storage: DefaultAuthorStorage,
+        protect_cb: Option<ProtectCallbackHandler>,
     ) -> anyhow::Result<Self> {
         let (live_actor_tx, to_live_actor_recv) = mpsc::channel(ACTOR_CHANNEL_CAP);
         let me = endpoint.node_id().fmt_short();
@@ -85,6 +88,33 @@ impl Engine {
             })
         };
         let sync = SyncHandle::spawn(replica_store, Some(content_status_cb.clone()), me.clone());
+
+        let sync2 = sync.clone();
+        let gc_protect_task = AbortOnDropHandle::new(n0_future::task::spawn(async move {
+            let Some(mut protect_handler) = protect_cb else {
+                return;
+            };
+            while let Some(reply_tx) = protect_handler.0.recv().await {
+                let (tx, rx) = mpsc::channel(64);
+                if let Err(_err) = reply_tx.send(rx) {
+                    continue;
+                }
+                let hashes = match sync2.content_hashes().await {
+                    Ok(hashes) => hashes,
+                    Err(err) => {
+                        if let Err(_err) = tx.send(Err(err)).await {
+                            break;
+                        }
+                        continue;
+                    }
+                };
+                for hash in hashes {
+                    if let Err(_err) = tx.send(hash).await {
+                        break;
+                    }
+                }
+            }
+        }));
 
         let actor = LiveActor::new(
             sync.clone(),
@@ -123,6 +153,7 @@ impl Engine {
             content_status_cb,
             default_author,
             blob_store: bao_store,
+            _gc_protect_task: gc_protect_task,
         })
     }
 
@@ -455,5 +486,59 @@ impl DefaultAuthor {
         self.storage.persist(author_id).await?;
         *self.value.write().unwrap() = author_id;
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct ProtectCallbackSender(mpsc::Sender<oneshot::Sender<mpsc::Receiver<Result<Hash>>>>);
+
+///
+#[derive(Debug)]
+pub struct ProtectCallbackHandler(
+    pub(crate) mpsc::Receiver<oneshot::Sender<mpsc::Receiver<Result<Hash>>>>,
+);
+
+impl ProtectCallbackHandler {
+    ///
+    pub fn new() -> (Self, ProtectCb) {
+        let (tx, rx) = mpsc::channel(4);
+        let cb = ProtectCallbackSender(tx).into_cb();
+        let handler = ProtectCallbackHandler(rx);
+        (handler, cb)
+    }
+}
+
+impl ProtectCallbackSender {
+    fn into_cb(self) -> ProtectCb {
+        let start_tx = self.0.clone();
+        Arc::new(move |live| {
+            let start_tx = start_tx.clone();
+            Box::pin(async move {
+                let (tx, rx) = oneshot::channel();
+                if let Err(_err) = start_tx.send(tx).await {
+                    tracing::warn!("Failed to get protected hashes from docs: ProtectCallback receiver dropped");
+                    return ProtectOutcome::Skip;
+                }
+                let mut rx = match rx.await {
+                    Ok(rx) => rx,
+                    Err(_err) => {
+                        tracing::warn!("Failed to get protected hashes from docs: ProtectCallback sender dropped");
+                        return ProtectOutcome::Skip;
+                    }
+                };
+                while let Some(res) = rx.recv().await {
+                    match res {
+                        Err(err) => {
+                            tracing::warn!("Getting protected hashes produces error: {err:#}");
+                            return ProtectOutcome::Skip;
+                        }
+                        Ok(hash) => {
+                            live.insert(hash);
+                        }
+                    }
+                }
+                ProtectOutcome::Continue
+            })
+        })
     }
 }
