@@ -8,14 +8,12 @@ use anyhow::{Context, Result};
 use irpc::rpc::Handler;
 use n0_future::task::{self, AbortOnDropHandle};
 
-use crate::engine::Engine;
-
+pub use self::client::*;
 use super::{
     actor::RpcActor,
     protocol::{DocsMessage, DocsProtocol, DocsService},
 };
-
-pub use self::client::*;
+use crate::engine::Engine;
 
 type Client = irpc::Client<DocsMessage, DocsProtocol, DocsService>;
 
@@ -100,6 +98,7 @@ mod client {
     };
     use n0_future::{FutureExt, Stream, StreamExt};
 
+    use super::{Client, DocsApi};
     use crate::{
         actor::OpenState,
         api::protocol::{
@@ -115,8 +114,6 @@ mod client {
         store::{DownloadPolicy, Query},
         Author, AuthorId, Capability, CapabilityKind, DocTicket, Entry, NamespaceId, PeerIdBytes,
     };
-
-    use super::{Client, DocsApi};
 
     impl DocsApi {
         /// Creates a new document author.

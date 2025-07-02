@@ -1,8 +1,4 @@
 #![cfg(feature = "rpc")]
-use self::util::{
-    path::{key_to_path, path_to_key},
-    Node,
-};
 use anyhow::{Context, Result};
 use futures_util::TryStreamExt;
 use iroh_blobs::api::blobs::{ExportMode, ImportMode};
@@ -11,6 +7,11 @@ use rand::RngCore;
 use testresult::TestResult;
 use tokio::io::AsyncWriteExt;
 use tracing_test::traced_test;
+
+use self::util::{
+    path::{key_to_path, path_to_key},
+    Node,
+};
 
 mod util;
 

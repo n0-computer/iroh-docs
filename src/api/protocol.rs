@@ -11,6 +11,7 @@ use irpc::{
 };
 use serde::{Deserialize, Serialize};
 
+use super::RpcResult;
 use crate::{
     actor::OpenState,
     engine::LiveEvent,
@@ -18,8 +19,6 @@ use crate::{
     Author, AuthorId, Capability, CapabilityKind, DocTicket, Entry, NamespaceId, PeerIdBytes,
     SignedEntry,
 };
-
-use super::RpcResult;
 
 /// The RPC service type for the docs protocol.
 #[derive(Debug, Clone, Copy)]

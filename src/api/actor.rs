@@ -1,17 +1,15 @@
 use std::sync::Arc;
 
-use irpc::LocalSender;
-use irpc::WithChannels;
+use irpc::{LocalSender, WithChannels};
 use n0_future::task::{self};
 use tokio::sync::mpsc as tokio_mpsc;
 use tracing::error;
-
-use crate::engine::Engine;
 
 use super::{
     protocol::{DocsMessage, DocsService},
     DocsApi,
 };
+use crate::engine::Engine;
 
 /// The docs RPC actor that handles incoming messages
 pub(crate) struct RpcActor {
