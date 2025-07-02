@@ -18,12 +18,12 @@ use tokio::{sync::oneshot, task::JoinSet};
 use tracing::{debug, error, error_span, trace, warn};
 
 use crate::{
-    metrics::Metrics,
-    ranger::Message,
-    rpc2::{
+    api::{
         protocol::{AuthorListResponse, ListResponse},
         RpcError, RpcResult,
     },
+    metrics::Metrics,
+    ranger::Message,
     store::{
         fs::{ContentHashesIterator, StoreInstance},
         DownloadPolicy, ImportNamespaceOutcome, Query, Store,

@@ -4,6 +4,7 @@ use iroh::Watcher;
 use irpc::channel::mpsc;
 
 use super::{
+    actor::RpcActor,
     protocol::{
         AuthorCreateRequest, AuthorCreateResponse, AuthorDeleteRequest, AuthorDeleteResponse,
         AuthorExportRequest, AuthorExportResponse, AuthorGetDefaultRequest,
@@ -18,7 +19,7 @@ use super::{
         StartSyncRequest, StartSyncResponse, StatusRequest, StatusResponse, SubscribeRequest,
         SubscribeResponse,
     },
-    RpcActor, RpcError, RpcResult,
+    RpcError, RpcResult,
 };
 use crate::{Author, DocTicket, NamespaceSecret, SignedEntry};
 

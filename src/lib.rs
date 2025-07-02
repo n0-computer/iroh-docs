@@ -45,14 +45,11 @@ mod ticket;
 
 #[cfg(feature = "engine")]
 pub mod engine;
-// #[cfg(feature = "rpc")]
-// pub mod rpc;
 
 pub mod actor;
+pub mod api;
 pub mod store;
 pub mod sync;
-
-pub mod rpc2;
 
 mod heads;
 mod keys;

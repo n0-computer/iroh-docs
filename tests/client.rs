@@ -1,9 +1,16 @@
 #![cfg(feature = "rpc")]
-use anyhow::Result;
+use self::util::{
+    path::{key_to_path, path_to_key},
+    Node,
+};
+use anyhow::{Context, Result};
 use futures_util::TryStreamExt;
+use iroh_blobs::api::blobs::{ExportMode, ImportMode};
+use iroh_docs::store::Query;
+use rand::RngCore;
 use testresult::TestResult;
+use tokio::io::AsyncWriteExt;
 use tracing_test::traced_test;
-use util::Node;
 
 mod util;
 
@@ -31,82 +38,80 @@ async fn test_doc_close() -> Result<()> {
     Ok(())
 }
 
-// #[tokio::test]
-// #[traced_test]
-// async fn test_doc_import_export() -> TestResult<()> {
-//     let node = Node::memory().spawn().await?;
+#[tokio::test]
+#[traced_test]
+async fn test_doc_import_export() -> TestResult<()> {
+    let node = Node::memory().spawn().await?;
 
-//     // create temp file
-//     let temp_dir = tempfile::tempdir().context("tempdir")?;
+    // create temp file
+    let temp_dir = tempfile::tempdir().context("tempdir")?;
 
-//     let in_root = temp_dir.path().join("in");
-//     tokio::fs::create_dir_all(in_root.clone())
-//         .await
-//         .context("create dir all")?;
-//     let out_root = temp_dir.path().join("out");
+    let in_root = temp_dir.path().join("in");
+    tokio::fs::create_dir_all(in_root.clone())
+        .await
+        .context("create dir all")?;
+    let out_root = temp_dir.path().join("out");
 
-//     let path = in_root.join("test");
+    let path = in_root.join("test");
 
-//     let size = 100;
-//     let mut buf = vec![0u8; size];
-//     rand::thread_rng().fill_bytes(&mut buf);
-//     let mut file = tokio::fs::File::create(path.clone())
-//         .await
-//         .context("create file")?;
-//     file.write_all(&buf.clone()).await.context("write_all")?;
-//     file.flush().await.context("flush")?;
+    let size = 100;
+    let mut buf = vec![0u8; size];
+    rand::thread_rng().fill_bytes(&mut buf);
+    let mut file = tokio::fs::File::create(path.clone())
+        .await
+        .context("create file")?;
+    file.write_all(&buf.clone()).await.context("write_all")?;
+    file.flush().await.context("flush")?;
 
-//     // create doc & author
-//     let client = node.client();
-//     let docs_client = client.docs();
-//     let doc = docs_client.create().await.context("doc create")?;
-//     // let author = client.authors().create().await.context("author create")?;
-//     let author = client
-//         .docs()
-//         .author_create()
-//         .await
-//         .context("author create")?;
+    // create doc & author
+    let client = node.client();
+    let blobs = client.blobs();
+    let docs_client = client.docs();
+    let doc = docs_client.create().await.context("doc create")?;
+    // let author = client.authors().create().await.context("author create")?;
+    let author = client
+        .docs()
+        .author_create()
+        .await
+        .context("author create")?;
 
-//     // import file
-//     let import_outcome = doc
-//         .import_file(
-//             author,
-//             path_to_key(path.clone(), None, Some(in_root))?,
-//             path,
-//             true,
-//         )
-//         .await
-//         .context("import file")?
-//         .finish()
-//         .await
-//         .context("import finish")?;
+    // import file
+    let import_outcome = doc
+        .import_file(
+            blobs,
+            author,
+            path_to_key(path.clone(), None, Some(in_root))?,
+            path,
+            ImportMode::TryReference,
+        )
+        .await
+        .context("import file")?
+        .await
+        .context("import finish")?;
 
-//     // export file
-//     let entry = doc
-//         .get_one(Query::author(author).key_exact(import_outcome.key))
-//         .await
-//         .context("get one")?
-//         .unwrap();
-//     let key = entry.key().to_vec();
-//     let export_outcome = doc
-//         .export_file(
-//             entry,
-//             key_to_path(key, None, Some(out_root))?,
-//             ExportMode::Copy,
-//         )
-//         .await
-//         .context("export file")?
-//         .finish()
-//         .await
-//         .context("export finish")?;
+    // export file
+    let entry = doc
+        .get_one(Query::author(author).key_exact(import_outcome.key))
+        .await
+        .context("get one")?
+        .unwrap();
+    let key = entry.key().to_vec();
+    let path = key_to_path(key, None, Some(out_root))?;
+    // TODO(Frando): iroh-blobs should do this IMO.
+    tokio::fs::create_dir_all(path.parent().unwrap()).await?;
+    let _export_outcome = doc
+        .export_file(blobs, entry, path.clone(), ExportMode::Copy)
+        .await
+        .context("export file")?
+        .finish()
+        .await
+        .context("export finish")?;
 
-//     let got_bytes = tokio::fs::read(export_outcome.path)
-//         .await
-//         .context("tokio read")?;
-//     assert_eq!(buf, got_bytes);
+    let got_bytes = tokio::fs::read(path).await.context("tokio read")?;
+    assert_eq!(buf, got_bytes);
 
-//     Ok(())
-// }
+    Ok(())
+}
 
 #[tokio::test]
 async fn test_authors() -> Result<()> {

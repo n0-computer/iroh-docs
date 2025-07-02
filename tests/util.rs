@@ -42,11 +42,11 @@ impl Deref for Node {
 #[derive(Debug, Clone)]
 pub struct Client {
     blobs: iroh_blobs::api::Store,
-    docs: iroh_docs::rpc2::api::DocsApi,
+    docs: iroh_docs::api::DocsApi,
 }
 
 impl Client {
-    fn new(blobs: iroh_blobs::api::Store, docs: iroh_docs::rpc2::api::DocsApi) -> Self {
+    fn new(blobs: iroh_blobs::api::Store, docs: iroh_docs::api::DocsApi) -> Self {
         Self { blobs, docs }
     }
 
@@ -54,7 +54,7 @@ impl Client {
         &self.blobs
     }
 
-    pub fn docs(&self) -> &iroh_docs::rpc2::api::DocsApi {
+    pub fn docs(&self) -> &iroh_docs::api::DocsApi {
         &self.docs
     }
 }
@@ -276,5 +276,136 @@ impl Node {
     /// Returns the client
     pub fn client(&self) -> &Client {
         &self.client
+    }
+}
+
+pub mod path {
+    use std::path::{Component, Path, PathBuf};
+
+    use anyhow::Context;
+    use bytes::Bytes;
+
+    /// Helper function that translates a key that was derived from the [`path_to_key`] function back
+    /// into a path.
+    ///
+    /// If `prefix` exists, it will be stripped before converting back to a path
+    /// If `root` exists, will add the root as a parent to the created path
+    /// Removes any null byte that has been appended to the key
+    pub fn key_to_path(
+        key: impl AsRef<[u8]>,
+        prefix: Option<String>,
+        root: Option<PathBuf>,
+    ) -> anyhow::Result<PathBuf> {
+        let mut key = key.as_ref();
+        if key.is_empty() {
+            return Ok(PathBuf::new());
+        }
+        // if the last element is the null byte, remove it
+        if b'\0' == key[key.len() - 1] {
+            key = &key[..key.len() - 1]
+        }
+
+        let key = if let Some(prefix) = prefix {
+            let prefix = prefix.into_bytes();
+            if prefix[..] == key[..prefix.len()] {
+                &key[prefix.len()..]
+            } else {
+                anyhow::bail!("key {:?} does not begin with prefix {:?}", key, prefix);
+            }
+        } else {
+            key
+        };
+
+        let mut path = if key[0] == b'/' {
+            PathBuf::from("/")
+        } else {
+            PathBuf::new()
+        };
+        for component in key
+            .split(|c| c == &b'/')
+            .map(|c| String::from_utf8(c.into()).context("key contains invalid data"))
+        {
+            let component = component?;
+            path = path.join(component);
+        }
+
+        // add root if it exists
+        let path = if let Some(root) = root {
+            root.join(path)
+        } else {
+            path
+        };
+
+        Ok(path)
+    }
+
+    /// Helper function that creates a document key from a canonicalized path, removing the `root` and adding the `prefix`, if they exist
+    ///
+    /// Appends the null byte to the end of the key.
+    pub fn path_to_key(
+        path: impl AsRef<Path>,
+        prefix: Option<String>,
+        root: Option<PathBuf>,
+    ) -> anyhow::Result<Bytes> {
+        let path = path.as_ref();
+        let path = if let Some(root) = root {
+            path.strip_prefix(root)?
+        } else {
+            path
+        };
+        let suffix = canonicalized_path_to_string(path, false)?.into_bytes();
+        let mut key = if let Some(prefix) = prefix {
+            prefix.into_bytes().to_vec()
+        } else {
+            Vec::new()
+        };
+        key.extend(suffix);
+        key.push(b'\0');
+        Ok(key.into())
+    }
+
+    /// This function converts an already canonicalized path to a string.
+    ///
+    /// If `must_be_relative` is true, the function will fail if any component of the path is
+    /// `Component::RootDir`
+    ///
+    /// This function will also fail if the path is non canonical, i.e. contains
+    /// `..` or `.`, or if the path components contain any windows or unix path
+    /// separators.
+    pub fn canonicalized_path_to_string(
+        path: impl AsRef<Path>,
+        must_be_relative: bool,
+    ) -> anyhow::Result<String> {
+        let mut path_str = String::new();
+        let parts = path
+            .as_ref()
+            .components()
+            .filter_map(|c| match c {
+                Component::Normal(x) => {
+                    let c = match x.to_str() {
+                        Some(c) => c,
+                        None => return Some(Err(anyhow::anyhow!("invalid character in path"))),
+                    };
+
+                    if !c.contains('/') && !c.contains('\\') {
+                        Some(Ok(c))
+                    } else {
+                        Some(Err(anyhow::anyhow!("invalid path component {:?}", c)))
+                    }
+                }
+                Component::RootDir => {
+                    if must_be_relative {
+                        Some(Err(anyhow::anyhow!("invalid path component {:?}", c)))
+                    } else {
+                        path_str.push('/');
+                        None
+                    }
+                }
+                _ => Some(Err(anyhow::anyhow!("invalid path component {:?}", c))),
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let parts = parts.join("/");
+        path_str.push_str(&parts);
+        Ok(path_str)
     }
 }

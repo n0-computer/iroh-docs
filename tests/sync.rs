@@ -13,11 +13,11 @@ use futures_util::{FutureExt, StreamExt, TryStreamExt};
 use iroh::{PublicKey, RelayMode, SecretKey};
 use iroh_blobs::Hash;
 use iroh_docs::{
-    engine::LiveEvent,
-    rpc2::{
-        api::Doc,
+    api::{
         protocol::{AddrInfoOptions, ShareMode},
+        Doc,
     },
+    engine::LiveEvent,
     store::{DownloadPolicy, FilterKind, Query},
     AuthorId, ContentStatus, Entry,
 };

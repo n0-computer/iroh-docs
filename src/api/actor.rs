@@ -1,38 +1,22 @@
-//! irpc-based RPC implementation for docs.
-
-#![allow(missing_docs)]
-
 use std::sync::Arc;
 
-use api::DocsApi;
-use irpc::{LocalSender, WithChannels};
+use irpc::LocalSender;
+use irpc::WithChannels;
 use n0_future::task::{self};
 use tokio::sync::mpsc as tokio_mpsc;
 use tracing::error;
 
 use crate::engine::Engine;
 
-use self::protocol::{DocsMessage, DocsService};
-
-pub mod api;
-pub mod docs_handle_request;
-pub mod protocol;
-
-impl std::ops::Deref for RpcActor {
-    type Target = Engine;
-
-    fn deref(&self) -> &Self::Target {
-        &self.engine
-    }
-}
-
-pub type RpcError = serde_error::Error;
-pub type RpcResult<T> = std::result::Result<T, RpcError>;
+use super::{
+    protocol::{DocsMessage, DocsService},
+    DocsApi,
+};
 
 /// The docs RPC actor that handles incoming messages
-struct RpcActor {
-    recv: tokio::sync::mpsc::Receiver<DocsMessage>,
-    engine: Arc<Engine>,
+pub(crate) struct RpcActor {
+    pub(crate) recv: tokio::sync::mpsc::Receiver<DocsMessage>,
+    pub(crate) engine: Arc<Engine>,
 }
 
 impl RpcActor {
@@ -46,14 +30,14 @@ impl RpcActor {
         }
     }
 
-    async fn run(mut self) {
+    pub(crate) async fn run(mut self) {
         while let Some(msg) = self.recv.recv().await {
             tracing::trace!("handle rpc request: {msg:?}");
             self.handle(msg).await;
         }
     }
 
-    async fn handle(&mut self, msg: DocsMessage) {
+    pub(crate) async fn handle(&mut self, msg: DocsMessage) {
         match msg {
             DocsMessage::Open(open) => {
                 let WithChannels { tx, inner, .. } = open;
@@ -234,5 +218,13 @@ impl RpcActor {
                 }
             }
         }
+    }
+}
+
+impl std::ops::Deref for RpcActor {
+    type Target = Engine;
+
+    fn deref(&self) -> &Self::Target {
+        &self.engine
     }
 }

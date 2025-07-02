@@ -10,13 +10,14 @@ use n0_future::task::{self, AbortOnDropHandle};
 
 use crate::engine::Engine;
 
-use crate::rpc2::protocol::DocsProtocol;
-
-use super::{protocol, RpcActor};
+use super::{
+    actor::RpcActor,
+    protocol::{DocsMessage, DocsProtocol, DocsService},
+};
 
 pub use self::client::*;
 
-type Client = irpc::Client<protocol::DocsMessage, protocol::DocsProtocol, protocol::DocsService>;
+type Client = irpc::Client<DocsMessage, DocsProtocol, DocsService>;
 
 /// API wrapper for the docs service
 #[derive(Debug, Clone)]
@@ -79,21 +80,29 @@ impl DocsApi {
 }
 
 mod client {
-    use std::sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
+    use std::{
+        future::Future,
+        path::Path,
+        pin::Pin,
+        sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        },
+        task::{ready, Poll},
     };
 
     use anyhow::Result;
     use bytes::Bytes;
     use iroh::NodeAddr;
-    use iroh_blobs::Hash;
-    use n0_future::{Stream, StreamExt};
+    use iroh_blobs::{
+        api::blobs::{AddPathOptions, AddProgressItem, ExportMode, ExportOptions, ExportProgress},
+        Hash,
+    };
+    use n0_future::{FutureExt, Stream, StreamExt};
 
     use crate::{
         actor::OpenState,
-        engine::LiveEvent,
-        rpc2::protocol::{
+        api::protocol::{
             AddrInfoOptions, AuthorCreateRequest, AuthorDeleteRequest, AuthorExportRequest,
             AuthorGetDefaultRequest, AuthorImportRequest, AuthorListRequest,
             AuthorSetDefaultRequest, CloseRequest, CreateRequest, DelRequest, DropRequest,
@@ -102,6 +111,7 @@ mod client {
             SetHashRequest, SetRequest, ShareMode, ShareRequest, StartSyncRequest, StatusRequest,
             SubscribeRequest,
         },
+        engine::LiveEvent,
         store::{DownloadPolicy, Query},
         Author, AuthorId, Capability, CapabilityKind, DocTicket, Entry, NamespaceId, PeerIdBytes,
     };
@@ -317,7 +327,7 @@ mod client {
             Ok(response.entry.content_hash())
         }
 
-        /// Sets an entries on the doc via its key, hash, and size.
+        /// Sets an entry on the doc via its key, hash, and size.
         pub async fn set_hash(
             &self,
             author_id: AuthorId,
@@ -519,5 +529,177 @@ mod client {
                 .await??;
             Ok(response.peers)
         }
+
+        /// Adds an entry from an absolute file path
+        pub async fn import_file(
+            &self,
+            blobs: &iroh_blobs::api::Store,
+            author: AuthorId,
+            key: Bytes,
+            path: impl AsRef<Path>,
+            import_mode: iroh_blobs::api::blobs::ImportMode,
+        ) -> Result<ImportFileProgress> {
+            self.ensure_open()?;
+            let progress = blobs.add_path_with_opts(AddPathOptions {
+                path: path.as_ref().to_owned(),
+                format: iroh_blobs::BlobFormat::Raw,
+                mode: import_mode,
+            });
+            let stream = progress.stream().await;
+            let doc = self.clone();
+            let ctx = EntryContext {
+                doc,
+                author,
+                key,
+                size: None,
+            };
+            Ok(ImportFileProgress(ImportInner::Blobs(
+                Box::pin(stream),
+                Some(ctx),
+            )))
+        }
+
+        /// Exports an entry as a file to a given absolute path.
+        pub async fn export_file(
+            &self,
+            blobs: &iroh_blobs::api::Store,
+            entry: Entry,
+            path: impl AsRef<Path>,
+            mode: ExportMode,
+        ) -> Result<ExportProgress> {
+            self.ensure_open()?;
+            let hash = entry.content_hash();
+            let progress = blobs.export_with_opts(ExportOptions {
+                hash,
+                mode,
+                target: path.as_ref().to_path_buf(),
+            });
+            Ok(progress)
+        }
+    }
+
+    ///
+    #[derive(Debug)]
+    pub enum ImportFileProgressItem {
+        Error(anyhow::Error),
+        Blobs(AddProgressItem),
+        Done(ImportFileOutcome),
+    }
+
+    ///
+    #[derive(Debug)]
+    pub struct ImportFileProgress(ImportInner);
+
+    #[derive(derive_more::Debug)]
+    enum ImportInner {
+        #[debug("Blobs")]
+        Blobs(
+            n0_future::boxed::BoxStream<AddProgressItem>,
+            Option<EntryContext>,
+        ),
+        #[debug("Entry")]
+        Entry(n0_future::boxed::BoxFuture<Result<ImportFileOutcome>>),
+        Done,
+    }
+
+    struct EntryContext {
+        doc: Doc,
+        author: AuthorId,
+        key: Bytes,
+        size: Option<u64>,
+    }
+
+    impl Stream for ImportFileProgress {
+        type Item = ImportFileProgressItem;
+
+        fn poll_next(
+            self: Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+        ) -> Poll<Option<Self::Item>> {
+            let this = self.get_mut();
+            match this.0 {
+                ImportInner::Blobs(ref mut progress, ref mut context) => {
+                    match ready!(progress.poll_next(cx)) {
+                        Some(item) => match item {
+                            AddProgressItem::Size(size) => {
+                                context
+                                    .as_mut()
+                                    .expect("Size must be emitted before done")
+                                    .size = Some(size);
+                                Poll::Ready(Some(ImportFileProgressItem::Blobs(
+                                    AddProgressItem::Size(size),
+                                )))
+                            }
+                            AddProgressItem::Error(err) => {
+                                *this = Self(ImportInner::Done);
+                                Poll::Ready(Some(ImportFileProgressItem::Error(err.into())))
+                            }
+                            AddProgressItem::Done(tag) => {
+                                let EntryContext {
+                                    doc,
+                                    author,
+                                    key,
+                                    size,
+                                } = context
+                                    .take()
+                                    .expect("AddProgressItem::Done may be emitted only once");
+                                let size = size.expect("Size must be emitted before done");
+                                let hash = *tag.hash();
+                                *this = Self(ImportInner::Entry(Box::pin(async move {
+                                    doc.set_hash(author, key.clone(), hash, size).await?;
+                                    Ok(ImportFileOutcome { hash, size, key })
+                                })));
+                                Poll::Ready(Some(ImportFileProgressItem::Blobs(
+                                    AddProgressItem::Done(tag),
+                                )))
+                            }
+                            item => Poll::Ready(Some(ImportFileProgressItem::Blobs(item))),
+                        },
+                        None => todo!(),
+                    }
+                }
+                ImportInner::Entry(ref mut fut) => {
+                    let res = ready!(fut.poll(cx));
+                    *this = Self(ImportInner::Done);
+                    match res {
+                        Ok(outcome) => Poll::Ready(Some(ImportFileProgressItem::Done(outcome))),
+                        Err(err) => Poll::Ready(Some(ImportFileProgressItem::Error(err))),
+                    }
+                }
+                ImportInner::Done => Poll::Ready(None),
+            }
+        }
+    }
+
+    impl Future for ImportFileProgress {
+        type Output = Result<ImportFileOutcome>;
+        fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+            loop {
+                match self.as_mut().poll_next(cx) {
+                    Poll::Ready(Some(item)) => match item {
+                        ImportFileProgressItem::Error(error) => return Poll::Ready(Err(error)),
+                        ImportFileProgressItem::Blobs(_add_progress_item) => continue,
+                        ImportFileProgressItem::Done(outcome) => return Poll::Ready(Ok(outcome)),
+                    },
+                    Poll::Ready(None) => {
+                        return Poll::Ready(Err(anyhow::anyhow!(
+                            "ImportFileProgress polled after completion"
+                        )))
+                    }
+                    Poll::Pending => return Poll::Pending,
+                }
+            }
+        }
+    }
+
+    /// Outcome of a [`Doc::import_file`] operation
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct ImportFileOutcome {
+        /// The hash of the entry's content
+        pub hash: Hash,
+        /// The size of the entry
+        pub size: u64,
+        /// The key of the entry
+        pub key: Bytes,
     }
 }
