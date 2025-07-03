@@ -1203,11 +1203,7 @@ mod tests {
                     e.key()
                 );
             }
-            assert_eq!(
-                expected.len(),
-                self.alice.len().unwrap(),
-                "{ctx}: (alice)"
-            );
+            assert_eq!(expected.len(), self.alice.len().unwrap(), "{ctx}: (alice)");
         }
 
         fn assert_bob_set(&mut self, ctx: &str, expected: &[(K, V)]) {
