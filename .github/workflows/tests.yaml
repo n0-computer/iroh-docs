@@ -25,7 +25,7 @@ env:
   SCCACHE_CACHE_SIZE: "50G"
   CRATES_LIST: "iroh-docs"
   IROH_FORCE_STAGING_RELAYS: "1"
-  MACOSX_DEPLOYMENT_TARGET: "11.0"
+  MACOSX_DEPLOYMENT_TARGET: "14.5"
 
 jobs:
   build_and_test_nix:
