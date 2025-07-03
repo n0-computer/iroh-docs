@@ -486,7 +486,6 @@ async fn sync_subscribe_stop_close() -> Result<()> {
 
 #[tokio::test]
 #[traced_test]
-#[cfg(feature = "test-utils")]
 async fn test_sync_via_relay() -> Result<()> {
     let (relay_map, _relay_url, _guard) = iroh::test_utils::run_relay_server().await?;
 
@@ -580,7 +579,6 @@ async fn test_sync_via_relay() -> Result<()> {
 
 #[tokio::test]
 #[traced_test]
-#[cfg(feature = "test-utils")]
 #[ignore = "flaky"]
 async fn sync_restart_node() -> Result<()> {
     let mut rng = test_rng(b"sync_restart_node");
@@ -980,7 +978,6 @@ async fn sync_big() -> Result<()> {
 
 #[tokio::test]
 #[traced_test]
-#[cfg(feature = "test-utils")]
 async fn test_list_docs_stream() -> testresult::TestResult<()> {
     let node = Node::memory()
         .relay_mode(RelayMode::Disabled)

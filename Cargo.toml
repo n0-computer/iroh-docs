@@ -11,19 +11,6 @@ repository = "https://github.com/n0-computer/iroh-docs"
 # Sadly this also needs to be updated in .github/workflows/ci.yml
 rust-version = "1.81"
 
-[lints.rust]
-missing_debug_implementations = "warn"
-
-# We use this --cfg for documenting the cargo features on which an API
-# is available.  To preview this locally use: RUSTFLAGS="--cfg
-# iroh_docsrs cargo +nightly doc --all-features".  We use our own
-# iroh_docsrs instead of the common docsrs to avoid also enabling this
-# feature in any dependencies, because some indirect dependencies
-# require a feature enabled when using `--cfg docsrs` which we can not
-# do.  To enable for a crate set `#![cfg_attr(iroh_docsrs,
-# feature(doc_cfg))]` in the crate.
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(iroh_docsrs)"] }
-
 [dependencies]
 anyhow = "1"
 async-channel = "2.3.1"
@@ -43,23 +30,27 @@ futures-buffered = "0.2.4"
 futures-lite = "2.3.0"
 futures-util = { version = "0.3.25" }
 hex = "0.4"
+iroh = { version = "0.90" }
 iroh-base = { version = "0.90", features = ["ticket"] }
 iroh-blobs = { version = "0.90" }
 iroh-gossip = { version = "0.90", features = ["net"] }
 iroh-metrics = { version = "0.35", default-features = false }
-iroh = { version = "0.90" }
+irpc = { version = "0.5.0" }
+n0-future = "0.1.3"
 num_enum = "0.7"
 postcard = { version = "1", default-features = false, features = [
     "alloc",
     "use-std",
     "experimental-derive",
 ] }
+quinn = { package = "iroh-quinn", version = "0.14.0" }
 rand = "0.8.5"
 rand_core = "0.6.4"
 redb = { version = "2.0.0" }
 redb_v1 = { package = "redb", version = "1.5.1" }
 self_cell = "1.0.3"
 serde = { version = "1.0.164", features = ["derive"] }
+serde-error = "0.1.3"
 strum = { version = "0.26", features = ["derive"] }
 tempfile = { version = "3.4" }
 thiserror = "2"
@@ -67,33 +58,42 @@ tokio = { version = "1", features = ["sync", "rt", "time", "io-util"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 tokio-util = { version = "0.7.12", features = ["codec", "io-util", "io", "rt"] }
 tracing = "0.1"
-irpc = { version = "0.5.0" }
-n0-future = "0.1.3"
-serde-error = "0.1.3"
-quinn = { package = "iroh-quinn", version = "0.14.0" }
 
 [dev-dependencies]
-rand_chacha = "0.3.1"
-tokio = { version = "1", features = ["sync", "macros"] }
-proptest = "1.2.0"
-tempfile = "3.4"
-tracing-test = "0.2.5"
-test-strategy = "0.4"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-parking_lot = "0.12.3"
-testresult = "0.4.1"
-nested_enum_utils = "0.1.0"
-testdir = "0.7"
 data-encoding = "2.6.0"
+iroh = { version = "0.90", features = ["test-utils"] }
+nested_enum_utils = "0.1.0"
+parking_lot = "0.12.3"
+proptest = "1.2.0"
+rand_chacha = "0.3.1"
+tempfile = "3.4"
+test-strategy = "0.4"
+testdir = "0.7"
+testresult = "0.4.1"
+tokio = { version = "1", features = ["sync", "macros"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tracing-test = "0.2.5"
 
 [features]
 default = ["metrics"]
 metrics = ["iroh-metrics/metrics", "iroh/metrics"]
-test-utils = ["iroh/test-utils"]
 
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "iroh_docsrs"]
+
+[lints.rust]
+missing_debug_implementations = "warn"
+
+# We use this --cfg for documenting the cargo features on which an API
+# is available.  To preview this locally use: RUSTFLAGS="--cfg
+# iroh_docsrs cargo +nightly doc --all-features".  We use our own
+# iroh_docsrs instead of the common docsrs to avoid also enabling this
+# feature in any dependencies, because some indirect dependencies
+# require a feature enabled when using `--cfg docsrs` which we can not
+# do.  To enable for a crate set `#![cfg_attr(iroh_docsrs,
+# feature(doc_cfg))]` in the crate.
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(iroh_docsrs)"] }
 
 [patch.crates-io]
 iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs", branch = "Frando/gc-protect" }
