@@ -40,9 +40,8 @@ async fn test_doc_close() -> Result<()> {
 }
 
 #[tokio::test]
-// #[traced_test]
+#[traced_test]
 async fn test_doc_import_export() -> TestResult<()> {
-    tracing_subscriber::fmt::init();
     let node = Node::memory().spawn().await?;
 
     // create temp file

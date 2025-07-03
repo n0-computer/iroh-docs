@@ -22,6 +22,7 @@ use iroh_docs::{
     AuthorId, ContentStatus, Entry,
 };
 use rand::{CryptoRng, Rng, SeedableRng};
+use tempfile::tempdir;
 use tracing::{debug, error_span, info, Instrument};
 use tracing_test::traced_test;
 mod util;
@@ -1156,7 +1157,10 @@ impl PartialEq<ExpectedEntry> for (Entry, Bytes) {
 #[tokio::test]
 #[traced_test]
 async fn doc_delete() -> Result<()> {
-    let node = Node::memory()
+    let tempdir = tempdir()?;
+    // TODO(Frando): iroh-blobs has gc only for fs store atm, change test to test both
+    // mem and persistent once this changes.
+    let node = Node::persistent(tempdir.path())
         .gc_interval(Some(Duration::from_millis(100)))
         .spawn()
         .await?;

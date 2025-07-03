@@ -20,7 +20,7 @@ use iroh_gossip::net::Gossip;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::task::AbortOnDropHandle;
-use tracing::{error, error_span, Instrument};
+use tracing::{debug, error, error_span, Instrument};
 
 use self::live::{LiveActor, ToLiveActor};
 pub use self::{
@@ -102,14 +102,16 @@ impl Engine {
                 let hashes = match sync2.content_hashes().await {
                     Ok(hashes) => hashes,
                     Err(err) => {
+                        debug!("protect task: getting content hashes failed with {err:#}");
                         if let Err(_err) = tx.send(Err(err)).await {
-                            break;
+                            debug!("protect task: failed to forward error");
                         }
                         continue;
                     }
                 };
                 for hash in hashes {
                     if let Err(_err) = tx.send(hash).await {
+                        debug!("protect task: failed to forward hash");
                         break;
                     }
                 }

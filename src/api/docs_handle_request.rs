@@ -224,12 +224,18 @@ impl RpcActor {
             }
         };
         tokio::task::spawn(async move {
-            while let Some(msg) = stream.next().await {
-                let msg = msg
-                    .map_err(|err| RpcError::new(&*err))
-                    .map(|event| SubscribeResponse { event });
-                if let Err(_err) = reply.send(msg).await {
-                    break;
+            loop {
+                tokio::select! {
+                    _ = reply.closed() => break,
+                    Some(msg) = stream.next() => {
+                        let msg = msg
+                            .map_err(|err| RpcError::new(&*err))
+                            .map(|event| SubscribeResponse { event });
+                        if let Err(_err) = reply.send(msg).await {
+                            break;
+                        }
+                    },
+                    else => break,
                 }
             }
         });
@@ -279,10 +285,11 @@ impl RpcActor {
         let len = value.len();
         let tag = blobs_store
             .add_bytes(value)
+            .temp_tag()
             .await
             .map_err(|e| RpcError::new(&e))?;
         self.sync
-            .insert_local(doc_id, author_id, key.clone(), tag.hash, len as u64)
+            .insert_local(doc_id, author_id, key.clone(), *tag.hash(), len as u64)
             .await
             .map_err(|e| RpcError::new(&*e))?;
         let entry = self
@@ -383,142 +390,4 @@ impl RpcActor {
             .map_err(|e| RpcError::new(&*e))?;
         Ok(GetSyncPeersResponse { peers })
     }
-
-    // pub(super) fn doc_import_file(
-    // &self,
-    //     msg: ImportFileRequest,
-    // ) -> impl Stream<Item = ImportFileResponse> {
-    //     // provide a little buffer so that we don't slow down the sender
-    //     let (tx, rx) = async_channel::bounded(32);
-    //     let tx2 = tx.clone();
-    //     let this = self.clone();
-    //     self.local_pool_handle().spawn_detached(|| async move {
-    //         if let Err(e) = this.doc_import_file0(msg, tx).await {
-    //             tx2.send(super::client::docs::ImportProgress::Abort(RpcError::new(
-    //                 &*e,
-    //             )))
-    //             .await
-    //             .ok();
-    //         }
-    //     });
-    //     rx.map(ImportFileResponse)
-    // }
-
-    // async fn doc_import_file0(
-    // &self,
-    //     msg: ImportFileRequest,
-    //     progress: async_channel::Sender<super::client::docs::ImportProgress>,
-    // ) -> anyhow::Result<()> {
-    //     use std::collections::BTreeMap;
-
-    //     use iroh_blobs::store::ImportMode;
-
-    //     use super::client::docs::ImportProgress as DocImportProgress;
-
-    //     let progress = AsyncChannelProgressSender::new(progress);
-    //     let names = Arc::new(Mutex::new(BTreeMap::new()));
-    //     // convert import progress to provide progress
-    //     let import_progress = progress.clone().with_filter_map(move |x| match x {
-    //         ImportProgress::Found { id, name } => {
-    //             names.lock().unwrap().insert(id, name);
-    //             None
-    //         }
-    //         ImportProgress::Size { id, size } => {
-    //             let name = names.lock().unwrap().remove(&id)?;
-    //             Some(DocImportProgress::Found { id, name, size })
-    //         }
-    //         ImportProgress::OutboardProgress { id, offset } => {
-    //             Some(DocImportProgress::Progress { id, offset })
-    //         }
-    //         ImportProgress::OutboardDone { hash, id } => {
-    //             Some(DocImportProgress::IngestDone { hash, id })
-    //         }
-    //         _ => None,
-    //     });
-    //     let ImportFileRequest {
-    //         doc_id,
-    //         author_id,
-    //         key,
-    //         path: root,
-    //         in_place,
-    //     } = msg;
-    //     // Check that the path is absolute and exists.
-    //     anyhow::ensure!(root.is_absolute(), "path must be absolute");
-    //     anyhow::ensure!(
-    //         root.exists(),
-    //         "trying to add missing path: {}",
-    //         root.display()
-    //     );
-
-    //     let import_mode = match in_place {
-    //         true => ImportMode::TryReference,
-    //         false => ImportMode::Copy,
-    //     };
-
-    //     let blobs = self.blob_store();
-    //     let (temp_tag, size) = blobs
-    //         .import_file(root, import_mode, BlobFormat::Raw, import_progress)
-    //         .await?;
-
-    //     let hash_and_format = temp_tag.inner();
-    //     let HashAndFormat { hash, .. } = *hash_and_format;
-    //     self.doc_set_hash(SetHashRequest {
-    //         doc_id,
-    //         author_id,
-    //         key: key.clone(),
-    //         hash,
-    //         size,
-    //     })
-    //     .await?;
-    //     drop(temp_tag);
-    //     progress.send(DocImportProgress::AllDone { key }).await?;
-    //     Ok(())
-    // }
-
-    // pub(super) fn doc_export_file(
-    // &self,
-    //     msg: ExportFileRequest,
-    // ) -> impl Stream<Item = ExportFileResponse> {
-    //     let (tx, rx) = async_channel::bounded(1024);
-    //     let tx2 = tx.clone();
-    //     let this = self.clone();
-    //     self.local_pool_handle().spawn_detached(|| async move {
-    //         if let Err(e) = this.doc_export_file0(msg, tx).await {
-    //             tx2.send(ExportProgress::Abort(RpcError::new(&*e)))
-    //                 .await
-    //                 .ok();
-    //         }
-    //     });
-    //     rx.map(ExportFileResponse)
-    // }
-
-    // async fn doc_export_file0(
-    // &self,
-    //     msg: ExportFileRequest,
-    //     progress: async_channel::Sender<ExportProgress>,
-    // ) -> anyhow::Result<()> {
-    //     let progress = AsyncChannelProgressSender::new(progress);
-    //     let ExportFileRequest { entry, path, mode } = msg;
-    //     let key = bytes::Bytes::from(entry.key().to_vec());
-    //     let export_progress = progress.clone().with_map(move |mut x| {
-    //         // assign the doc key to the `meta` field of the initial progress event
-    //         if let ExportProgress::Found { meta, .. } = &mut x {
-    //             *meta = Some(key.clone())
-    //         }
-    //         x
-    //     });
-
-    //     let blobs = self.blob_store();
-    //     iroh_blobs::export::export(
-    //         blobs,
-    //         entry.content_hash(),
-    //         path,
-    //         ExportFormat::Blob,
-    //         mode,
-    //         export_progress,
-    //     )
-    //     .await?;
-    //     progress.send(ExportProgress::AllDone).await?;
-    //     Ok(())
-    // }
 }
