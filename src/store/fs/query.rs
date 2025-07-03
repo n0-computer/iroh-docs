@@ -25,6 +25,7 @@ pub struct QueryIterator {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 enum QueryRange {
     AuthorKey {
         range: RecordsRange<'static>,

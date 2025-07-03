@@ -1,16 +1,16 @@
-#![cfg(feature = "rpc")]
 use anyhow::{Context, Result};
-use futures_util::TryStreamExt;
-use iroh_blobs::{
-    store::ExportMode,
-    util::fs::{key_to_path, path_to_key},
-};
+use iroh_blobs::api::blobs::{ExportMode, ImportMode};
 use iroh_docs::store::Query;
+use n0_future::StreamExt;
 use rand::RngCore;
 use testresult::TestResult;
 use tokio::io::AsyncWriteExt;
 use tracing_test::traced_test;
-use util::Node;
+
+use self::util::{
+    path::{key_to_path, path_to_key},
+    Node,
+};
 
 mod util;
 
@@ -19,7 +19,8 @@ mod util;
 #[traced_test]
 async fn test_doc_close() -> Result<()> {
     let node = Node::memory().spawn().await?;
-    let author = node.authors().default().await?;
+    // let author = node.authors().default().await?;
+    let author = node.docs().author_default().await?;
     // open doc two times
     let doc1 = node.docs().create().await?;
     let doc2 = node.docs().open(doc1.id()).await?.expect("doc to exist");
@@ -64,21 +65,27 @@ async fn test_doc_import_export() -> TestResult<()> {
 
     // create doc & author
     let client = node.client();
+    let blobs = client.blobs();
     let docs_client = client.docs();
     let doc = docs_client.create().await.context("doc create")?;
-    let author = client.authors().create().await.context("author create")?;
+    // let author = client.authors().create().await.context("author create")?;
+    let author = client
+        .docs()
+        .author_create()
+        .await
+        .context("author create")?;
 
     // import file
     let import_outcome = doc
         .import_file(
+            blobs,
             author,
             path_to_key(path.clone(), None, Some(in_root))?,
             path,
-            true,
+            ImportMode::TryReference,
         )
         .await
         .context("import file")?
-        .finish()
         .await
         .context("import finish")?;
 
@@ -89,21 +96,25 @@ async fn test_doc_import_export() -> TestResult<()> {
         .context("get one")?
         .unwrap();
     let key = entry.key().to_vec();
-    let export_outcome = doc
-        .export_file(
-            entry,
-            key_to_path(key, None, Some(out_root))?,
-            ExportMode::Copy,
-        )
-        .await
-        .context("export file")?
-        .finish()
-        .await
-        .context("export finish")?;
+    let path = key_to_path(key, None, Some(out_root))?;
+    // TODO(Frando): iroh-blobs should do this IMO.
+    // tokio::fs::create_dir_all(path.parent().unwrap()).await?;
+    let progress = doc
+        .export_file(blobs, entry, path.clone(), ExportMode::Copy)
+        .await?;
+    let mut progress = progress.stream().await;
+    while let Some(msg) = progress.next().await {
+        println!("MSG {msg:?}");
+    }
+    // let _export_outcome = doc
+    //     .export_file(blobs, entry, path.clone(), ExportMode::Copy)
+    //     .await
+    //     .context("export file")?
+    //     .finish()
+    //     .await
+    //     .context("export finish")?;
 
-    let got_bytes = tokio::fs::read(export_outcome.path)
-        .await
-        .context("tokio read")?;
+    let got_bytes = tokio::fs::read(path).await.context("tokio read")?;
     assert_eq!(buf, got_bytes);
 
     Ok(())
@@ -114,33 +125,33 @@ async fn test_authors() -> Result<()> {
     let node = Node::memory().spawn().await?;
 
     // default author always exists
-    let authors: Vec<_> = node.authors().list().await?.try_collect().await?;
+    let authors: Vec<_> = node.docs().author_list().await?.try_collect().await?;
     assert_eq!(authors.len(), 1);
-    let default_author = node.authors().default().await?;
+    let default_author = node.docs().author_default().await?;
     assert_eq!(authors, vec![default_author]);
 
-    let author_id = node.authors().create().await?;
+    let author_id = node.docs().author_create().await?;
 
-    let authors: Vec<_> = node.authors().list().await?.try_collect().await?;
+    let authors: Vec<_> = node.docs().author_list().await?.try_collect().await?;
     assert_eq!(authors.len(), 2);
 
     let author = node
-        .authors()
-        .export(author_id)
+        .docs()
+        .author_export(author_id)
         .await?
         .expect("should have author");
-    node.authors().delete(author_id).await?;
-    let authors: Vec<_> = node.authors().list().await?.try_collect().await?;
+    node.docs().author_delete(author_id).await?;
+    let authors: Vec<_> = node.docs().author_list().await?.try_collect().await?;
     assert_eq!(authors.len(), 1);
 
-    node.authors().import(author).await?;
+    node.docs().author_import(author).await?;
 
-    let authors: Vec<_> = node.authors().list().await?.try_collect().await?;
+    let authors: Vec<_> = node.docs().author_list().await?.try_collect().await?;
     assert_eq!(authors.len(), 2);
 
-    assert!(node.authors().default().await? != author_id);
-    node.authors().set_default(author_id).await?;
-    assert_eq!(node.authors().default().await?, author_id);
+    assert!(node.docs().author_default().await? != author_id);
+    node.docs().author_set_default(author_id).await?;
+    assert_eq!(node.docs().author_default().await?, author_id);
 
     Ok(())
 }
@@ -148,9 +159,9 @@ async fn test_authors() -> Result<()> {
 #[tokio::test]
 async fn test_default_author_memory() -> Result<()> {
     let iroh = Node::memory().spawn().await?;
-    let author = iroh.authors().default().await?;
-    assert!(iroh.authors().export(author).await?.is_some());
-    assert!(iroh.authors().delete(author).await.is_err());
+    let author = iroh.docs().author_default().await?;
+    assert!(iroh.docs().author_export(author).await?.is_some());
+    assert!(iroh.docs().author_delete(author).await.is_err());
     Ok(())
 }
 
@@ -163,9 +174,9 @@ async fn test_default_author_persist() -> TestResult<()> {
     // check that the default author exists and cannot be deleted.
     let default_author = {
         let iroh = Node::persistent(iroh_root).spawn().await?;
-        let author = iroh.authors().default().await?;
-        assert!(iroh.authors().export(author).await?.is_some());
-        assert!(iroh.authors().delete(author).await.is_err());
+        let author = iroh.docs().author_default().await?;
+        assert!(iroh.docs().author_export(author).await?.is_some());
+        assert!(iroh.docs().author_delete(author).await.is_err());
         iroh.shutdown().await?;
         author
     };
@@ -173,10 +184,10 @@ async fn test_default_author_persist() -> TestResult<()> {
     // check that the default author is persisted across restarts.
     {
         let iroh = Node::persistent(iroh_root).spawn().await?;
-        let author = iroh.authors().default().await?;
+        let author = iroh.docs().author_default().await?;
         assert_eq!(author, default_author);
-        assert!(iroh.authors().export(author).await?.is_some());
-        assert!(iroh.authors().delete(author).await.is_err());
+        assert!(iroh.docs().author_export(author).await?.is_some());
+        assert!(iroh.docs().author_delete(author).await.is_err());
         iroh.shutdown().await?;
     };
 
@@ -185,10 +196,10 @@ async fn test_default_author_persist() -> TestResult<()> {
     let default_author = {
         tokio::fs::remove_file(iroh_root.join("default-author")).await?;
         let iroh = Node::persistent(iroh_root).spawn().await?;
-        let author = iroh.authors().default().await?;
+        let author = iroh.docs().author_default().await?;
         assert!(author != default_author);
-        assert!(iroh.authors().export(author).await?.is_some());
-        assert!(iroh.authors().delete(author).await.is_err());
+        assert!(iroh.docs().author_export(author).await?.is_some());
+        assert!(iroh.docs().author_delete(author).await.is_err());
         iroh.shutdown().await?;
         author
     };
@@ -211,7 +222,7 @@ async fn test_default_author_persist() -> TestResult<()> {
         drop(iroh);
         let iroh = Node::persistent(iroh_root).spawn().await;
         if let Err(cause) = iroh.as_ref() {
-            panic!("failed to start node: {:?}", cause);
+            panic!("failed to start node: {cause:?}");
         }
         iroh?.shutdown().await?;
     }
@@ -219,15 +230,15 @@ async fn test_default_author_persist() -> TestResult<()> {
     // check that the default author can be set manually and is persisted.
     let default_author = {
         let iroh = Node::persistent(iroh_root).spawn().await?;
-        let author = iroh.authors().create().await?;
-        iroh.authors().set_default(author).await?;
-        assert_eq!(iroh.authors().default().await?, author);
+        let author = iroh.docs().author_create().await?;
+        iroh.docs().author_set_default(author).await?;
+        assert_eq!(iroh.docs().author_default().await?, author);
         iroh.shutdown().await?;
         author
     };
     {
         let iroh = Node::persistent(iroh_root).spawn().await?;
-        assert_eq!(iroh.authors().default().await?, default_author);
+        assert_eq!(iroh.docs().author_default().await?, default_author);
         iroh.shutdown().await?;
     }
 
