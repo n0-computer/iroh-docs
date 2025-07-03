@@ -1,4 +1,3 @@
-#![cfg(feature = "rpc")]
 use anyhow::{Context, Result};
 use iroh_blobs::api::blobs::{ExportMode, ImportMode};
 use iroh_docs::store::Query;

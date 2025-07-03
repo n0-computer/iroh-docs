@@ -1,4 +1,3 @@
-#![cfg(feature = "rpc")]
 #![allow(dead_code)]
 use std::{
     net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6},

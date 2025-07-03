@@ -1,4 +1,3 @@
-#![cfg(feature = "rpc")]
 use std::{
     collections::HashMap,
     future::Future,

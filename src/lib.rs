@@ -36,17 +36,13 @@
 #![cfg_attr(iroh_docsrs, feature(doc_auto_cfg))]
 
 pub mod metrics;
-#[cfg(feature = "net")]
 pub mod net;
-#[cfg(feature = "engine")]
 pub mod protocol;
-#[cfg(feature = "net")]
 mod ticket;
 
-#[cfg(feature = "engine")]
 pub mod engine;
 
-pub mod actor;
+mod actor;
 pub mod api;
 pub mod store;
 pub mod sync;
@@ -55,10 +51,8 @@ mod heads;
 mod keys;
 mod ranger;
 
-#[cfg(feature = "net")]
 #[doc(inline)]
 pub use net::ALPN;
 
-#[cfg(feature = "net")]
 pub use self::ticket::DocTicket;
 pub use self::{heads::*, keys::*, sync::*};
