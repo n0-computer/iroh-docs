@@ -54,5 +54,4 @@ mod ranger;
 #[doc(inline)]
 pub use net::ALPN;
 
-pub use self::ticket::DocTicket;
-pub use self::{heads::*, keys::*, sync::*};
+pub use self::{heads::*, keys::*, sync::*, ticket::DocTicket};
