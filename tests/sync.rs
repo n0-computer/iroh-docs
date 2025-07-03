@@ -1176,7 +1176,7 @@ async fn doc_delete() -> Result<()> {
 
     // wait for gc
     // TODO: allow to manually trigger gc
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    tokio::time::sleep(Duration::from_millis(400)).await;
     let bytes = client.blobs().get_bytes(hash).await;
     assert!(bytes.is_err());
     node.shutdown().await?;

@@ -48,7 +48,7 @@ async fn redb_doc_import_stress() -> Result<()> {
     let mut to_import = Vec::new();
     for i in 0..100 {
         let data = create_test_data(16 * 1024 * 3 + 1);
-        let path = temp_path.join(format!("file{}", i));
+        let path = temp_path.join(format!("file{i}"));
         tokio::fs::write(&path, &data).await?;
         let key = Bytes::from(format!("{}", path.display()));
         to_import.push((key, path, data));

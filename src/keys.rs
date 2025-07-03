@@ -195,7 +195,7 @@ impl fmt::Display for NamespaceId {
 
 impl fmt::Debug for NamespaceSecret {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Namespace({})", self)
+        write!(f, "Namespace({self})")
     }
 }
 
@@ -213,19 +213,19 @@ impl fmt::Debug for AuthorId {
 
 impl fmt::Debug for Author {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Author({})", self)
+        write!(f, "Author({self})")
     }
 }
 
 impl fmt::Debug for NamespacePublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "NamespacePublicKey({})", self)
+        write!(f, "NamespacePublicKey({self})")
     }
 }
 
 impl fmt::Debug for AuthorPublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "AuthorPublicKey({})", self)
+        write!(f, "AuthorPublicKey({self})")
     }
 }
 
