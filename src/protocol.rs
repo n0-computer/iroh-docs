@@ -88,7 +88,7 @@ impl Builder {
         self
     }
 
-    /// Build a [`Docs`] protocol given a [`Blobs`] and [`Gossip`] protocol.
+    /// Build a [`Docs`] protocol given a [`BlobsStore`] and [`Gossip`] protocol.
     pub async fn spawn(
         self,
         endpoint: Endpoint,

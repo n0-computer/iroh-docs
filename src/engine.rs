@@ -64,7 +64,7 @@ impl Engine {
     /// Start the sync engine.
     ///
     /// This will spawn two tokio tasks for the live sync coordination and gossip actors, and a
-    /// thread for the [`crate::actor::SyncHandle`].
+    /// thread for the actor interacting with doc storage.
     pub async fn spawn(
         endpoint: Endpoint,
         gossip: Gossip,
