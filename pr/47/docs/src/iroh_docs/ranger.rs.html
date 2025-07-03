@@ -1641,11 +1641,7 @@
 <a href="#1640" id="1640">1640</a>
 <a href="#1641" id="1641">1641</a>
 <a href="#1642" id="1642">1642</a>
-<a href="#1643" id="1643">1643</a>
-<a href="#1644" id="1644">1644</a>
-<a href="#1645" id="1645">1645</a>
-<a href="#1646" id="1646">1646</a>
-<a href="#1647" id="1647">1647</a></pre></div><pre class="rust"><code><span class="doccomment">//! Implementation of Set Reconcilliation based on
+<a href="#1643" id="1643">1643</a></pre></div><pre class="rust"><code><span class="doccomment">//! Implementation of Set Reconcilliation based on
 //! "Range-Based Set Reconciliation" by Aljoscha Meyer.
 
 </span><span class="kw">use </span>std::{cmp::Ordering, fmt::Debug, pin::Pin};
@@ -2850,11 +2846,7 @@
                     e.key()
                 );
             }
-            <span class="macro">assert_eq!</span>(
-                expected.len(),
-                <span class="self">self</span>.alice.len().unwrap(),
-                <span class="string">"{ctx}: (alice)"
-            </span>);
+            <span class="macro">assert_eq!</span>(expected.len(), <span class="self">self</span>.alice.len().unwrap(), <span class="string">"{ctx}: (alice)"</span>);
         }
 
         <span class="kw">fn </span>assert_bob_set(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ctx: <span class="kw-2">&amp;</span>str, expected: <span class="kw-2">&amp;</span>[(K, V)]) {
