@@ -46,12 +46,6 @@ impl Docs {
     pub fn api(&self) -> &DocsApi {
         &self.api
     }
-
-    // TODO(Frando): Restore gc protection somehow...
-    // /// Get the protect callback for the docs engine.
-    // pub fn protect_cb(&self) -> ProtectCb {
-    //     self.engine.protect_cb()
-    // }
 }
 
 impl std::ops::Deref for Docs {
@@ -86,9 +80,9 @@ pub struct Builder {
 }
 
 impl Builder {
-    /// Set the gc protect handler
+    /// Set the garbage collection protection handler for blobs.
     ///
-    /// TODO(Frando): Expand docs.
+    /// See [`ProtectCallbackHandler::new`] for details.
     pub fn protect_handler(mut self, protect_handler: ProtectCallbackHandler) -> Self {
         self.protect_cb = Some(protect_handler);
         self

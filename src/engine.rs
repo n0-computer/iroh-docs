@@ -494,14 +494,25 @@ impl DefaultAuthor {
 #[derive(Debug)]
 struct ProtectCallbackSender(mpsc::Sender<oneshot::Sender<mpsc::Receiver<Result<Hash>>>>);
 
+/// The handler for a blobs protection callback.
 ///
+/// See [`ProtectCallbackHandler::new`].
 #[derive(Debug)]
 pub struct ProtectCallbackHandler(
     pub(crate) mpsc::Receiver<oneshot::Sender<mpsc::Receiver<Result<Hash>>>>,
 );
 
 impl ProtectCallbackHandler {
+    /// Creates a callback and handler to manage blob protection.
     ///
+    /// The returned [`ProtectCb`] must be passed set in the [`GcConfig`] of the [`iroh_blobs`] store where
+    /// the blobs for hashes in documents are persisted. The [`ProtectCallbackHandler`] must be passed to
+    /// [`Builder::protect_handler`] (or [`Engine::spawn`]). This will then ensure that hashes referenced
+    /// in docs will not be deleted from the blobs store, and will be garbage collected if they no longer appear
+    /// in any doc.
+    ///
+    /// [`Builder::protect_handler`]: crate::protocol::Builder::protect_handler
+    /// [`GcConfig`]: iroh_blobs::store::fs::options::GcConfig
     pub fn new() -> (Self, ProtectCb) {
         let (tx, rx) = mpsc::channel(4);
         let cb = ProtectCallbackSender(tx).into_cb();
