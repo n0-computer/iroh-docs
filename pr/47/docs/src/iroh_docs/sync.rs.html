@@ -5093,7 +5093,7 @@
         <span class="kw">while let </span><span class="prelude-val">Some</span>(msg) = next_to_bob.take() {
             <span class="macro">assert!</span>(rounds &lt; <span class="number">100</span>, <span class="string">"too many rounds"</span>);
             rounds += <span class="number">1</span>;
-            <span class="macro">println!</span>(<span class="string">"round {}"</span>, rounds);
+            <span class="macro">println!</span>(<span class="string">"round {rounds}"</span>);
             <span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = bob
                 .sync_process_message(msg, alice_peer_id, <span class="kw-2">&amp;mut </span>bob_state)
                 .<span class="kw">await</span><span class="question-mark">?
