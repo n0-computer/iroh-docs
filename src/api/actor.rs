@@ -438,8 +438,10 @@ impl RpcActor {
         tokio::task::spawn(async move {
             loop {
                 tokio::select! {
-                    _ = reply.closed() => break,
-                    Some(msg) = stream.next() => {
+                    msg = stream.next() => {
+                        let Some(msg) = msg else {
+                            break;
+                        };
                         let msg = msg
                             .map_err(|err| RpcError::new(&*err))
                             .map(|event| SubscribeResponse { event });
@@ -447,7 +449,7 @@ impl RpcActor {
                             break;
                         }
                     },
-                    else => break,
+                    _ = reply.closed() => break,
                 }
             }
         });
