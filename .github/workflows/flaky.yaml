@@ -39,6 +39,7 @@ concurrency:
 
 env:
   IROH_FORCE_STAGING_RELAYS: "1"
+  MACOSX_DEPLOYMENT_TARGET: "11.0"
 
 jobs:
   tests:
