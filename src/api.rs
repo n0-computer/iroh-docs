@@ -567,7 +567,6 @@ impl Doc {
     }
 }
 
-///
 #[derive(Debug)]
 pub enum ImportFileProgressItem {
     Error(anyhow::Error),
@@ -575,7 +574,6 @@ pub enum ImportFileProgressItem {
     Done(ImportFileOutcome),
 }
 
-///
 #[derive(Debug)]
 pub struct ImportFileProgress(ImportInner);
 
