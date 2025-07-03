@@ -2003,7 +2003,7 @@ dependencies = [
 [[package]]
 name = "iroh-blobs"
 version = "0.90.0"
-source = "git+https://github.com/n0-computer/iroh-blobs?branch=Frando/gc-protect#38bfa979c505b20b62570e9833ec0c15f8c2362f"
+source = "git+https://github.com/n0-computer/iroh-blobs?branch=Frando/gc-protect#efa928e3d983a73ed682c84448774616aeb0351f"
 dependencies = [
  "anyhow",
  "arrayvec",

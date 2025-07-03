@@ -530,20 +530,20 @@ impl ProtectCallbackSender {
                 let (tx, rx) = oneshot::channel();
                 if let Err(_err) = start_tx.send(tx).await {
                     tracing::warn!("Failed to get protected hashes from docs: ProtectCallback receiver dropped");
-                    return ProtectOutcome::Skip;
+                    return ProtectOutcome::Abort;
                 }
                 let mut rx = match rx.await {
                     Ok(rx) => rx,
                     Err(_err) => {
                         tracing::warn!("Failed to get protected hashes from docs: ProtectCallback sender dropped");
-                        return ProtectOutcome::Skip;
+                        return ProtectOutcome::Abort;
                     }
                 };
                 while let Some(res) = rx.recv().await {
                     match res {
                         Err(err) => {
                             tracing::warn!("Getting protected hashes produces error: {err:#}");
-                            return ProtectOutcome::Skip;
+                            return ProtectOutcome::Abort;
                         }
                         Ok(hash) => {
                             live.insert(hash);
