@@ -6251,3 +6251,23 @@ dependencies = [
  "quote",
  "syn 2.0.98",
 ]
+
+[[patch.unused]]
+name = "iroh"
+version = "0.90.0"
+source = "git+https://github.com/n0-computer/iroh.git?branch=main#9c023bf4d7d1c3c10a9cc3b10df7e1a22c6ab7a4"
+
+[[patch.unused]]
+name = "iroh-base"
+version = "0.90.0"
+source = "git+https://github.com/n0-computer/iroh.git?branch=main#9c023bf4d7d1c3c10a9cc3b10df7e1a22c6ab7a4"
+
+[[patch.unused]]
+name = "iroh-blobs"
+version = "0.90.0"
+source = "git+https://github.com/n0-computer/iroh-blobs.git?branch=main#6fc7630b790eaab8f20facd0216d5606ff115d38"
+
+[[patch.unused]]
+name = "iroh-gossip"
+version = "0.90.0"
+source = "git+https://github.com/n0-computer/iroh-gossip.git?branch=main#e99a291a004be546316cebe38d0a950a93955fa0"
