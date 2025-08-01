@@ -2,6 +2,12 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.91.0](https://github.com/n0-computer/iroh-docs/compare/v0.35.0..0.91.0) - 2025-08-01
+
+### Deps/refactor
+
+- Port to iroh 0.91 ([#47](https://github.com/n0-computer/iroh-docs/issues/47)) - ([f3214d0](https://github.com/n0-computer/iroh-docs/commit/f3214d016fbdf748cf89eed49a71bf9197dcb201))
+
 ## [0.35.0](https://github.com/n0-computer/iroh-docs/compare/v0.34.0..0.35.0) - 2025-05-12
 
 ### 🐛 Bug Fixes
