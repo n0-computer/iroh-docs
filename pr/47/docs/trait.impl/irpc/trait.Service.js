@@ -1,9 +1,9 @@
 (function() {
-    var implementors = Object.fromEntries([["iroh_docs",[["impl Service for <a class=\"struct\" href=\"iroh_docs/api/protocol/struct.DocsService.html\" title=\"struct iroh_docs::api::protocol::DocsService\">DocsService</a>"]]]]);
+    var implementors = Object.fromEntries([["iroh_docs",[["impl Service for <a class=\"enum\" href=\"iroh_docs/api/protocol/enum.DocsProtocol.html\" title=\"enum iroh_docs::api::protocol::DocsProtocol\">DocsProtocol</a>"]]]]);
     if (window.register_implementors) {
         window.register_implementors(implementors);
     } else {
         window.pending_implementors = implementors;
     }
 })()
-//{"start":57,"fragment_lengths":[183]}
+//{"start":57,"fragment_lengths":[180]}
