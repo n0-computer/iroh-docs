@@ -10,9 +10,11 @@ use anyhow::{Context, Result};
 use futures_lite::FutureExt;
 use iroh::{Endpoint, NodeAddr, NodeId, PublicKey};
 use iroh_blobs::{
-    downloader::{DownloadError, DownloadRequest, Downloader},
-    get::Stats,
-    store::EntryStatus,
+    api::{
+        blobs::BlobStatus,
+        downloader::{ContentDiscovery, DownloadRequest, Downloader, SplitStrategy},
+        Store,
+    },
     Hash, HashAndFormat,
 };
 use iroh_gossip::net::Gossip;
@@ -145,15 +147,15 @@ type SyncConnectRes = (
     Result<SyncFinished, ConnectError>,
 );
 type SyncAcceptRes = Result<SyncFinished, AcceptError>;
-type DownloadRes = (NamespaceId, Hash, Result<Stats, DownloadError>);
+type DownloadRes = (NamespaceId, Hash, Result<(), anyhow::Error>);
 
 // Currently peers might double-sync in both directions.
-pub struct LiveActor<B: iroh_blobs::store::Store> {
+pub struct LiveActor {
     /// Receiver for actor messages.
     inbox: mpsc::Receiver<ToLiveActor>,
     sync: SyncHandle,
     endpoint: Endpoint,
-    bao_store: B,
+    bao_store: Store,
     downloader: Downloader,
     replica_events_tx: async_channel::Sender<crate::Event>,
     replica_events_rx: async_channel::Receiver<crate::Event>,
@@ -174,6 +176,8 @@ pub struct LiveActor<B: iroh_blobs::store::Store> {
     missing_hashes: HashSet<Hash>,
     /// Content hashes queued in downloader.
     queued_hashes: QueuedHashes,
+    /// Nodes known to have a hash
+    hash_providers: ProviderNodes,
 
     /// Subscribers to actor events
     subscribers: SubscribersMap,
@@ -182,14 +186,14 @@ pub struct LiveActor<B: iroh_blobs::store::Store> {
     state: NamespaceStates,
     metrics: Arc<Metrics>,
 }
-impl<B: iroh_blobs::store::Store> LiveActor<B> {
+impl LiveActor {
     /// Create the live actor.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         sync: SyncHandle,
         endpoint: Endpoint,
         gossip: Gossip,
-        bao_store: B,
+        bao_store: Store,
         downloader: Downloader,
         inbox: mpsc::Receiver<ToLiveActor>,
         sync_actor_tx: mpsc::Sender<ToLiveActor>,
@@ -214,6 +218,7 @@ impl<B: iroh_blobs::store::Store> LiveActor<B> {
             state: Default::default(),
             missing_hashes: Default::default(),
             queued_hashes: Default::default(),
+            hash_providers: Default::default(),
             metrics,
         }
     }
@@ -626,7 +631,7 @@ impl<B: iroh_blobs::store::Store> LiveActor<B> {
         }
     }
 
-    async fn broadcast_neighbors(&self, namespace: NamespaceId, op: &Op) {
+    async fn broadcast_neighbors(&mut self, namespace: NamespaceId, op: &Op) {
         if !self.state.is_syncing(&namespace) {
             return;
         }
@@ -648,7 +653,7 @@ impl<B: iroh_blobs::store::Store> LiveActor<B> {
         &mut self,
         namespace: NamespaceId,
         hash: Hash,
-        res: Result<Stats, DownloadError>,
+        res: Result<(), anyhow::Error>,
     ) {
         let completed_namespaces = self.queued_hashes.remove_hash(&hash);
         debug!(namespace=%namespace.fmt_short(), success=res.is_ok(), completed_namespaces=completed_namespaces.len(), "download ready");
@@ -750,17 +755,27 @@ impl<B: iroh_blobs::store::Store> LiveActor<B> {
         node: PublicKey,
         only_if_missing: bool,
     ) {
-        let entry_status = self.bao_store.entry_status(&hash).await;
-        if matches!(entry_status, Ok(EntryStatus::Complete)) {
+        let entry_status = self.bao_store.blobs().status(hash).await;
+        if matches!(entry_status, Ok(BlobStatus::Complete { .. })) {
             self.missing_hashes.remove(&hash);
             return;
         }
+        self.hash_providers
+            .0
+            .lock()
+            .expect("poisoned")
+            .entry(hash)
+            .or_default()
+            .insert(node);
         if self.queued_hashes.contains_hash(&hash) {
             self.queued_hashes.insert(hash, namespace);
-            self.downloader.nodes_have(hash, vec![node]).await;
         } else if !only_if_missing || self.missing_hashes.contains(&hash) {
-            let req = DownloadRequest::new(HashAndFormat::raw(hash), vec![node]);
-            let handle = self.downloader.queue(req).await;
+            let req = DownloadRequest::new(
+                HashAndFormat::raw(hash),
+                self.hash_providers.clone(),
+                SplitStrategy::None,
+            );
+            let handle = self.downloader.download_with_opts(req);
 
             self.queued_hashes.insert(hash, namespace);
             self.missing_hashes.remove(&hash);
@@ -880,6 +895,24 @@ impl SubscribersMap {
 struct QueuedHashes {
     by_hash: HashMap<Hash, HashSet<NamespaceId>>,
     by_namespace: HashMap<NamespaceId, HashSet<Hash>>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct ProviderNodes(Arc<std::sync::Mutex<HashMap<Hash, HashSet<NodeId>>>>);
+
+impl ContentDiscovery for ProviderNodes {
+    fn find_providers(&self, hash: HashAndFormat) -> n0_future::stream::Boxed<NodeId> {
+        let nodes = self
+            .0
+            .lock()
+            .expect("poisoned")
+            .get(&hash.hash)
+            .into_iter()
+            .flatten()
+            .cloned()
+            .collect::<Vec<_>>();
+        Box::pin(n0_future::stream::iter(nodes))
+    }
 }
 
 impl QueuedHashes {

@@ -1,23 +1,14 @@
-#![cfg(feature = "rpc")]
 #![allow(dead_code)]
 use std::{
-    marker::PhantomData,
     net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6},
     ops::Deref,
     path::{Path, PathBuf},
 };
 
-use iroh::{discovery::Discovery, dns::DnsResolver, NodeId, RelayMode, SecretKey};
-use iroh_blobs::{
-    net_protocol::Blobs,
-    store::{GcConfig, Store as BlobStore},
-};
-use iroh_docs::protocol::Docs;
+use iroh::{discovery::IntoDiscovery, dns::DnsResolver, NodeId, RelayMode, SecretKey};
+use iroh_blobs::store::fs::options::{GcConfig, Options};
+use iroh_docs::{engine::ProtectCallbackHandler, protocol::Docs};
 use iroh_gossip::net::Gossip;
-use nested_enum_utils::enum_conversions;
-use quic_rpc::transport::{Connector, Listener};
-use serde::{Deserialize, Serialize};
-use tokio_util::task::AbortOnDropHandle;
 
 /// Default bind address for the node.
 /// 11204 is "iroh" in leetspeak <https://simple.wikipedia.org/wiki/Leet>
@@ -33,14 +24,14 @@ pub const DEFAULT_BIND_ADDR_V6: SocketAddrV6 =
 
 /// An iroh node that just has the blobs transport
 #[derive(Debug)]
-pub struct Node<S> {
+pub struct Node {
     router: iroh::protocol::Router,
     client: Client,
-    store: S,
-    rpc_task: AbortOnDropHandle<()>,
+    // store: iroh_blobs::api::Store,
+    // rpc_task: AbortOnDropHandle<()>,
 }
 
-impl<S> Deref for Node<S> {
+impl Deref for Node {
     type Target = Client;
 
     fn deref(&self) -> &Self::Target {
@@ -48,191 +39,123 @@ impl<S> Deref for Node<S> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[enum_conversions]
-enum Request {
-    BlobsOrTags(iroh_blobs::rpc::proto::Request),
-    Docs(iroh_docs::rpc::proto::Request),
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[enum_conversions]
-enum Response {
-    BlobsOrTags(iroh_blobs::rpc::proto::Response),
-    Docs(iroh_docs::rpc::proto::Response),
-}
-
-#[derive(Debug, Clone, Copy)]
-struct Service;
-
-impl quic_rpc::Service for Service {
-    type Req = Request;
-    type Res = Response;
-}
-
 #[derive(Debug, Clone)]
 pub struct Client {
-    blobs: iroh_blobs::rpc::client::blobs::Client,
-    docs: iroh_docs::rpc::client::docs::Client,
-    authors: iroh_docs::rpc::client::authors::Client,
+    blobs: iroh_blobs::api::Store,
+    docs: iroh_docs::api::DocsApi,
 }
 
 impl Client {
-    fn new(client: quic_rpc::RpcClient<Service>) -> Self {
-        Self {
-            blobs: iroh_blobs::rpc::client::blobs::Client::new(client.clone().map().boxed()),
-            docs: iroh_docs::rpc::client::docs::Client::new(client.clone().map().boxed()),
-            authors: iroh_docs::rpc::client::authors::Client::new(client.map().boxed()),
-        }
+    fn new(blobs: iroh_blobs::api::Store, docs: iroh_docs::api::DocsApi) -> Self {
+        Self { blobs, docs }
     }
 
-    pub fn blobs(&self) -> &iroh_blobs::rpc::client::blobs::Client {
+    pub fn blobs(&self) -> &iroh_blobs::api::Store {
         &self.blobs
     }
 
-    pub fn docs(&self) -> &iroh_docs::rpc::client::docs::Client {
+    pub fn docs(&self) -> &iroh_docs::api::DocsApi {
         &self.docs
-    }
-
-    pub fn authors(&self) -> &iroh_docs::rpc::client::authors::Client {
-        &self.authors
     }
 }
 
 /// An iroh node builder
 #[derive(derive_more::Debug)]
-pub struct Builder<S> {
+pub struct Builder {
+    endpoint: iroh::endpoint::Builder,
+    use_n0_discovery: bool,
     path: Option<PathBuf>,
-    secret_key: Option<SecretKey>,
-    relay_mode: RelayMode,
-    dns_resolver: Option<DnsResolver>,
-    node_discovery: Option<Box<dyn Discovery>>,
+    // node_discovery: Option<Box<dyn Discovery>>,
     gc_interval: Option<std::time::Duration>,
     #[debug(skip)]
     register_gc_done_cb: Option<Box<dyn Fn() + Send + 'static>>,
-    insecure_skip_relay_cert_verify: bool,
     bind_random_port: bool,
-    _p: PhantomData<S>,
 }
 
-impl<S: BlobStore> Builder<S> {
+impl Builder {
     /// Spawns the node
-    async fn spawn0(self, store: S) -> anyhow::Result<Node<S>> {
+    async fn spawn0(
+        self,
+        blobs: iroh_blobs::api::Store,
+        protect_cb: Option<ProtectCallbackHandler>,
+    ) -> anyhow::Result<Node> {
         let mut addr_v4 = DEFAULT_BIND_ADDR_V4;
         let mut addr_v6 = DEFAULT_BIND_ADDR_V6;
         if self.bind_random_port {
             addr_v4.set_port(0);
             addr_v6.set_port(0);
         }
-        let mut builder = iroh::Endpoint::builder()
-            .bind_addr_v4(addr_v4)
-            .bind_addr_v6(addr_v6)
-            .relay_mode(self.relay_mode.clone())
-            .insecure_skip_relay_cert_verify(self.insecure_skip_relay_cert_verify);
-        if let Some(dns_resolver) = self.dns_resolver.clone() {
-            builder = builder.dns_resolver(dns_resolver);
-        }
-        if let Some(secret_key) = self.secret_key {
-            builder = builder.secret_key(secret_key);
-        }
-        if let Some(discovery) = self.node_discovery {
-            builder = builder.discovery(discovery);
-        } else {
+        let mut builder = self.endpoint.bind_addr_v4(addr_v4).bind_addr_v6(addr_v6);
+        if self.use_n0_discovery {
             builder = builder.discovery_n0();
         }
+        builder = builder.discovery_n0();
         let endpoint = builder.bind().await?;
         let mut router = iroh::protocol::Router::builder(endpoint.clone());
-        let blobs = Blobs::builder(store.clone()).build(&endpoint);
-        let gossip = Gossip::builder().spawn(endpoint.clone()).await?;
-        let builder = match self.path {
+        let gossip = Gossip::builder().spawn(endpoint.clone());
+        let mut docs_builder = match self.path {
             Some(ref path) => Docs::persistent(path.to_path_buf()),
             None => Docs::memory(),
         };
-        let docs = match builder.spawn(&blobs, &gossip).await {
+        if let Some(protect_cb) = protect_cb {
+            docs_builder = docs_builder.protect_handler(protect_cb);
+        }
+        let docs = match docs_builder
+            .spawn(endpoint.clone(), blobs.clone(), gossip.clone())
+            .await
+        {
             Ok(docs) => docs,
             Err(err) => {
-                store.shutdown().await;
+                blobs.shutdown().await.ok();
                 return Err(err);
             }
         };
-        router = router.accept(iroh_blobs::ALPN, blobs.clone());
+        router = router.accept(
+            iroh_blobs::ALPN,
+            iroh_blobs::BlobsProtocol::new(&blobs, endpoint.clone(), None),
+        );
         router = router.accept(iroh_docs::ALPN, docs.clone());
         router = router.accept(iroh_gossip::ALPN, gossip.clone());
 
         // Build the router
         let router = router.spawn();
 
-        // Setup RPC
-        let (internal_rpc, controller) =
-            quic_rpc::transport::flume::channel::<Request, Response>(1);
-        let controller = controller.boxed();
-        let internal_rpc = internal_rpc.boxed();
-        let internal_rpc = quic_rpc::RpcServer::<Service>::new(internal_rpc);
+        // TODO: Make this work again.
+        // if let Some(period) = self.gc_interval {
+        //     blobs.add_protected(docs.protect_cb())?;
+        //     blobs.start_gc(GcConfig {
+        //         period,
+        //         done_callback: self.register_gc_done_cb,
+        //     })?;
+        // }
 
-        let docs2 = docs.clone();
-        let blobs2 = blobs.clone();
-        let rpc_task: tokio::task::JoinHandle<()> = tokio::task::spawn(async move {
-            loop {
-                let request = internal_rpc.accept().await;
-                match request {
-                    Ok(accepting) => {
-                        let blobs = blobs2.clone();
-                        let docs = docs2.clone();
-                        tokio::task::spawn(async move {
-                            let (msg, chan) = accepting.read_first().await?;
-                            match msg {
-                                Request::BlobsOrTags(msg) => {
-                                    blobs.handle_rpc_request(msg, chan.map().boxed()).await?;
-                                }
-                                Request::Docs(msg) => {
-                                    docs.handle_rpc_request(msg, chan.map().boxed()).await?;
-                                }
-                            }
-                            anyhow::Ok(())
-                        });
-                    }
-                    Err(err) => {
-                        tracing::warn!("rpc error: {:?}", err);
-                    }
-                }
-            }
-        });
-
-        let client = quic_rpc::RpcClient::new(controller);
-        if let Some(period) = self.gc_interval {
-            blobs.add_protected(docs.protect_cb())?;
-            blobs.start_gc(GcConfig {
-                period,
-                done_callback: self.register_gc_done_cb,
-            })?;
-        }
-
-        let client = Client::new(client);
+        let client = Client::new(blobs.clone(), docs.api().clone());
         Ok(Node {
             router,
             client,
-            store,
-            rpc_task: AbortOnDropHandle::new(rpc_task),
+            // store: blobs,
+            // rpc_task: AbortOnDropHandle::new(rpc_task),
         })
     }
 
     pub fn secret_key(mut self, value: SecretKey) -> Self {
-        self.secret_key = Some(value);
+        self.endpoint = self.endpoint.secret_key(value);
         self
     }
 
     pub fn relay_mode(mut self, value: RelayMode) -> Self {
-        self.relay_mode = value;
+        self.endpoint = self.endpoint.relay_mode(value);
         self
     }
 
     pub fn dns_resolver(mut self, value: DnsResolver) -> Self {
-        self.dns_resolver = Some(value);
+        self.endpoint = self.endpoint.dns_resolver(value);
         self
     }
 
-    pub fn node_discovery(mut self, value: Box<dyn Discovery>) -> Self {
-        self.node_discovery = Some(value);
+    pub fn node_discovery(mut self, value: impl IntoDiscovery) -> Self {
+        self.use_n0_discovery = false;
+        self.endpoint = self.endpoint.discovery(value);
         self
     }
 
@@ -247,7 +170,7 @@ impl<S: BlobStore> Builder<S> {
     }
 
     pub fn insecure_skip_relay_cert_verify(mut self, value: bool) -> Self {
-        self.insecure_skip_relay_cert_verify = value;
+        self.endpoint = self.endpoint.insecure_skip_relay_cert_verify(value);
         self
     }
 
@@ -258,71 +181,211 @@ impl<S: BlobStore> Builder<S> {
 
     fn new(path: Option<PathBuf>) -> Self {
         Self {
+            endpoint: iroh::Endpoint::builder(),
+            use_n0_discovery: true,
             path,
-            secret_key: None,
-            relay_mode: RelayMode::Default,
             gc_interval: None,
-            insecure_skip_relay_cert_verify: false,
             bind_random_port: false,
-            dns_resolver: None,
-            node_discovery: None,
+            // node_discovery: None,
             register_gc_done_cb: None,
-            _p: PhantomData,
+            // _p: PhantomData,
         }
     }
 }
 
-impl Node<iroh_blobs::store::mem::Store> {
+impl Node {
     /// Creates a new node with memory storage
-    pub fn memory() -> Builder<iroh_blobs::store::mem::Store> {
+    pub fn memory() -> Builder {
         Builder::new(None)
     }
-}
 
-impl Builder<iroh_blobs::store::mem::Store> {
-    /// Spawns the node
-    pub async fn spawn(self) -> anyhow::Result<Node<iroh_blobs::store::mem::Store>> {
-        let store = iroh_blobs::store::mem::Store::new();
-        self.spawn0(store).await
-    }
-}
-
-impl Node<iroh_blobs::store::fs::Store> {
     /// Creates a new node with persistent storage
-    pub fn persistent(path: impl AsRef<Path>) -> Builder<iroh_blobs::store::fs::Store> {
+    pub fn persistent(path: impl AsRef<Path>) -> Builder {
         let path = Some(path.as_ref().to_owned());
         Builder::new(path)
     }
 }
 
-impl Builder<iroh_blobs::store::fs::Store> {
+impl Builder {
     /// Spawns the node
-    pub async fn spawn(self) -> anyhow::Result<Node<iroh_blobs::store::fs::Store>> {
-        let store = iroh_blobs::store::fs::Store::load(self.path.clone().unwrap()).await?;
-        self.spawn0(store).await
+    pub async fn spawn(self) -> anyhow::Result<Node> {
+        let (store, protect_handler) = match self.path {
+            None => {
+                let store = iroh_blobs::store::mem::MemStore::new();
+                ((*store).clone(), None)
+            }
+            Some(ref path) => {
+                let db_path = path.join("blobs.db");
+                let mut opts = Options::new(path);
+                let protect_handler = if let Some(interval) = self.gc_interval {
+                    let (handler, cb) = ProtectCallbackHandler::new();
+                    opts.gc = Some(GcConfig {
+                        interval,
+                        add_protected: Some(cb),
+                    });
+                    Some(handler)
+                } else {
+                    None
+                };
+                let store = iroh_blobs::store::fs::FsStore::load_with_opts(db_path, opts).await?;
+                ((*store).clone(), protect_handler)
+            }
+        };
+        self.spawn0(store, protect_handler).await
     }
 }
 
-impl<S> Node<S> {
+impl Node {
     /// Returns the node id
     pub fn node_id(&self) -> NodeId {
         self.router.endpoint().node_id()
     }
 
-    /// Returns the blob store
-    pub fn blob_store(&self) -> &S {
-        &self.store
-    }
+    // /// Returns the blob store
+    // pub fn blob_store(&self) -> &S {
+    //     &self.store
+    // }
 
     /// Shuts down the node
     pub async fn shutdown(self) -> anyhow::Result<()> {
         self.router.shutdown().await?;
-        self.rpc_task.abort();
+        // self.rpc_task.abort();
         Ok(())
     }
 
     /// Returns the client
     pub fn client(&self) -> &Client {
         &self.client
+    }
+}
+
+pub mod path {
+    use std::path::{Component, Path, PathBuf};
+
+    use anyhow::Context;
+    use bytes::Bytes;
+
+    /// Helper function that translates a key that was derived from the [`path_to_key`] function back
+    /// into a path.
+    ///
+    /// If `prefix` exists, it will be stripped before converting back to a path
+    /// If `root` exists, will add the root as a parent to the created path
+    /// Removes any null byte that has been appended to the key
+    pub fn key_to_path(
+        key: impl AsRef<[u8]>,
+        prefix: Option<String>,
+        root: Option<PathBuf>,
+    ) -> anyhow::Result<PathBuf> {
+        let mut key = key.as_ref();
+        if key.is_empty() {
+            return Ok(PathBuf::new());
+        }
+        // if the last element is the null byte, remove it
+        if b'\0' == key[key.len() - 1] {
+            key = &key[..key.len() - 1]
+        }
+
+        let key = if let Some(prefix) = prefix {
+            let prefix = prefix.into_bytes();
+            if prefix[..] == key[..prefix.len()] {
+                &key[prefix.len()..]
+            } else {
+                anyhow::bail!("key {:?} does not begin with prefix {:?}", key, prefix);
+            }
+        } else {
+            key
+        };
+
+        let mut path = if key[0] == b'/' {
+            PathBuf::from("/")
+        } else {
+            PathBuf::new()
+        };
+        for component in key
+            .split(|c| c == &b'/')
+            .map(|c| String::from_utf8(c.into()).context("key contains invalid data"))
+        {
+            let component = component?;
+            path = path.join(component);
+        }
+
+        // add root if it exists
+        let path = if let Some(root) = root {
+            root.join(path)
+        } else {
+            path
+        };
+
+        Ok(path)
+    }
+
+    /// Helper function that creates a document key from a canonicalized path, removing the `root` and adding the `prefix`, if they exist
+    ///
+    /// Appends the null byte to the end of the key.
+    pub fn path_to_key(
+        path: impl AsRef<Path>,
+        prefix: Option<String>,
+        root: Option<PathBuf>,
+    ) -> anyhow::Result<Bytes> {
+        let path = path.as_ref();
+        let path = if let Some(root) = root {
+            path.strip_prefix(root)?
+        } else {
+            path
+        };
+        let suffix = canonicalized_path_to_string(path, false)?.into_bytes();
+        let mut key = if let Some(prefix) = prefix {
+            prefix.into_bytes().to_vec()
+        } else {
+            Vec::new()
+        };
+        key.extend(suffix);
+        key.push(b'\0');
+        Ok(key.into())
+    }
+
+    /// This function converts an already canonicalized path to a string.
+    ///
+    /// If `must_be_relative` is true, the function will fail if any component of the path is
+    /// `Component::RootDir`
+    ///
+    /// This function will also fail if the path is non canonical, i.e. contains
+    /// `..` or `.`, or if the path components contain any windows or unix path
+    /// separators.
+    pub fn canonicalized_path_to_string(
+        path: impl AsRef<Path>,
+        must_be_relative: bool,
+    ) -> anyhow::Result<String> {
+        let mut path_str = String::new();
+        let parts = path
+            .as_ref()
+            .components()
+            .filter_map(|c| match c {
+                Component::Normal(x) => {
+                    let c = match x.to_str() {
+                        Some(c) => c,
+                        None => return Some(Err(anyhow::anyhow!("invalid character in path"))),
+                    };
+
+                    if !c.contains('/') && !c.contains('\\') {
+                        Some(Ok(c))
+                    } else {
+                        Some(Err(anyhow::anyhow!("invalid path component {:?}", c)))
+                    }
+                }
+                Component::RootDir => {
+                    if must_be_relative {
+                        Some(Err(anyhow::anyhow!("invalid path component {:?}", c)))
+                    } else {
+                        path_str.push('/');
+                        None
+                    }
+                }
+                _ => Some(Err(anyhow::anyhow!("invalid path component {:?}", c))),
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let parts = parts.join("/");
+        path_str.push_str(&parts);
+        Ok(path_str)
     }
 }

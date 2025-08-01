@@ -5,7 +5,10 @@ use bytes::Bytes;
 use futures_lite::StreamExt;
 use futures_util::FutureExt;
 use iroh::NodeId;
-use iroh_gossip::net::{Event, Gossip, GossipEvent, GossipReceiver, GossipSender, JoinOptions};
+use iroh_gossip::{
+    api::{Event, GossipReceiver, GossipSender, JoinOptions},
+    net::Gossip,
+};
 use tokio::{
     sync::mpsc,
     task::{AbortHandle, JoinSet},
@@ -43,15 +46,16 @@ impl GossipState {
 
     pub async fn join(&mut self, namespace: NamespaceId, bootstrap: Vec<NodeId>) -> Result<()> {
         match self.active.entry(namespace) {
-            hash_map::Entry::Occupied(entry) => {
+            hash_map::Entry::Occupied(mut entry) => {
                 if !bootstrap.is_empty() {
-                    entry.get().sender.join_peers(bootstrap).await?;
+                    entry.get_mut().sender.join_peers(bootstrap).await?;
                 }
             }
             hash_map::Entry::Vacant(entry) => {
                 let sub = self
                     .gossip
-                    .subscribe_with_opts(namespace.into(), JoinOptions::with_bootstrap(bootstrap));
+                    .subscribe_with_opts(namespace.into(), JoinOptions::with_bootstrap(bootstrap))
+                    .await?;
 
                 let (sender, stream) = sub.split();
                 let abort_handle = self.active_tasks.spawn(
@@ -85,14 +89,14 @@ impl GossipState {
         self.progress().await
     }
 
-    pub async fn broadcast(&self, namespace: &NamespaceId, message: Bytes) {
-        if let Some(state) = self.active.get(namespace) {
+    pub async fn broadcast(&mut self, namespace: &NamespaceId, message: Bytes) {
+        if let Some(state) = self.active.get_mut(namespace) {
             state.sender.broadcast(message).await.ok();
         }
     }
 
-    pub async fn broadcast_neighbors(&self, namespace: &NamespaceId, message: Bytes) {
-        if let Some(state) = self.active.get(namespace) {
+    pub async fn broadcast_neighbors(&mut self, namespace: &NamespaceId, message: Bytes) {
+        if let Some(state) = self.active.get_mut(namespace) {
             state.sender.broadcast_neighbors(message).await.ok();
         }
     }
@@ -142,15 +146,12 @@ async fn receive_loop(
             .await?;
     }
     while let Some(event) = recv.try_next().await? {
-        let event = match event {
-            Event::Gossip(event) => event,
+        match event {
             Event::Lagged => {
                 debug!("gossip loop lagged - dropping gossip event");
                 continue;
             }
-        };
-        match event {
-            GossipEvent::Received(msg) => {
+            Event::Received(msg) => {
                 let op: Op = postcard::from_bytes(&msg.content)?;
                 match op {
                     Op::Put(entry) => {
@@ -192,22 +193,15 @@ async fn receive_loop(
                     }
                 }
             }
-            GossipEvent::NeighborUp(peer) => {
+            Event::NeighborUp(peer) => {
                 to_sync_actor
                     .send(ToLiveActor::NeighborUp { namespace, peer })
                     .await?;
             }
-            GossipEvent::NeighborDown(peer) => {
+            Event::NeighborDown(peer) => {
                 to_sync_actor
                     .send(ToLiveActor::NeighborDown { namespace, peer })
                     .await?;
-            }
-            GossipEvent::Joined(peers) => {
-                for peer in peers {
-                    to_sync_actor
-                        .send(ToLiveActor::NeighborUp { namespace, peer })
-                        .await?;
-                }
             }
         }
     }

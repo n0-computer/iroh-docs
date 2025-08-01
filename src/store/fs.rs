@@ -77,6 +77,7 @@ impl AsMut<Store> for Store {
 }
 
 #[derive(derive_more::Debug, Default)]
+#[allow(clippy::large_enum_variant)]
 enum CurrentTransaction {
     #[default]
     None,

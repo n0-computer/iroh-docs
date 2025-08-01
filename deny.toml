@@ -15,6 +15,7 @@ allow = [
       "BSD-2-Clause",
       "BSD-3-Clause",
       "BSL-1.0", # BOSL license
+      "CDLA-Permissive-2.0",
       "ISC",
       "MIT",
       "Zlib",
@@ -35,6 +36,7 @@ ignore = [
       "RUSTSEC-2024-0370", # unmaintained, no upgrade available
       "RUSTSEC-2024-0384", # unmaintained, no upgrade available
       "RUSTSEC-2024-0436", # paste
+      "RUSTSEC-2023-0089", # unmainatined: postcard -> heapless -> atomic-polyfill
 ]
 
 [sources]

@@ -40,7 +40,8 @@ pub type PeerIdBytes = [u8; 32];
 pub const MAX_TIMESTAMP_FUTURE_SHIFT: u64 = 10 * 60 * Duration::from_secs(1).as_millis() as u64;
 
 /// Callback that may be set on a replica to determine the availability status for a content hash.
-pub type ContentStatusCallback = Arc<dyn Fn(Hash) -> ContentStatus + Send + Sync + 'static>;
+pub type ContentStatusCallback =
+    Arc<dyn Fn(Hash) -> n0_future::boxed::BoxFuture<ContentStatus> + Send + Sync + 'static>;
 
 /// Event emitted by sync when entries are added.
 #[derive(Debug, Clone)]
@@ -497,7 +498,7 @@ where
     /// Process a set reconciliation message from a remote peer.
     ///
     /// Returns the next message to be sent to the peer, if any.
-    pub fn sync_process_message(
+    pub async fn sync_process_message(
         &mut self,
         message: crate::ranger::Message<SignedEntry>,
         from_peer: PeerIdBytes,
@@ -522,40 +523,46 @@ where
             .store
             .get_download_policy(&my_namespace)
             .unwrap_or_default();
-        let reply = self.store.process_message(
-            &Default::default(),
-            message,
-            // validate callback: validate incoming entries, and send to on_insert channel
-            |store, entry, content_status| {
-                let origin = InsertOrigin::Sync {
-                    from: from_peer,
-                    remote_content_status: content_status,
-                };
-                validate_entry(now, store, my_namespace, entry, &origin).is_ok()
-            },
-            // on_insert callback: is called when an entry was actually inserted in the store
-            |_store, entry, content_status| {
-                // We use `send_with` to only clone the entry if we have active subscriptions.
-                self.info.subscribers.send_with(|| {
-                    let should_download = download_policy.matches(entry.entry());
-                    Event::RemoteInsert {
+        let reply = self
+            .store
+            .process_message(
+                &Default::default(),
+                message,
+                // validate callback: validate incoming entries, and send to on_insert channel
+                |store, entry, content_status| {
+                    let origin = InsertOrigin::Sync {
                         from: from_peer,
-                        namespace: my_namespace,
-                        entry: entry.clone(),
-                        should_download,
                         remote_content_status: content_status,
-                    }
-                })
-            },
-            // content_status callback: get content status for outgoing entries
-            |_store, entry| {
-                if let Some(cb) = cb.as_ref() {
-                    cb(entry.content_hash())
-                } else {
-                    ContentStatus::Missing
-                }
-            },
-        )?;
+                    };
+                    validate_entry(now, store, my_namespace, entry, &origin).is_ok()
+                },
+                // on_insert callback: is called when an entry was actually inserted in the store
+                |_store, entry, content_status| {
+                    // We use `send_with` to only clone the entry if we have active subscriptions.
+                    self.info.subscribers.send_with(|| {
+                        let should_download = download_policy.matches(entry.entry());
+                        Event::RemoteInsert {
+                            from: from_peer,
+                            namespace: my_namespace,
+                            entry: entry.clone(),
+                            should_download,
+                            remote_content_status: content_status,
+                        }
+                    })
+                },
+                // content_status callback: get content status for outgoing entries
+                move |entry| {
+                    let cb = cb.clone();
+                    Box::pin(async move {
+                        if let Some(cb) = cb.as_ref() {
+                            cb(entry.content_hash()).await
+                        } else {
+                            ContentStatus::Missing
+                        }
+                    })
+                },
+            )
+            .await?;
 
         // update state with outgoing data.
         if let Some(ref reply) = reply {
@@ -1571,27 +1578,27 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_replica_sync_memory() -> Result<()> {
+    #[tokio::test]
+    async fn test_replica_sync_memory() -> Result<()> {
         let alice_store = store::Store::memory();
         let bob_store = store::Store::memory();
 
-        test_replica_sync(alice_store, bob_store)?;
+        test_replica_sync(alice_store, bob_store).await?;
         Ok(())
     }
 
-    #[test]
-    fn test_replica_sync_fs() -> Result<()> {
+    #[tokio::test]
+    async fn test_replica_sync_fs() -> Result<()> {
         let alice_dbfile = tempfile::NamedTempFile::new()?;
         let alice_store = store::fs::Store::persistent(alice_dbfile.path())?;
         let bob_dbfile = tempfile::NamedTempFile::new()?;
         let bob_store = store::fs::Store::persistent(bob_dbfile.path())?;
-        test_replica_sync(alice_store, bob_store)?;
+        test_replica_sync(alice_store, bob_store).await?;
 
         Ok(())
     }
 
-    fn test_replica_sync(mut alice_store: Store, mut bob_store: Store) -> Result<()> {
+    async fn test_replica_sync(mut alice_store: Store, mut bob_store: Store) -> Result<()> {
         let alice_set = ["ape", "eel", "fox", "gnu"];
         let bob_set = ["bee", "cat", "doe", "eel", "fox", "hog"];
 
@@ -1608,7 +1615,7 @@ mod tests {
             bob.hash_and_insert(el, &author, el.as_bytes())?;
         }
 
-        let (alice_out, bob_out) = sync(&mut alice, &mut bob)?;
+        let (alice_out, bob_out) = sync(&mut alice, &mut bob).await?;
 
         assert_eq!(alice_out.num_sent, 2);
         assert_eq!(bob_out.num_recv, 2);
@@ -1624,27 +1631,30 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_replica_timestamp_sync_memory() -> Result<()> {
+    #[tokio::test]
+    async fn test_replica_timestamp_sync_memory() -> Result<()> {
         let alice_store = store::Store::memory();
         let bob_store = store::Store::memory();
 
-        test_replica_timestamp_sync(alice_store, bob_store)?;
+        test_replica_timestamp_sync(alice_store, bob_store).await?;
         Ok(())
     }
 
-    #[test]
-    fn test_replica_timestamp_sync_fs() -> Result<()> {
+    #[tokio::test]
+    async fn test_replica_timestamp_sync_fs() -> Result<()> {
         let alice_dbfile = tempfile::NamedTempFile::new()?;
         let alice_store = store::fs::Store::persistent(alice_dbfile.path())?;
         let bob_dbfile = tempfile::NamedTempFile::new()?;
         let bob_store = store::fs::Store::persistent(bob_dbfile.path())?;
-        test_replica_timestamp_sync(alice_store, bob_store)?;
+        test_replica_timestamp_sync(alice_store, bob_store).await?;
 
         Ok(())
     }
 
-    fn test_replica_timestamp_sync(mut alice_store: Store, mut bob_store: Store) -> Result<()> {
+    async fn test_replica_timestamp_sync(
+        mut alice_store: Store,
+        mut bob_store: Store,
+    ) -> Result<()> {
         let mut rng = rand::thread_rng();
         let author = Author::new(&mut rng);
         let namespace = NamespaceSecret::new(&mut rng);
@@ -1657,7 +1667,7 @@ mod tests {
         let _alice_hash = alice.hash_and_insert(key, &author, alice_value)?;
         // system time increased - sync should overwrite
         let bob_hash = bob.hash_and_insert(key, &author, bob_value)?;
-        sync(&mut alice, &mut bob)?;
+        sync(&mut alice, &mut bob).await?;
         assert_eq!(
             get_content_hash(&mut alice_store, namespace.id(), author.id(), key)?,
             Some(bob_hash)
@@ -1674,7 +1684,7 @@ mod tests {
         // system time increased - sync should overwrite
         let _bob_hash_2 = bob.hash_and_insert(key, &author, bob_value)?;
         let alice_hash_2 = alice.hash_and_insert(key, &author, alice_value_2)?;
-        sync(&mut alice, &mut bob)?;
+        sync(&mut alice, &mut bob).await?;
         assert_eq!(
             get_content_hash(&mut alice_store, namespace.id(), author.id(), key)?,
             Some(alice_hash_2)
@@ -1813,24 +1823,24 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_replica_sync_delete_memory() -> Result<()> {
+    #[tokio::test]
+    async fn test_replica_sync_delete_memory() -> Result<()> {
         let alice_store = store::Store::memory();
         let bob_store = store::Store::memory();
 
-        test_replica_sync_delete(alice_store, bob_store)
+        test_replica_sync_delete(alice_store, bob_store).await
     }
 
-    #[test]
-    fn test_replica_sync_delete_fs() -> Result<()> {
+    #[tokio::test]
+    async fn test_replica_sync_delete_fs() -> Result<()> {
         let alice_dbfile = tempfile::NamedTempFile::new()?;
         let alice_store = store::fs::Store::persistent(alice_dbfile.path())?;
         let bob_dbfile = tempfile::NamedTempFile::new()?;
         let bob_store = store::fs::Store::persistent(bob_dbfile.path())?;
-        test_replica_sync_delete(alice_store, bob_store)
+        test_replica_sync_delete(alice_store, bob_store).await
     }
 
-    fn test_replica_sync_delete(mut alice_store: Store, mut bob_store: Store) -> Result<()> {
+    async fn test_replica_sync_delete(mut alice_store: Store, mut bob_store: Store) -> Result<()> {
         let alice_set = ["foot"];
         let bob_set = ["fool", "foo", "fog"];
 
@@ -1847,7 +1857,7 @@ mod tests {
             bob.hash_and_insert(el, &author, el.as_bytes())?;
         }
 
-        sync(&mut alice, &mut bob)?;
+        sync(&mut alice, &mut bob).await?;
 
         check_entries(&mut alice_store, &myspace.id(), &author, &alice_set)?;
         check_entries(&mut alice_store, &myspace.id(), &author, &bob_set)?;
@@ -1858,7 +1868,7 @@ mod tests {
         let mut bob = bob_store.new_replica(myspace.clone())?;
         alice.delete_prefix("foo", &author)?;
         bob.hash_and_insert("fooz", &author, "fooz".as_bytes())?;
-        sync(&mut alice, &mut bob)?;
+        sync(&mut alice, &mut bob).await?;
         check_entries(&mut alice_store, &myspace.id(), &author, &["fog", "fooz"])?;
         check_entries(&mut bob_store, &myspace.id(), &author, &["fog", "fooz"])?;
         alice_store.flush()?;
@@ -2186,8 +2196,8 @@ mod tests {
 
     /// This tests that no events are emitted for entries received during sync which are obsolete
     /// (too old) by the time they are actually inserted in the store.
-    #[test]
-    fn test_replica_no_wrong_remote_insert_events() -> Result<()> {
+    #[tokio::test]
+    async fn test_replica_no_wrong_remote_insert_events() -> Result<()> {
         let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(1);
         let mut store1 = store::Store::memory();
         let mut store2 = store::Store::memory();
@@ -2212,10 +2222,12 @@ mod tests {
         let from1 = replica1.sync_initial_message()?;
         let from2 = replica2
             .sync_process_message(from1, peer1, &mut state2)
+            .await
             .unwrap()
             .unwrap();
         let from1 = replica1
             .sync_process_message(from2, peer2, &mut state1)
+            .await
             .unwrap()
             .unwrap();
         // now we will receive the entry from rpelica1. we will insert a newer entry now, while the
@@ -2224,6 +2236,7 @@ mod tests {
         replica2.hash_and_insert(b"foo", &author, b"update")?;
         let from2 = replica2
             .sync_process_message(from1, peer1, &mut state2)
+            .await
             .unwrap();
         assert!(from2.is_none());
         let events1 = drain(events1);
@@ -2505,7 +2518,10 @@ mod tests {
         Ok(hash)
     }
 
-    fn sync(alice: &mut Replica, bob: &mut Replica) -> Result<(SyncOutcome, SyncOutcome)> {
+    async fn sync<'a>(
+        alice: &'a mut Replica<'a>,
+        bob: &'a mut Replica<'a>,
+    ) -> Result<(SyncOutcome, SyncOutcome)> {
         let alice_peer_id = [1u8; 32];
         let bob_peer_id = [2u8; 32];
         let mut alice_state = SyncOutcome::default();
@@ -2516,9 +2532,14 @@ mod tests {
         while let Some(msg) = next_to_bob.take() {
             assert!(rounds < 100, "too many rounds");
             rounds += 1;
-            println!("round {}", rounds);
-            if let Some(msg) = bob.sync_process_message(msg, alice_peer_id, &mut bob_state)? {
-                next_to_bob = alice.sync_process_message(msg, bob_peer_id, &mut alice_state)?
+            println!("round {rounds}");
+            if let Some(msg) = bob
+                .sync_process_message(msg, alice_peer_id, &mut bob_state)
+                .await?
+            {
+                next_to_bob = alice
+                    .sync_process_message(msg, bob_peer_id, &mut alice_state)
+                    .await?
             }
         }
         assert_eq!(alice_state.num_sent, bob_state.num_recv);

@@ -3,7 +3,6 @@
 //! [`crate::Replica`] is also called documents here.
 
 use std::{
-    io,
     path::PathBuf,
     str::FromStr,
     sync::{Arc, RwLock},
@@ -13,14 +12,15 @@ use anyhow::{bail, Context, Result};
 use futures_lite::{Stream, StreamExt};
 use iroh::{Endpoint, NodeAddr, PublicKey};
 use iroh_blobs::{
-    downloader::Downloader, net_protocol::ProtectCb, store::EntryStatus,
-    util::local_pool::LocalPoolHandle, Hash,
+    api::{blobs::BlobStatus, downloader::Downloader, Store},
+    store::fs::options::{ProtectCb, ProtectOutcome},
+    Hash,
 };
 use iroh_gossip::net::Gossip;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::task::AbortOnDropHandle;
-use tracing::{error, error_span, Instrument};
+use tracing::{debug, error, error_span, Instrument};
 
 use self::live::{LiveActor, ToLiveActor};
 pub use self::{
@@ -44,7 +44,7 @@ const SUBSCRIBE_CHANNEL_CAP: usize = 256;
 /// The sync engine coordinates actors that manage open documents, set-reconciliation syncs with
 /// peers and a gossip swarm for each syncing document.
 #[derive(derive_more::Debug)]
-pub struct Engine<D> {
+pub struct Engine {
     /// [`Endpoint`] used by the engine.
     pub endpoint: Endpoint,
     /// Handle to the actor thread.
@@ -56,32 +56,67 @@ pub struct Engine<D> {
     actor_handle: AbortOnDropHandle<()>,
     #[debug("ContentStatusCallback")]
     content_status_cb: ContentStatusCallback,
-    local_pool_handle: LocalPoolHandle,
-    blob_store: D,
+    blob_store: iroh_blobs::api::Store,
+    _gc_protect_task: AbortOnDropHandle<()>,
 }
 
-impl<D: iroh_blobs::store::Store> Engine<D> {
+impl Engine {
     /// Start the sync engine.
     ///
     /// This will spawn two tokio tasks for the live sync coordination and gossip actors, and a
-    /// thread for the [`crate::actor::SyncHandle`].
+    /// thread for the actor interacting with doc storage.
     pub async fn spawn(
         endpoint: Endpoint,
         gossip: Gossip,
         replica_store: crate::store::Store,
-        bao_store: D,
+        bao_store: iroh_blobs::api::Store,
         downloader: Downloader,
         default_author_storage: DefaultAuthorStorage,
-        local_pool_handle: LocalPoolHandle,
+        protect_cb: Option<ProtectCallbackHandler>,
     ) -> anyhow::Result<Self> {
         let (live_actor_tx, to_live_actor_recv) = mpsc::channel(ACTOR_CHANNEL_CAP);
         let me = endpoint.node_id().fmt_short();
 
-        let content_status_cb = {
-            let bao_store = bao_store.clone();
-            Arc::new(move |hash| entry_to_content_status(bao_store.entry_status_sync(&hash)))
+        let content_status_cb: ContentStatusCallback = {
+            let blobs = bao_store.blobs().clone();
+            Arc::new(move |hash: iroh_blobs::Hash| {
+                let blobs = blobs.clone();
+                Box::pin(async move {
+                    let blob_status = blobs.status(hash).await;
+                    entry_to_content_status(blob_status)
+                })
+            })
         };
         let sync = SyncHandle::spawn(replica_store, Some(content_status_cb.clone()), me.clone());
+
+        let sync2 = sync.clone();
+        let gc_protect_task = AbortOnDropHandle::new(n0_future::task::spawn(async move {
+            let Some(mut protect_handler) = protect_cb else {
+                return;
+            };
+            while let Some(reply_tx) = protect_handler.0.recv().await {
+                let (tx, rx) = mpsc::channel(64);
+                if let Err(_err) = reply_tx.send(rx) {
+                    continue;
+                }
+                let hashes = match sync2.content_hashes().await {
+                    Ok(hashes) => hashes,
+                    Err(err) => {
+                        debug!("protect task: getting content hashes failed with {err:#}");
+                        if let Err(_err) = tx.send(Err(err)).await {
+                            debug!("protect task: failed to forward error");
+                        }
+                        continue;
+                    }
+                };
+                for hash in hashes {
+                    if let Err(_err) = tx.send(hash).await {
+                        debug!("protect task: failed to forward hash");
+                        break;
+                    }
+                }
+            }
+        }));
 
         let actor = LiveActor::new(
             sync.clone(),
@@ -119,41 +154,13 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
             actor_handle: AbortOnDropHandle::new(actor_handle),
             content_status_cb,
             default_author,
-            local_pool_handle,
             blob_store: bao_store,
-        })
-    }
-
-    /// Return a callback that can be added to blobs to protect the content of
-    /// all docs from garbage collection.
-    pub fn protect_cb(&self) -> ProtectCb {
-        let sync = self.sync.clone();
-        Box::new(move |live| {
-            let sync = sync.clone();
-            Box::pin(async move {
-                let doc_hashes = match sync.content_hashes().await {
-                    Ok(hashes) => hashes,
-                    Err(err) => {
-                        tracing::warn!("Error getting doc hashes: {}", err);
-                        return;
-                    }
-                };
-                for hash in doc_hashes {
-                    match hash {
-                        Ok(hash) => {
-                            live.insert(hash);
-                        }
-                        Err(err) => {
-                            tracing::error!("Error getting doc hash: {}", err);
-                        }
-                    }
-                }
-            })
+            _gc_protect_task: gc_protect_task,
         })
     }
 
     /// Get the blob store.
-    pub fn blob_store(&self) -> &D {
+    pub fn blob_store(&self) -> &Store {
         &self.blob_store
     }
 
@@ -201,17 +208,18 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
         &self,
         namespace: NamespaceId,
     ) -> Result<impl Stream<Item = Result<LiveEvent>> + Unpin + 'static> {
-        let content_status_cb = self.content_status_cb.clone();
-
         // Create a future that sends channel senders to the respective actors.
         // We clone `self` so that the future does not capture any lifetimes.
-        let this = self;
+        let content_status_cb = self.content_status_cb.clone();
 
         // Subscribe to insert events from the replica.
         let a = {
             let (s, r) = async_channel::bounded(SUBSCRIBE_CHANNEL_CAP);
-            this.sync.subscribe(namespace, s).await?;
-            Box::pin(r).map(move |ev| LiveEvent::from_replica_event(ev, &content_status_cb))
+            self.sync.subscribe(namespace, s).await?;
+            Box::pin(r).then(move |ev| {
+                let content_status_cb = content_status_cb.clone();
+                Box::pin(async move { LiveEvent::from_replica_event(ev, &content_status_cb).await })
+            })
         };
 
         // Subscribe to events from the [`live::Actor`].
@@ -219,7 +227,7 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
             let (s, r) = async_channel::bounded(SUBSCRIBE_CHANNEL_CAP);
             let r = Box::pin(r);
             let (reply, reply_rx) = oneshot::channel();
-            this.to_live_actor
+            self.to_live_actor
                 .send(ToLiveActor::Subscribe {
                     namespace,
                     sender: s,
@@ -250,19 +258,14 @@ impl<D: iroh_blobs::store::Store> Engine<D> {
         reply_rx.await?;
         Ok(())
     }
-
-    /// Returns the stored `LocalPoolHandle`.
-    pub fn local_pool_handle(&self) -> &LocalPoolHandle {
-        &self.local_pool_handle
-    }
 }
 
-/// Converts an [`EntryStatus`] into a ['ContentStatus'].
-pub fn entry_to_content_status(entry: io::Result<EntryStatus>) -> ContentStatus {
+/// Converts an [`BlobStatus`] into a ['ContentStatus'].
+fn entry_to_content_status(entry: irpc::Result<BlobStatus>) -> ContentStatus {
     match entry {
-        Ok(EntryStatus::Complete) => ContentStatus::Complete,
-        Ok(EntryStatus::Partial) => ContentStatus::Incomplete,
-        Ok(EntryStatus::NotFound) => ContentStatus::Missing,
+        Ok(BlobStatus::Complete { .. }) => ContentStatus::Complete,
+        Ok(BlobStatus::Partial { .. }) => ContentStatus::Incomplete,
+        Ok(BlobStatus::NotFound) => ContentStatus::Missing,
         Err(cause) => {
             tracing::warn!("Error while checking entry status: {cause:?}");
             ContentStatus::Missing
@@ -323,7 +326,7 @@ impl From<live::Event> for LiveEvent {
 }
 
 impl LiveEvent {
-    fn from_replica_event(
+    async fn from_replica_event(
         ev: crate::Event,
         content_status_cb: &ContentStatusCallback,
     ) -> Result<Self> {
@@ -332,7 +335,7 @@ impl LiveEvent {
                 entry: entry.into(),
             },
             crate::Event::RemoteInsert { entry, from, .. } => Self::InsertRemote {
-                content_status: content_status_cb(entry.content_hash()),
+                content_status: content_status_cb(entry.content_hash()).await,
                 entry: entry.into(),
                 from: PublicKey::from_bytes(&from)?,
             },
@@ -456,5 +459,70 @@ impl DefaultAuthor {
         self.storage.persist(author_id).await?;
         *self.value.write().unwrap() = author_id;
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct ProtectCallbackSender(mpsc::Sender<oneshot::Sender<mpsc::Receiver<Result<Hash>>>>);
+
+/// The handler for a blobs protection callback.
+///
+/// See [`ProtectCallbackHandler::new`].
+#[derive(Debug)]
+pub struct ProtectCallbackHandler(
+    pub(crate) mpsc::Receiver<oneshot::Sender<mpsc::Receiver<Result<Hash>>>>,
+);
+
+impl ProtectCallbackHandler {
+    /// Creates a callback and handler to manage blob protection.
+    ///
+    /// The returned [`ProtectCb`] must be passed set in the [`GcConfig`] of the [`iroh_blobs`] store where
+    /// the blobs for hashes in documents are persisted. The [`ProtectCallbackHandler`] must be passed to
+    /// [`Builder::protect_handler`] (or [`Engine::spawn`]). This will then ensure that hashes referenced
+    /// in docs will not be deleted from the blobs store, and will be garbage collected if they no longer appear
+    /// in any doc.
+    ///
+    /// [`Builder::protect_handler`]: crate::protocol::Builder::protect_handler
+    /// [`GcConfig`]: iroh_blobs::store::fs::options::GcConfig
+    pub fn new() -> (Self, ProtectCb) {
+        let (tx, rx) = mpsc::channel(4);
+        let cb = ProtectCallbackSender(tx).into_cb();
+        let handler = ProtectCallbackHandler(rx);
+        (handler, cb)
+    }
+}
+
+impl ProtectCallbackSender {
+    fn into_cb(self) -> ProtectCb {
+        let start_tx = self.0.clone();
+        Arc::new(move |live| {
+            let start_tx = start_tx.clone();
+            Box::pin(async move {
+                let (tx, rx) = oneshot::channel();
+                if let Err(_err) = start_tx.send(tx).await {
+                    tracing::warn!("Failed to get protected hashes from docs: ProtectCallback receiver dropped");
+                    return ProtectOutcome::Abort;
+                }
+                let mut rx = match rx.await {
+                    Ok(rx) => rx,
+                    Err(_err) => {
+                        tracing::warn!("Failed to get protected hashes from docs: ProtectCallback sender dropped");
+                        return ProtectOutcome::Abort;
+                    }
+                };
+                while let Some(res) = rx.recv().await {
+                    match res {
+                        Err(err) => {
+                            tracing::warn!("Getting protected hashes produces error: {err:#}");
+                            return ProtectOutcome::Abort;
+                        }
+                        Ok(hash) => {
+                            live.insert(hash);
+                        }
+                    }
+                }
+                ProtectOutcome::Continue
+            })
+        })
     }
 }

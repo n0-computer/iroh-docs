@@ -1,4 +1,3 @@
-#![cfg(feature = "rpc")]
 use std::{
     collections::HashMap,
     future::Future,
@@ -13,14 +12,16 @@ use futures_util::{FutureExt, StreamExt, TryStreamExt};
 use iroh::{PublicKey, RelayMode, SecretKey};
 use iroh_blobs::Hash;
 use iroh_docs::{
-    rpc::{
-        client::docs::{Doc, Entry, LiveEvent, ShareMode},
-        AddrInfoOptions,
+    api::{
+        protocol::{AddrInfoOptions, ShareMode},
+        Doc,
     },
+    engine::LiveEvent,
     store::{DownloadPolicy, FilterKind, Query},
-    AuthorId, ContentStatus,
+    AuthorId, ContentStatus, Entry,
 };
 use rand::{CryptoRng, Rng, SeedableRng};
+use tempfile::tempdir;
 use tracing::{debug, error_span, info, Instrument};
 use tracing_test::traced_test;
 mod util;
@@ -28,7 +29,7 @@ use util::{Builder, Node};
 
 const TIMEOUT: Duration = Duration::from_secs(60);
 
-fn test_node(secret_key: SecretKey) -> Builder<iroh_blobs::store::mem::Store> {
+fn test_node(secret_key: SecretKey) -> Builder {
     Node::memory()
         .secret_key(secret_key)
         .relay_mode(RelayMode::Disabled)
@@ -40,7 +41,7 @@ fn test_node(secret_key: SecretKey) -> Builder<iroh_blobs::store::mem::Store> {
 fn spawn_node(
     i: usize,
     rng: &mut (impl CryptoRng + Rng),
-) -> impl Future<Output = anyhow::Result<Node<iroh_blobs::store::mem::Store>>> + 'static {
+) -> impl Future<Output = anyhow::Result<Node>> + 'static {
     let secret_key = SecretKey::generate(rng);
     async move {
         let node = test_node(secret_key);
@@ -50,10 +51,7 @@ fn spawn_node(
     }
 }
 
-async fn spawn_nodes(
-    n: usize,
-    mut rng: &mut (impl CryptoRng + Rng),
-) -> anyhow::Result<Vec<Node<iroh_blobs::store::mem::Store>>> {
+async fn spawn_nodes(n: usize, mut rng: &mut (impl CryptoRng + Rng)) -> anyhow::Result<Vec<Node>> {
     let mut futs = vec![];
     for i in 0..n {
         futs.push(spawn_node(i, &mut rng));
@@ -81,7 +79,7 @@ async fn sync_simple() -> Result<()> {
 
     // create doc on node0
     let peer0 = nodes[0].node_id();
-    let author0 = clients[0].authors().create().await?;
+    let author0 = clients[0].docs().author_create().await?;
     let doc0 = clients[0].docs().create().await?;
     let blobs0 = clients[0].blobs();
     let hash0 = doc0
@@ -140,7 +138,7 @@ async fn sync_subscribe_no_sync() -> Result<()> {
     let client = node.client();
     let doc = client.docs().create().await?;
     let mut sub = doc.subscribe().await?;
-    let author = client.authors().create().await?;
+    let author = client.docs().author_create().await?;
     doc.set_bytes(author, b"k".to_vec(), b"v".to_vec()).await?;
     let event = tokio::time::timeout(Duration::from_millis(100), sub.next()).await?;
     assert!(
@@ -163,7 +161,7 @@ async fn sync_gossip_bulk() -> Result<()> {
     let clients = nodes.iter().map(|node| node.client()).collect::<Vec<_>>();
 
     let _peer0 = nodes[0].node_id();
-    let author0 = clients[0].authors().create().await?;
+    let author0 = clients[0].docs().author_create().await?;
     let doc0 = clients[0].docs().create().await?;
     let mut ticket = doc0
         .share(ShareMode::Write, AddrInfoOptions::RelayAndAddresses)
@@ -254,7 +252,7 @@ async fn sync_full_basic() -> testresult::TestResult<()> {
 
     // peer0: create doc and ticket
     let peer0 = nodes[0].node_id();
-    let author0 = clients[0].authors().create().await?;
+    let author0 = clients[0].docs().author_create().await?;
     let doc0 = clients[0].docs().create().await?;
     let blobs0 = clients[0].blobs();
     let mut events0 = doc0.subscribe().await?;
@@ -277,7 +275,7 @@ async fn sync_full_basic() -> testresult::TestResult<()> {
 
     info!("peer1: spawn");
     let peer1 = nodes[1].node_id();
-    let author1 = clients[1].authors().create().await?;
+    let author1 = clients[1].docs().author_create().await?;
     info!("peer1: join doc");
     let doc1 = clients[1].docs().import(ticket.clone()).await?;
     let blobs1 = clients[1].blobs();
@@ -455,7 +453,7 @@ async fn sync_subscribe_stop_close() -> Result<()> {
     let client = node.client();
 
     let doc = client.docs().create().await?;
-    let author = client.authors().create().await?;
+    let author = client.docs().author_create().await?;
 
     let status = doc.status().await?;
     assert_eq!(status.subscribers, 0);
@@ -488,7 +486,6 @@ async fn sync_subscribe_stop_close() -> Result<()> {
 
 #[tokio::test]
 #[traced_test]
-#[cfg(feature = "test-utils")]
 async fn test_sync_via_relay() -> Result<()> {
     let (relay_map, _relay_url, _guard) = iroh::test_utils::run_relay_server().await?;
 
@@ -506,7 +503,7 @@ async fn test_sync_via_relay() -> Result<()> {
         .await?;
 
     let doc1 = node1.docs().create().await?;
-    let author1 = node1.authors().create().await?;
+    let author1 = node1.docs().author_create().await?;
     let inserted_hash = doc1
         .set_bytes(author1, b"foo".to_vec(), b"bar".to_vec())
         .await?;
@@ -529,7 +526,7 @@ async fn test_sync_via_relay() -> Result<()> {
             Box::new(move |e| matches!(e, LiveEvent::NeighborUp(n) if *n== node1_id)),
             Box::new(move |e| match_sync_finished(e, node1_id)),
             Box::new(
-                move |e| matches!(e, LiveEvent::InsertRemote { from, content_status: ContentStatus::Missing, .. } if *from == node1_id),
+                move |e| matches!(e, LiveEvent::InsertRemote { from, content_status: ContentStatus::Missing | ContentStatus::Incomplete, .. } if *from == node1_id),
             ),
             Box::new(
                 move |e| matches!(e, LiveEvent::ContentReady { hash } if *hash == inserted_hash),
@@ -539,7 +536,7 @@ async fn test_sync_via_relay() -> Result<()> {
         vec![Box::new(move |e| match_sync_finished(e, node1_id))],
     ).await;
     let actual = blobs2
-        .read_to_bytes(
+        .get_bytes(
             doc2.get_exact(author1, b"foo", false)
                 .await?
                 .expect("entry to exist")
@@ -557,7 +554,7 @@ async fn test_sync_via_relay() -> Result<()> {
         Duration::from_secs(2),
         vec![
             Box::new(
-                move |e| matches!(e, LiveEvent::InsertRemote { from, content_status: ContentStatus::Missing, .. } if *from == node1_id),
+                move |e| matches!(e, LiveEvent::InsertRemote { from, content_status: ContentStatus::Missing | ContentStatus::Incomplete, .. } if *from == node1_id),
             ),
             Box::new(
                 move |e| matches!(e, LiveEvent::ContentReady { hash } if *hash == updated_hash),
@@ -569,7 +566,7 @@ async fn test_sync_via_relay() -> Result<()> {
         ],
     ).await;
     let actual = blobs2
-        .read_to_bytes(
+        .get_bytes(
             doc2.get_exact(author1, b"foo", false)
                 .await?
                 .expect("entry to exist")
@@ -582,7 +579,6 @@ async fn test_sync_via_relay() -> Result<()> {
 
 #[tokio::test]
 #[traced_test]
-#[cfg(feature = "test-utils")]
 #[ignore = "flaky"]
 async fn sync_restart_node() -> Result<()> {
     let mut rng = test_rng(b"sync_restart_node");
@@ -622,7 +618,7 @@ async fn sync_restart_node() -> Result<()> {
         .spawn()
         .await?;
     let id2 = node2.node_id();
-    let author2 = node2.authors().create().await?;
+    let author2 = node2.docs().author_create().await?;
     let doc2 = node2.docs().import(ticket.clone()).await?;
     let blobs2 = node2.blobs();
 
@@ -756,13 +752,13 @@ async fn test_download_policies() -> Result<()> {
     let clients = nodes.iter().map(|node| node.client()).collect::<Vec<_>>();
 
     let doc_a = clients[0].docs().create().await?;
-    let author_a = clients[0].authors().create().await?;
+    let author_a = clients[0].docs().author_create().await?;
     let ticket = doc_a
         .share(ShareMode::Write, AddrInfoOptions::RelayAndAddresses)
         .await?;
 
     let doc_b = clients[1].docs().import(ticket).await?;
-    let author_b = clients[1].authors().create().await?;
+    let author_b = clients[1].docs().author_create().await?;
 
     doc_a.set_download_policy(policy_a).await?;
     doc_b.set_download_policy(policy_b).await?;
@@ -878,7 +874,7 @@ async fn sync_big() -> Result<()> {
     let nodes = spawn_nodes(n_nodes, &mut rng).await?;
     let node_ids = nodes.iter().map(|node| node.node_id()).collect::<Vec<_>>();
     let clients = nodes.iter().map(|node| node.client()).collect::<Vec<_>>();
-    let authors = collect_futures(clients.iter().map(|c| c.authors().create())).await?;
+    let authors = collect_futures(clients.iter().map(|c| c.docs().author_create())).await?;
 
     let doc0 = clients[0].docs().create().await?;
     let mut ticket = doc0
@@ -982,7 +978,6 @@ async fn sync_big() -> Result<()> {
 
 #[tokio::test]
 #[traced_test]
-#[cfg(feature = "test-utils")]
 async fn test_list_docs_stream() -> testresult::TestResult<()> {
     let node = Node::memory()
         .relay_mode(RelayMode::Disabled)
@@ -1027,13 +1022,13 @@ async fn get_all(doc: &Doc) -> anyhow::Result<Vec<Entry>> {
 
 /// Get all entries of a document with the blob content.
 async fn get_all_with_content(
-    blobs: &iroh_blobs::rpc::client::blobs::Client,
+    blobs: &iroh_blobs::api::Store,
     doc: &Doc,
 ) -> anyhow::Result<Vec<(Entry, Bytes)>> {
     let entries = doc.get_many(Query::all()).await?;
     let entries = entries.and_then(|entry| async {
         let hash = entry.content_hash();
-        let content = blobs.read_to_bytes(hash).await;
+        let content = blobs.get_bytes(hash).await.map_err(anyhow::Error::from);
         content.map(|c| (entry, c))
     });
     let entries = entries.collect::<Vec<_>>().await;
@@ -1158,14 +1153,17 @@ impl PartialEq<ExpectedEntry> for (Entry, Bytes) {
 #[tokio::test]
 #[traced_test]
 async fn doc_delete() -> Result<()> {
-    let node = Node::memory()
+    let tempdir = tempdir()?;
+    // TODO(Frando): iroh-blobs has gc only for fs store atm, change test to test both
+    // mem and persistent once this changes.
+    let node = Node::persistent(tempdir.path())
         .gc_interval(Some(Duration::from_millis(100)))
         .spawn()
         .await?;
     let client = node.client();
     let doc = client.docs().create().await?;
     let blobs = client.blobs();
-    let author = client.authors().create().await?;
+    let author = client.docs().author_create().await?;
     let hash = doc
         .set_bytes(author, b"foo".to_vec(), b"hi".to_vec())
         .await?;
@@ -1178,8 +1176,8 @@ async fn doc_delete() -> Result<()> {
 
     // wait for gc
     // TODO: allow to manually trigger gc
-    tokio::time::sleep(Duration::from_millis(200)).await;
-    let bytes = client.blobs().read_to_bytes(hash).await;
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    let bytes = client.blobs().get_bytes(hash).await;
     assert!(bytes.is_err());
     node.shutdown().await?;
     Ok(())
@@ -1193,7 +1191,7 @@ async fn sync_drop_doc() -> Result<()> {
     let client = node.client();
 
     let doc = client.docs().create().await?;
-    let author = client.authors().create().await?;
+    let author = client.docs().author_create().await?;
 
     let mut sub = doc.subscribe().await?;
     doc.set_bytes(author, b"foo".to_vec(), b"bar".to_vec())
@@ -1216,29 +1214,24 @@ async fn sync_drop_doc() -> Result<()> {
     Ok(())
 }
 
-async fn assert_latest(
-    blobs: &iroh_blobs::rpc::client::blobs::Client,
-    doc: &Doc,
-    key: &[u8],
-    value: &[u8],
-) {
+async fn assert_latest(blobs: &iroh_blobs::api::Store, doc: &Doc, key: &[u8], value: &[u8]) {
     let content = get_latest(blobs, doc, key).await.unwrap();
     assert_eq!(content, value.to_vec());
 }
 
 async fn get_latest(
-    blobs: &iroh_blobs::rpc::client::blobs::Client,
+    blobs: &iroh_blobs::api::Store,
     doc: &Doc,
     key: &[u8],
 ) -> anyhow::Result<Vec<u8>> {
     let query = Query::single_latest_per_key().key_exact(key);
-    let entry = doc
-        .get_many(query)
-        .await?
+    let stream = doc.get_many(query).await?;
+    tokio::pin!(stream);
+    let entry = stream
         .next()
         .await
         .ok_or_else(|| anyhow!("entry not found"))??;
-    let content = blobs.read_to_bytes(entry.content_hash()).await?;
+    let content = blobs.get_bytes(entry.content_hash()).await?;
     Ok(content.to_vec())
 }
 

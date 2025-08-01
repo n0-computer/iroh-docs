@@ -46,6 +46,7 @@ impl From<&Query> for IndexKind {
 #[derive(Debug, Default)]
 pub struct LatestPerKeySelector(Option<SignedEntry>);
 
+#[allow(clippy::large_enum_variant)]
 pub enum SelectorRes {
     /// The iterator is finished.
     Finished,
