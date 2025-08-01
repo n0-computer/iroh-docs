@@ -112,7 +112,7 @@ impl Builder {
         };
         router = router.accept(
             iroh_blobs::ALPN,
-            iroh_blobs::net_protocol::Blobs::new(&blobs, endpoint.clone(), None),
+            iroh_blobs::BlobsProtocol::new(&blobs, endpoint.clone(), None),
         );
         router = router.accept(iroh_docs::ALPN, docs.clone());
         router = router.accept(iroh_gossip::ALPN, gossip.clone());

@@ -7,7 +7,7 @@ use iroh::NodeAddr;
 use iroh_blobs::{api::blobs::ExportMode, Hash};
 use irpc::{
     channel::{mpsc, oneshot},
-    rpc_requests, Service,
+    rpc_requests,
 };
 use serde::{Deserialize, Serialize};
 
@@ -19,12 +19,6 @@ use crate::{
     Author, AuthorId, Capability, CapabilityKind, DocTicket, Entry, NamespaceId, PeerIdBytes,
     SignedEntry,
 };
-
-/// The RPC service type for the docs protocol.
-#[derive(Debug, Clone, Copy)]
-pub struct DocsService;
-
-impl Service for DocsService {}
 
 /// Progress during import operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -310,7 +304,7 @@ pub struct AuthorDeleteResponse;
 
 // Use the macro to generate both the DocsProtocol and DocsMessage enums
 // plus implement Channels for each type
-#[rpc_requests(DocsService, message = DocsMessage)]
+#[rpc_requests(message = DocsMessage)]
 #[derive(Serialize, Deserialize, Debug)]
 pub enum DocsProtocol {
     #[rpc(tx = oneshot::Sender<RpcResult<OpenResponse>>)]

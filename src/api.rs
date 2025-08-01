@@ -32,11 +32,11 @@ use self::{
     protocol::{
         AddrInfoOptions, AuthorCreateRequest, AuthorDeleteRequest, AuthorExportRequest,
         AuthorGetDefaultRequest, AuthorImportRequest, AuthorListRequest, AuthorSetDefaultRequest,
-        CloseRequest, CreateRequest, DelRequest, DocsMessage, DocsProtocol, DocsService,
-        DropRequest, GetDownloadPolicyRequest, GetExactRequest, GetManyRequest,
-        GetSyncPeersRequest, ImportRequest, LeaveRequest, ListRequest, OpenRequest,
-        SetDownloadPolicyRequest, SetHashRequest, SetRequest, ShareMode, ShareRequest,
-        StartSyncRequest, StatusRequest, SubscribeRequest,
+        CloseRequest, CreateRequest, DelRequest, DocsProtocol, DropRequest,
+        GetDownloadPolicyRequest, GetExactRequest, GetManyRequest, GetSyncPeersRequest,
+        ImportRequest, LeaveRequest, ListRequest, OpenRequest, SetDownloadPolicyRequest,
+        SetHashRequest, SetRequest, ShareMode, ShareRequest, StartSyncRequest, StatusRequest,
+        SubscribeRequest,
     },
 };
 use crate::{
@@ -52,7 +52,7 @@ pub mod protocol;
 pub type RpcError = serde_error::Error;
 pub type RpcResult<T> = std::result::Result<T, RpcError>;
 
-type Client = irpc::Client<DocsMessage, DocsProtocol, DocsService>;
+type Client = irpc::Client<DocsProtocol>;
 
 /// API wrapper for the docs service
 #[derive(Debug, Clone)]
@@ -75,7 +75,10 @@ impl DocsApi {
 
     /// Listen for incoming RPC connections
     pub fn listen(&self, endpoint: quinn::Endpoint) -> Result<AbortOnDropHandle<()>> {
-        let local = self.inner.local().context("cannot listen on remote API")?;
+        let local = self
+            .inner
+            .as_local()
+            .context("cannot listen on remote API")?;
         let handler: Handler<DocsProtocol> = Arc::new(move |msg, _rx, tx| {
             let local = local.clone();
             Box::pin(match msg {

@@ -15,7 +15,7 @@ use super::{
         AuthorGetDefaultResponse, AuthorImportRequest, AuthorImportResponse, AuthorListRequest,
         AuthorListResponse, AuthorSetDefaultRequest, AuthorSetDefaultResponse, CloseRequest,
         CloseResponse, CreateRequest, CreateResponse, DelRequest, DelResponse, DocsMessage,
-        DocsService, DropRequest, DropResponse, GetDownloadPolicyRequest,
+        DocsProtocol, DropRequest, DropResponse, GetDownloadPolicyRequest,
         GetDownloadPolicyResponse, GetExactRequest, GetExactResponse, GetManyRequest,
         GetSyncPeersRequest, GetSyncPeersResponse, ImportRequest, ImportResponse, LeaveRequest,
         LeaveResponse, ListRequest, ListResponse, OpenRequest, OpenResponse,
@@ -38,7 +38,7 @@ impl RpcActor {
         let (tx, rx) = tokio_mpsc::channel(64);
         let actor = Self { recv: rx, engine };
         task::spawn(actor.run());
-        let local = LocalSender::<DocsMessage, DocsService>::from(tx);
+        let local = LocalSender::<DocsProtocol>::from(tx);
         DocsApi {
             inner: local.into(),
         }
@@ -390,12 +390,7 @@ impl RpcActor {
             mode,
             addr_options,
         } = req;
-        let me = self
-            .endpoint
-            .node_addr()
-            .initialized()
-            .await
-            .map_err(|e| RpcError::new(&e))?;
+        let me = self.endpoint.node_addr().initialized().await;
         let me = addr_options.apply(&me);
 
         let capability = match mode {

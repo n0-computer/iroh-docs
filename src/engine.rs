@@ -159,35 +159,6 @@ impl Engine {
         })
     }
 
-    // TODO(Frando): We can't port iroh-docs to 0.90 without something like this.
-    // /// Return a callback that can be added to blobs to protect the content of
-    // /// all docs from garbage collection.
-    // pub fn protect_cb(&self) -> ProtectCb {
-    //     let sync = self.sync.clone();
-    //     Box::new(move |live| {
-    //         let sync = sync.clone();
-    //         Box::pin(async move {
-    //             let doc_hashes = match sync.content_hashes().await {
-    //                 Ok(hashes) => hashes,
-    //                 Err(err) => {
-    //                     tracing::warn!("Error getting doc hashes: {}", err);
-    //                     return;
-    //                 }
-    //             };
-    //             for hash in doc_hashes {
-    //                 match hash {
-    //                     Ok(hash) => {
-    //                         live.insert(hash);
-    //                     }
-    //                     Err(err) => {
-    //                         tracing::error!("Error getting doc hash: {}", err);
-    //                     }
-    //                 }
-    //             }
-    //         })
-    //     })
-    // }
-
     /// Get the blob store.
     pub fn blob_store(&self) -> &Store {
         &self.blob_store

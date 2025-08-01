@@ -1,5 +1,5 @@
 use iroh::{protocol::Router, Endpoint};
-use iroh_blobs::{net_protocol::Blobs, store::mem::MemStore, ALPN as BLOBS_ALPN};
+use iroh_blobs::{store::mem::MemStore, BlobsProtocol, ALPN as BLOBS_ALPN};
 use iroh_docs::{protocol::Docs, ALPN as DOCS_ALPN};
 use iroh_gossip::{net::Gossip, ALPN as GOSSIP_ALPN};
 
@@ -27,7 +27,10 @@ async fn main() -> anyhow::Result<()> {
 
     // setup router
     let _router = builder
-        .accept(BLOBS_ALPN, Blobs::new(&blobs, endpoint.clone(), None))
+        .accept(
+            BLOBS_ALPN,
+            BlobsProtocol::new(&blobs, endpoint.clone(), None),
+        )
         .accept(GOSSIP_ALPN, gossip)
         .accept(DOCS_ALPN, docs)
         .spawn();
