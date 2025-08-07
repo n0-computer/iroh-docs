@@ -42,7 +42,7 @@ mod ticket;
 
 pub mod engine;
 
-mod actor;
+pub mod actor;
 pub mod api;
 pub mod store;
 pub mod sync;
