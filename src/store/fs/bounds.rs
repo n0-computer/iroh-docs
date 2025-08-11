@@ -61,8 +61,8 @@ impl RecordsBounds {
         Self::new(start, Self::namespace_end(ns))
     }
 
-    pub fn as_ref(&self) -> (Bound<RecordsId>, Bound<RecordsId>) {
-        fn map(id: &RecordsIdOwned) -> RecordsId {
+    pub fn as_ref(&self) -> (Bound<RecordsId<'_>>, Bound<RecordsId<'_>>) {
+        fn map(id: &RecordsIdOwned) -> RecordsId<'_> {
             (&id.0, &id.1, &id.2[..])
         }
         (map_bound(&self.0, map), map_bound(&self.1, map))
@@ -139,8 +139,8 @@ impl ByKeyBounds {
         Self(start, end)
     }
 
-    pub fn as_ref(&self) -> (Bound<RecordsByKeyId>, Bound<RecordsByKeyId>) {
-        fn map(id: &RecordsByKeyIdOwned) -> RecordsByKeyId {
+    pub fn as_ref(&self) -> (Bound<RecordsByKeyId<'_>>, Bound<RecordsByKeyId<'_>>) {
+        fn map(id: &RecordsByKeyIdOwned) -> RecordsByKeyId<'_> {
             (&id.0, &id.1[..], &id.2)
         }
         (map_bound(&self.0, map), map_bound(&self.1, map))
