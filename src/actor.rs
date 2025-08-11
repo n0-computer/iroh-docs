@@ -238,6 +238,7 @@ pub struct OpenOpts {
     /// Optionally subscribe to replica events.
     pub subscribe: Option<async_channel::Sender<Event>>,
 }
+
 impl OpenOpts {
     /// Set sync state to true.
     pub fn sync(mut self) -> Self {
