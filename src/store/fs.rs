@@ -13,7 +13,7 @@ use anyhow::{anyhow, Result};
 use ed25519_dalek::{SignatureError, VerifyingKey};
 use iroh_blobs::Hash;
 use rand_core::CryptoRngCore;
-use redb::{Database, DatabaseError, ReadableMultimapTable, ReadableTable, ReadableTableMetadata};
+use redb::{Database, DatabaseError, ReadableMultimapTable, ReadableTable};
 use tracing::warn;
 
 use super::{
@@ -186,7 +186,7 @@ impl Store {
     ///
     /// As such, there is also no guarantee that the data you see is
     /// already persisted.
-    fn tables(&mut self) -> Result<&Tables> {
+    fn tables(&mut self) -> Result<&Tables<'_>> {
         let guard = &mut self.transaction;
         let tables = match std::mem::take(guard) {
             CurrentTransaction::None => {
@@ -258,7 +258,7 @@ type PeersIter = std::vec::IntoIter<PeerIdBytes>;
 
 impl Store {
     /// Create a new replica for `namespace` and persist in this store.
-    pub fn new_replica(&mut self, namespace: NamespaceSecret) -> Result<Replica> {
+    pub fn new_replica(&mut self, namespace: NamespaceSecret) -> Result<Replica<'_>> {
         let id = namespace.id();
         self.import_namespace(namespace.into())?;
         self.open_replica(&id).map_err(Into::into)
@@ -295,7 +295,7 @@ impl Store {
     /// Open a replica from this store.
     ///
     /// This just calls load_replica_info and then creates a new replica with the info.
-    pub fn open_replica(&mut self, namespace_id: &NamespaceId) -> Result<Replica, OpenError> {
+    pub fn open_replica(&mut self, namespace_id: &NamespaceId) -> Result<Replica<'_>, OpenError> {
         let info = self.load_replica_info(namespace_id)?;
         let instance = StoreInstance::new(*namespace_id, self);
         Ok(Replica::new(instance, Box::new(info)))
@@ -465,7 +465,10 @@ impl Store {
     }
 
     /// Get the latest entry for each author in a namespace.
-    pub fn get_latest_for_each_author(&mut self, namespace: NamespaceId) -> Result<LatestIterator> {
+    pub fn get_latest_for_each_author(
+        &mut self,
+        namespace: NamespaceId,
+    ) -> Result<LatestIterator<'_>> {
         LatestIterator::new(&self.tables()?.latest_per_author, namespace)
     }
 
@@ -679,12 +682,14 @@ impl<'a> crate::ranger::Store<SignedEntry> for StoreInstance<'a> {
         Ok(id)
     }
 
+    #[cfg(test)]
     fn get(&mut self, id: &RecordIdentifier) -> Result<Option<SignedEntry>> {
         self.store
             .as_mut()
             .get_exact(id.namespace(), id.author(), id.key(), true)
     }
 
+    #[cfg(test)]
     fn len(&mut self) -> Result<usize> {
         let tables = self.store.as_mut().tables()?;
         let bounds = RecordsBounds::namespace(self.namespace);
@@ -692,7 +697,9 @@ impl<'a> crate::ranger::Store<SignedEntry> for StoreInstance<'a> {
         Ok(records.count())
     }
 
+    #[cfg(test)]
     fn is_empty(&mut self) -> Result<bool> {
+        use redb::ReadableTableMetadata;
         let tables = self.store.as_mut().tables()?;
         Ok(tables.records.is_empty()?)
     }
@@ -782,6 +789,7 @@ impl<'a> crate::ranger::Store<SignedEntry> for StoreInstance<'a> {
         Ok(iter)
     }
 
+    #[cfg(test)]
     fn entry_remove(&mut self, id: &RecordIdentifier) -> Result<Option<SignedEntry>> {
         self.store.as_mut().modify(|tables| {
             let entry = {
@@ -796,6 +804,7 @@ impl<'a> crate::ranger::Store<SignedEntry> for StoreInstance<'a> {
         })
     }
 
+    #[cfg(test)]
     fn all(&mut self) -> Result<Self::RangeIterator<'_>> {
         let tables = self.store.as_mut().tables()?;
         let bounds = RecordsBounds::namespace(self.namespace);
@@ -811,6 +820,7 @@ impl<'a> crate::ranger::Store<SignedEntry> for StoreInstance<'a> {
         ParentIterator::new(tables, id.namespace(), id.author(), id.key().to_vec())
     }
 
+    #[cfg(test)]
     fn prefixed_by(&mut self, id: &RecordIdentifier) -> Result<Self::RangeIterator<'_>> {
         let tables = self.store.as_mut().tables()?;
         let bounds = RecordsBounds::author_prefix(id.namespace(), id.author(), id.key_bytes());
@@ -1136,6 +1146,7 @@ mod tests {
 
     #[test]
     fn test_migration_004_populate_by_key_index() -> Result<()> {
+        use redb::ReadableTableMetadata;
         let dbfile = tempfile::NamedTempFile::new()?;
 
         let mut store = Store::persistent(dbfile.path())?;
