@@ -875,6 +875,7 @@ mod tests {
     enum SimpleFilter<K> {
         None,
         Range(Range<K>),
+        #[allow(dead_code)]
         Prefix(K),
     }
 
