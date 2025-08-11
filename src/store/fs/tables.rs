@@ -96,7 +96,7 @@ impl TransactionAndTables {
         })
     }
 
-    pub fn tables(&self) -> &Tables {
+    pub fn tables(&self) -> &Tables<'_> {
         self.inner.borrow_dependent()
     }
 

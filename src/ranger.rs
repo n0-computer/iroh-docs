@@ -1,7 +1,7 @@
 //! Implementation of Set Reconcilliation based on
 //! "Range-Based Set Reconciliation" by Aljoscha Meyer.
 
-use std::{cmp::Ordering, fmt::Debug, pin::Pin};
+use std::{fmt::Debug, pin::Pin};
 
 use n0_future::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -62,36 +62,33 @@ pub trait RangeValue: Sized + Debug + Ord + PartialEq + Clone + 'static {}
 ///
 /// This means that ranges are "wrap around" conceptually.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
-pub struct Range<K> {
+pub(crate) struct Range<K> {
     x: K,
     y: K,
 }
 
 impl<K> Range<K> {
-    pub fn x(&self) -> &K {
+    pub(crate) fn x(&self) -> &K {
         &self.x
     }
 
-    pub fn y(&self) -> &K {
+    pub(crate) fn y(&self) -> &K {
         &self.y
     }
 
-    pub fn new(x: K, y: K) -> Self {
-        Range { x, y }
-    }
-
-    pub fn map<X>(self, f: impl FnOnce(K, K) -> (X, X)) -> Range<X> {
-        let (x, y) = f(self.x, self.y);
+    pub(crate) fn new(x: K, y: K) -> Self {
         Range { x, y }
     }
 }
 
 impl<K: Ord> Range<K> {
-    pub fn is_all(&self) -> bool {
+    pub(crate) fn is_all(&self) -> bool {
         self.x() == self.y()
     }
 
-    pub fn contains(&self, t: &K) -> bool {
+    #[cfg(test)]
+    pub(crate) fn contains(&self, t: &K) -> bool {
+        use std::cmp::Ordering;
         match self.x().cmp(self.y()) {
             Ordering::Equal => true,
             Ordering::Less => self.x() <= t && t < self.y(),
@@ -117,12 +114,8 @@ impl Debug for Fingerprint {
 
 impl Fingerprint {
     /// The fingerprint of the empty set
-    pub fn empty() -> Self {
+    pub(crate) fn empty() -> Self {
         Fingerprint(*blake3::hash(&[]).as_bytes())
-    }
-
-    pub fn new<T: RangeEntry>(val: T) -> Self {
-        val.as_fingerprint()
     }
 }
 
@@ -140,9 +133,9 @@ pub struct RangeFingerprint<K> {
         serialize = "Range<K>: Serialize",
         deserialize = "Range<K>: Deserialize<'de>"
     ))]
-    pub range: Range<K>,
+    pub(crate) range: Range<K>,
     /// The fingerprint of `range`.
-    pub fingerprint: Fingerprint,
+    pub(crate) fingerprint: Fingerprint,
 }
 
 /// Transfers items inside a range to the other participant.
@@ -153,12 +146,12 @@ pub struct RangeItem<E: RangeEntry> {
         serialize = "Range<E::Key>: Serialize",
         deserialize = "Range<E::Key>: Deserialize<'de>"
     ))]
-    pub range: Range<E::Key>,
+    pub(crate) range: Range<E::Key>,
     #[serde(bound(serialize = "E: Serialize", deserialize = "E: Deserialize<'de>"))]
-    pub values: Vec<(E, ContentStatus)>,
+    pub(crate) values: Vec<(E, ContentStatus)>,
     /// If false, requests to send local items in the range.
     /// Otherwise not.
-    pub have_local: bool,
+    pub(crate) have_local: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -176,15 +169,17 @@ pub enum MessagePart<E: RangeEntry> {
 }
 
 impl<E: RangeEntry> MessagePart<E> {
-    pub fn is_range_fingerprint(&self) -> bool {
+    #[cfg(test)]
+    pub(crate) fn is_range_fingerprint(&self) -> bool {
         matches!(self, MessagePart::RangeFingerprint(_))
     }
 
-    pub fn is_range_item(&self) -> bool {
+    #[cfg(test)]
+    pub(crate) fn is_range_item(&self) -> bool {
         matches!(self, MessagePart::RangeItem(_))
     }
 
-    pub fn values(&self) -> Option<&[(E, ContentStatus)]> {
+    pub(crate) fn values(&self) -> Option<&[(E, ContentStatus)]> {
         match self {
             MessagePart::RangeFingerprint(_) => None,
             MessagePart::RangeItem(RangeItem { values, .. }) => Some(values),
@@ -211,15 +206,15 @@ impl<E: RangeEntry> Message<E> {
         Ok(Message { parts: vec![part] })
     }
 
-    pub fn parts(&self) -> &[MessagePart<E>] {
+    pub(crate) fn parts(&self) -> &[MessagePart<E>] {
         &self.parts
     }
 
-    pub fn values(&self) -> impl Iterator<Item = &(E, ContentStatus)> {
+    pub(crate) fn values(&self) -> impl Iterator<Item = &(E, ContentStatus)> {
         self.parts().iter().filter_map(|p| p.values()).flatten()
     }
 
-    pub fn value_count(&self) -> usize {
+    pub(crate) fn value_count(&self) -> usize {
         self.values().count()
     }
 }
@@ -241,12 +236,16 @@ pub trait Store<E: RangeEntry>: Sized {
     fn get_first(&mut self) -> Result<E::Key, Self::Error>;
 
     /// Get a single entry.
+    #[cfg(test)]
     fn get(&mut self, key: &E::Key) -> Result<Option<E>, Self::Error>;
 
     /// Get the number of entries in the store.
+    #[cfg(test)]
     fn len(&mut self) -> Result<usize, Self::Error>;
 
     /// Returns `true` if the vector contains no elements.
+    #[cfg(test)]
+    #[allow(unused)]
     fn is_empty(&mut self) -> Result<bool, Self::Error>;
 
     /// Calculate the fingerprint of the given range.
@@ -274,17 +273,21 @@ pub trait Store<E: RangeEntry>: Sized {
     }
 
     /// Returns all entries whose key starts with the given `prefix`.
+    #[cfg(test)]
+    #[allow(unused)]
     fn prefixed_by(&mut self, prefix: &E::Key) -> Result<Self::RangeIterator<'_>, Self::Error>;
 
     /// Returns all entries that share a prefix with `key`, including the entry for `key` itself.
     fn prefixes_of(&mut self, key: &E::Key) -> Result<Self::ParentIterator<'_>, Self::Error>;
 
     /// Get all entries in the store
+    #[cfg(test)]
     fn all(&mut self) -> Result<Self::RangeIterator<'_>, Self::Error>;
 
     /// Remove an entry from the store.
     ///
     /// This will remove just the entry with the given key, but will not perform prefix deletion.
+    #[cfg(test)]
     fn entry_remove(&mut self, key: &E::Key) -> Result<Option<E>, Self::Error>;
 
     /// Remove all entries whose key start with a prefix and for which the `predicate` callback
@@ -602,14 +605,17 @@ impl<E: RangeEntry, S: Store<E>> Store<E> for &mut S {
         (**self).get_first()
     }
 
+    #[cfg(test)]
     fn get(&mut self, key: &<E as RangeEntry>::Key) -> Result<Option<E>, Self::Error> {
         (**self).get(key)
     }
 
+    #[cfg(test)]
     fn len(&mut self) -> Result<usize, Self::Error> {
         (**self).len()
     }
 
+    #[cfg(test)]
     fn is_empty(&mut self) -> Result<bool, Self::Error> {
         (**self).is_empty()
     }
@@ -632,6 +638,7 @@ impl<E: RangeEntry, S: Store<E>> Store<E> for &mut S {
         (**self).get_range(range)
     }
 
+    #[cfg(test)]
     fn prefixed_by(
         &mut self,
         prefix: &<E as RangeEntry>::Key,
@@ -646,10 +653,12 @@ impl<E: RangeEntry, S: Store<E>> Store<E> for &mut S {
         (**self).prefixes_of(key)
     }
 
+    #[cfg(test)]
     fn all(&mut self) -> Result<Self::RangeIterator<'_>, Self::Error> {
         (**self).all()
     }
 
+    #[cfg(test)]
     fn entry_remove(&mut self, key: &<E as RangeEntry>::Key) -> Result<Option<E>, Self::Error> {
         (**self).entry_remove(key)
     }
@@ -664,7 +673,7 @@ impl<E: RangeEntry, S: Store<E>> Store<E> for &mut S {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct SyncConfig {
+pub(crate) struct SyncConfig {
     /// Up to how many values to send immediately, before sending only a fingerprint.
     max_set_size: usize,
     /// `k` in the protocol, how many splits to generate. at least 2
@@ -682,7 +691,7 @@ impl Default for SyncConfig {
 
 /// The outcome of a [`Store::put`] operation.
 #[derive(Debug)]
-pub enum InsertOutcome {
+pub(crate) enum InsertOutcome {
     /// The entry was not inserted because a newer entry for its key or a
     /// prefix of its key exists.
     NotInserted,
@@ -865,7 +874,7 @@ mod tests {
     }
 
     #[derive(Debug)]
-    pub struct SimpleRangeIterator<'a, K, V> {
+    pub(crate) struct SimpleRangeIterator<'a, K, V> {
         iter: std::collections::btree_map::Iter<'a, K, V>,
         filter: SimpleFilter<K>,
     }
@@ -874,6 +883,8 @@ mod tests {
     enum SimpleFilter<K> {
         None,
         Range(Range<K>),
+        // TODO(Frando): Add test for this.
+        #[allow(unused)]
         Prefix(K),
     }
 
