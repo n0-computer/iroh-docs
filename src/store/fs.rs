@@ -186,7 +186,7 @@ impl Store {
     ///
     /// As such, there is also no guarantee that the data you see is
     /// already persisted.
-    fn tables(&mut self) -> Result<&Tables> {
+    fn tables(&mut self) -> Result<&Tables<'_>> {
         let guard = &mut self.transaction;
         let tables = match std::mem::take(guard) {
             CurrentTransaction::None => {
@@ -258,7 +258,7 @@ type PeersIter = std::vec::IntoIter<PeerIdBytes>;
 
 impl Store {
     /// Create a new replica for `namespace` and persist in this store.
-    pub fn new_replica(&mut self, namespace: NamespaceSecret) -> Result<Replica> {
+    pub fn new_replica(&mut self, namespace: NamespaceSecret) -> Result<Replica<'_>> {
         let id = namespace.id();
         self.import_namespace(namespace.into())?;
         self.open_replica(&id).map_err(Into::into)
@@ -295,7 +295,7 @@ impl Store {
     /// Open a replica from this store.
     ///
     /// This just calls load_replica_info and then creates a new replica with the info.
-    pub fn open_replica(&mut self, namespace_id: &NamespaceId) -> Result<Replica, OpenError> {
+    pub fn open_replica(&mut self, namespace_id: &NamespaceId) -> Result<Replica<'_>, OpenError> {
         let info = self.load_replica_info(namespace_id)?;
         let instance = StoreInstance::new(*namespace_id, self);
         Ok(Replica::new(instance, Box::new(info)))
@@ -465,7 +465,10 @@ impl Store {
     }
 
     /// Get the latest entry for each author in a namespace.
-    pub fn get_latest_for_each_author(&mut self, namespace: NamespaceId) -> Result<LatestIterator> {
+    pub fn get_latest_for_each_author(
+        &mut self,
+        namespace: NamespaceId,
+    ) -> Result<LatestIterator<'_>> {
         LatestIterator::new(&self.tables()?.latest_per_author, namespace)
     }
 

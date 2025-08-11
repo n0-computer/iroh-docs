@@ -61,7 +61,7 @@ impl AuthorHeads {
     }
 
     /// Create an iterator over the entries in this state.
-    pub fn iter(&self) -> std::collections::btree_map::Iter<AuthorId, Timestamp> {
+    pub fn iter(&self) -> std::collections::btree_map::Iter<'_, AuthorId, Timestamp> {
         self.heads.iter()
     }
 

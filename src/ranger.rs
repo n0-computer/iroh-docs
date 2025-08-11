@@ -224,6 +224,7 @@ impl<E: RangeEntry> Message<E> {
     }
 }
 
+#[allow(dead_code)]
 pub trait Store<E: RangeEntry>: Sized {
     type Error: Debug + Send + Sync + Into<anyhow::Error> + 'static;
 
