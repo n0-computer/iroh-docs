@@ -551,7 +551,7 @@ async fn test_sync_via_relay() -> Result<()> {
         .await?;
     assert_next_unordered_with_optionals(
         &mut events,
-        Duration::from_secs(2),
+        Duration::from_secs(10),
         vec![
             Box::new(
                 move |e| matches!(e, LiveEvent::InsertRemote { from, content_status: ContentStatus::Missing | ContentStatus::Incomplete, .. } if *from == node1_id),

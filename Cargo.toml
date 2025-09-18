@@ -83,6 +83,13 @@ metrics = ["iroh-metrics/metrics", "iroh/metrics"]
 all-features = true
 rustdoc-args = ["--cfg", "iroh_docsrs"]
 
+[patch.crates-io]
+iroh = { git = "https://github.com/n0-computer/iroh", branch = "main" }
+iroh-base = { git = "https://github.com/n0-computer/iroh", branch = "main" }
+iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs", branch = "main" }
+iroh-gossip = { git = "https://github.com/n0-computer/iroh-gossip", branch = "iroh-0-92" }
+irpc = { git = "https://github.com/n0-computer/irpc", branch = "iroh-0-92" }
+
 [lints.rust]
 missing_debug_implementations = "warn"
 
