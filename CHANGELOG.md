@@ -2,6 +2,17 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.92.0](https://github.com/n0-computer/iroh-docs/compare/v0.91.0..0.92.0) - 2025-09-19
+
+### 🐛 Bug Fixes
+
+- Pub mod actor exposing SyncHandle ([#52](https://github.com/n0-computer/iroh-docs/issues/52)) - ([8a4d9e2](https://github.com/n0-computer/iroh-docs/commit/8a4d9e2e0a2476dde3c892160dad3452c0c3b173))
+
+### ⚙️ Miscellaneous Tasks
+
+- Clippy fixes ([#54](https://github.com/n0-computer/iroh-docs/issues/54)) - ([cea3ebe](https://github.com/n0-computer/iroh-docs/commit/cea3ebe97a15c9f59830f7f860db4ab8041e115f))
+- Upgrade `iroh`, `irpc`, `iroh-blobs`,  ([#58](https://github.com/n0-computer/iroh-docs/issues/58)) - ([783c559](https://github.com/n0-computer/iroh-docs/commit/783c559034d33606a193a320490a81c101a00289))
+
 ## [0.91.0](https://github.com/n0-computer/iroh-docs/compare/v0.35.0..0.91.0) - 2025-08-01
 
 ### Deps/refactor
