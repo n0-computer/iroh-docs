@@ -31,12 +31,12 @@ futures-buffered = "0.2.4"
 futures-lite = "2.3.0"
 futures-util = { version = "0.3.25" }
 hex = "0.4"
-iroh = { version = "0.91" }
-iroh-base = { version = "0.91", features = ["ticket"] }
-iroh-blobs = { version = "0.93" }
-iroh-gossip = { version = "0.91", features = ["net"] }
+iroh = { version = "0.92" }
+iroh-base = { version = "0.92", features = ["ticket"] }
+iroh-blobs = { version = "0.94" }
+iroh-gossip = { version = "0.92", features = ["net"] }
 iroh-metrics = { version = "0.35", default-features = false }
-irpc = { version = "0.7.0" }
+irpc = { version = "0.8.0" }
 n0-future = "0.1.3"
 num_enum = "0.7"
 postcard = { version = "1", default-features = false, features = [
@@ -62,7 +62,7 @@ tracing = "0.1"
 
 [dev-dependencies]
 data-encoding = "2.6.0"
-iroh = { version = "0.91", features = ["test-utils"] }
+iroh = { version = "0.92", features = ["test-utils"] }
 nested_enum_utils = "0.1.0"
 parking_lot = "0.12.3"
 proptest = "1.2.0"
@@ -72,7 +72,7 @@ test-strategy = "0.4"
 testdir = "0.7"
 testresult = "0.4.1"
 tokio = { version = "1", features = ["sync", "macros"] }
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 tracing-test = "0.2.5"
 
 [features]
@@ -82,13 +82,6 @@ metrics = ["iroh-metrics/metrics", "iroh/metrics"]
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "iroh_docsrs"]
-
-[patch.crates-io]
-iroh = { git = "https://github.com/n0-computer/iroh", branch = "main" }
-iroh-base = { git = "https://github.com/n0-computer/iroh", branch = "main" }
-iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs", branch = "main" }
-iroh-gossip = { git = "https://github.com/n0-computer/iroh-gossip", branch = "iroh-0-92" }
-irpc = { git = "https://github.com/n0-computer/irpc", branch = "iroh-0-92" }
 
 [lints.rust]
 missing_debug_implementations = "warn"
