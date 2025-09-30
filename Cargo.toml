@@ -46,8 +46,7 @@ postcard = { version = "1", default-features = false, features = [
 ] }
 quinn = { package = "iroh-quinn", version = "0.14.0" }
 rand = "0.9.2"
-redb = { version = "2.0.0" }
-redb_v1 = { package = "redb", version = "1.5.1" }
+redb = { version = "2.6.3" }
 self_cell = "1.0.3"
 serde = { version = "1.0.164", features = ["derive"] }
 serde-error = "0.1.3"
