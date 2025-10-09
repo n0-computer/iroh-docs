@@ -12,7 +12,7 @@ use std::{
 use anyhow::{anyhow, Result};
 use ed25519_dalek::{SignatureError, VerifyingKey};
 use iroh_blobs::Hash;
-use rand_core::CryptoRngCore;
+use rand::CryptoRng;
 use redb::{Database, DatabaseError, ReadableMultimapTable, ReadableTable};
 use tracing::warn;
 
@@ -265,7 +265,7 @@ impl Store {
     }
 
     /// Create a new author key and persist it in the store.
-    pub fn new_author<R: CryptoRngCore + ?Sized>(&mut self, rng: &mut R) -> Result<Author> {
+    pub fn new_author<R: CryptoRng>(&mut self, rng: &mut R) -> Result<Author> {
         let author = Author::new(rng);
         self.import_author(author.clone())?;
         Ok(author)
@@ -988,8 +988,8 @@ mod tests {
         let dbfile = tempfile::NamedTempFile::new()?;
         let mut store = Store::persistent(dbfile.path())?;
 
-        let author = store.new_author(&mut rand::thread_rng())?;
-        let namespace = NamespaceSecret::new(&mut rand::thread_rng());
+        let author = store.new_author(&mut rand::rng())?;
+        let namespace = NamespaceSecret::new(&mut rand::rng());
         let mut replica = store.new_replica(namespace.clone())?;
 
         // test author prefix relation for all-255 keys
@@ -1018,8 +1018,8 @@ mod tests {
         let authors: Vec<_> = store.list_authors()?.collect::<Result<_>>()?;
         assert!(authors.is_empty());
 
-        let author = store.new_author(&mut rand::thread_rng())?;
-        let namespace = NamespaceSecret::new(&mut rand::thread_rng());
+        let author = store.new_author(&mut rand::rng())?;
+        let namespace = NamespaceSecret::new(&mut rand::rng());
         let _replica = store.new_replica(namespace.clone())?;
         store.close_replica(namespace.id());
         let replica = store.load_replica_info(&namespace.id())?;
@@ -1104,13 +1104,13 @@ mod tests {
     #[test]
     fn test_migration_001_populate_latest_table() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
-        let namespace = NamespaceSecret::new(&mut rand::thread_rng());
+        let namespace = NamespaceSecret::new(&mut rand::rng());
 
         // create a store and add some data
         let expected = {
             let mut store = Store::persistent(dbfile.path())?;
-            let author1 = store.new_author(&mut rand::thread_rng())?;
-            let author2 = store.new_author(&mut rand::thread_rng())?;
+            let author1 = store.new_author(&mut rand::rng())?;
+            let author2 = store.new_author(&mut rand::rng())?;
             let mut replica = store.new_replica(namespace.clone())?;
             replica.hash_and_insert(b"k1", &author1, b"v1")?;
             replica.hash_and_insert(b"k2", &author2, b"v1")?;

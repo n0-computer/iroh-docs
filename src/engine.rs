@@ -75,7 +75,7 @@ impl Engine {
         protect_cb: Option<ProtectCallbackHandler>,
     ) -> anyhow::Result<Self> {
         let (live_actor_tx, to_live_actor_recv) = mpsc::channel(ACTOR_CHANNEL_CAP);
-        let me = endpoint.node_id().fmt_short();
+        let me = endpoint.node_id().fmt_short().to_string();
 
         let content_status_cb: ContentStatusCallback = {
             let blobs = bao_store.blobs().clone();
@@ -368,7 +368,7 @@ impl DefaultAuthorStorage {
     pub async fn load(&self, docs_store: &SyncHandle) -> anyhow::Result<AuthorId> {
         match self {
             Self::Mem => {
-                let author = Author::new(&mut rand::thread_rng());
+                let author = Author::new(&mut rand::rng());
                 let author_id = author.id();
                 docs_store.import_author(author).await?;
                 Ok(author_id)
@@ -392,7 +392,7 @@ impl DefaultAuthorStorage {
                     }
                     Ok(author_id)
                 } else {
-                    let author = Author::new(&mut rand::thread_rng());
+                    let author = Author::new(&mut rand::rng());
                     let author_id = author.id();
                     docs_store.import_author(author).await?;
                     // Make sure to write the default author to the store

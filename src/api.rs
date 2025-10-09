@@ -634,7 +634,7 @@ impl Stream for ImportFileProgress {
                                 .take()
                                 .expect("AddProgressItem::Done may be emitted only once");
                             let size = size.expect("Size must be emitted before done");
-                            let hash = *tag.hash();
+                            let hash = tag.hash();
                             *this = Self(ImportInner::Entry(Box::pin(async move {
                                 doc.set_hash(author, key.clone(), hash, size).await?;
                                 Ok(ImportFileOutcome { hash, size, key })
