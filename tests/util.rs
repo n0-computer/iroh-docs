@@ -247,7 +247,7 @@ impl Node {
     // }
 
     /// Ensure the node is "online", aka, is connected to a relay and
-    /// has a direct addreses
+    /// has a direct addresses
     pub async fn online(&self) {
         self.router.endpoint().online().await
     }
