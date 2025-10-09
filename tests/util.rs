@@ -112,7 +112,7 @@ impl Builder {
         };
         router = router.accept(
             iroh_blobs::ALPN,
-            iroh_blobs::BlobsProtocol::new(&blobs, endpoint.clone(), None),
+            iroh_blobs::BlobsProtocol::new(&blobs, None),
         );
         router = router.accept(iroh_docs::ALPN, docs.clone());
         router = router.accept(iroh_gossip::ALPN, gossip.clone());
@@ -245,6 +245,12 @@ impl Node {
     // pub fn blob_store(&self) -> &S {
     //     &self.store
     // }
+
+    /// Ensure the node is "online", aka, is connected to a relay and
+    /// has a direct addreses
+    pub async fn online(&self) {
+        self.router.endpoint().online().await
+    }
 
     /// Shuts down the node
     pub async fn shutdown(self) -> anyhow::Result<()> {

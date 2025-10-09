@@ -56,7 +56,7 @@ async fn test_doc_import_export() -> TestResult<()> {
 
     let size = 100;
     let mut buf = vec![0u8; size];
-    rand::thread_rng().fill_bytes(&mut buf);
+    rand::rng().fill_bytes(&mut buf);
     let mut file = tokio::fs::File::create(path.clone())
         .await
         .context("create file")?;

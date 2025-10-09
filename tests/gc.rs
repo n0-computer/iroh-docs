@@ -11,7 +11,7 @@ use util::Node;
 mod util;
 
 pub fn create_test_data(size: usize) -> Bytes {
-    let mut rand = rand::thread_rng();
+    let mut rand = rand::rng();
     let mut res = vec![0u8; size];
     rand.fill_bytes(&mut res);
     res.into()
