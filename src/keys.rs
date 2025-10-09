@@ -3,7 +3,7 @@
 use std::{cmp::Ordering, fmt, str::FromStr};
 
 use ed25519_dalek::{Signature, SignatureError, Signer, SigningKey, VerifyingKey};
-use rand_core::CryptoRngCore;
+use rand::CryptoRng;
 use serde::{Deserialize, Serialize};
 
 use crate::store::PublicKeyStore;
@@ -17,7 +17,7 @@ pub struct Author {
 }
 impl Author {
     /// Create a new [`Author`] with a random key.
-    pub fn new<R: CryptoRngCore + ?Sized>(rng: &mut R) -> Self {
+    pub fn new<R: CryptoRng>(rng: &mut R) -> Self {
         let signing_key = SigningKey::generate(rng);
         Author { signing_key }
     }
@@ -93,7 +93,7 @@ pub struct NamespaceSecret {
 
 impl NamespaceSecret {
     /// Create a new [`NamespaceSecret`] with a random key.
-    pub fn new<R: CryptoRngCore + ?Sized>(rng: &mut R) -> Self {
+    pub fn new<R: CryptoRng>(rng: &mut R) -> Self {
         let signing_key = SigningKey::generate(rng);
 
         NamespaceSecret { signing_key }

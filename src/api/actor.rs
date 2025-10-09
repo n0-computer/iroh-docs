@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use futures_lite::StreamExt;
-use iroh::Watcher;
 use irpc::{channel::mpsc, LocalSender, WithChannels};
 use n0_future::task::{self};
 use tokio::sync::mpsc as tokio_mpsc;
@@ -241,7 +240,7 @@ impl RpcActor {
         _req: AuthorCreateRequest,
     ) -> RpcResult<AuthorCreateResponse> {
         // TODO: pass rng
-        let author = Author::new(&mut rand::rngs::OsRng {});
+        let author = Author::new(&mut rand::rng());
         self.sync
             .import_author(author.clone())
             .await
@@ -322,7 +321,7 @@ impl RpcActor {
     }
 
     pub(super) async fn doc_create(&self, _req: CreateRequest) -> RpcResult<CreateResponse> {
-        let namespace = NamespaceSecret::new(&mut rand::rngs::OsRng {});
+        let namespace = NamespaceSecret::new(&mut rand::rng());
         let id = namespace.id();
         self.sync
             .import_namespace(namespace.into())
@@ -390,7 +389,7 @@ impl RpcActor {
             mode,
             addr_options,
         } = req;
-        let me = self.endpoint.node_addr().initialized().await;
+        let me = self.endpoint.node_addr();
         let me = addr_options.apply(&me);
 
         let capability = match mode {
@@ -498,7 +497,7 @@ impl RpcActor {
             .await
             .map_err(|e| RpcError::new(&e))?;
         self.sync
-            .insert_local(doc_id, author_id, key.clone(), *tag.hash(), len as u64)
+            .insert_local(doc_id, author_id, key.clone(), tag.hash(), len as u64)
             .await
             .map_err(|e| RpcError::new(&*e))?;
         let entry = self

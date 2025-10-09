@@ -502,6 +502,8 @@ async fn test_sync_via_relay() -> Result<()> {
         .spawn()
         .await?;
 
+    node1.online().await;
+    node2.online().await;
     let doc1 = node1.docs().create().await?;
     let author1 = node1.docs().author_create().await?;
     let inserted_hash = doc1
@@ -644,17 +646,17 @@ async fn sync_restart_node() -> Result<()> {
     .await;
     assert_latest(blobs1, &doc1, b"n2/a", b"a").await;
 
-    info!(me = id1.fmt_short(), "node1 start shutdown");
+    info!(me = %id1.fmt_short(), "node1 start shutdown");
     node1.shutdown().await?;
-    info!(me = id1.fmt_short(), "node1 down");
+    info!(me = %id1.fmt_short(), "node1 down");
 
-    info!(me = id1.fmt_short(), "sleep 1s");
+    info!(me = %id1.fmt_short(), "sleep 1s");
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    info!(me = id2.fmt_short(), "node2 set b");
+    info!(me = %id2.fmt_short(), "node2 set b");
     let hash_b = doc2.set_bytes(author2, "n2/b", "b").await?;
 
-    info!(me = id1.fmt_short(), "node1 respawn");
+    info!(me = %id1.fmt_short(), "node1 respawn");
     let node1 = Node::persistent(&node1_dir)
         .secret_key(secret_key_1.clone())
         .insecure_skip_relay_cert_verify(true)
@@ -689,7 +691,7 @@ async fn sync_restart_node() -> Result<()> {
     assert_latest(blobs1, &doc1, b"n2/b", b"b").await;
 
     // check that live conn is working
-    info!(me = id2.fmt_short(), "node2 set c");
+    info!(me = %id2.fmt_short(), "node2 set c");
     let hash_c = doc2.set_bytes(author2, "n2/c", "c").await?;
     assert_next_unordered_with_optionals(
         &mut events1,

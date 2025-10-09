@@ -296,7 +296,7 @@ mod tests {
     use anyhow::Result;
     use iroh::SecretKey;
     use iroh_blobs::Hash;
-    use rand_core::{CryptoRngCore, SeedableRng};
+    use rand::{CryptoRng, SeedableRng};
     use tracing_test::traced_test;
 
     use super::*;
@@ -308,7 +308,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_sync_simple() -> Result<()> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let alice_peer_id = SecretKey::from_bytes(&[1u8; 32]).public();
         let bob_peer_id = SecretKey::from_bytes(&[2u8; 32]).public();
 
@@ -439,7 +439,7 @@ mod tests {
     type Message = (AuthorId, Vec<u8>, Hash);
 
     fn insert_messages(
-        mut rng: impl CryptoRngCore,
+        mut rng: impl CryptoRng,
         replica: &mut crate::sync::Replica,
         num_authors: usize,
         msgs_per_author: usize,

@@ -71,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
 
     // setup router
     let _router = builder
-        .accept(BLOBS_ALPN, BlobsProtocol::new(&blobs, endpoint.clone(), None))
+        .accept(BLOBS_ALPN, BlobsProtocol::new(&blobs, None))
         .accept(GOSSIP_ALPN, gossip)
         .accept(DOCS_ALPN, docs)
         .spawn();

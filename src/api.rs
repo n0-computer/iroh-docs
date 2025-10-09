@@ -81,35 +81,37 @@ impl DocsApi {
             .context("cannot listen on remote API")?;
         let handler: Handler<DocsProtocol> = Arc::new(move |msg, _rx, tx| {
             let local = local.clone();
-            Box::pin(match msg {
-                DocsProtocol::Open(msg) => local.send((msg, tx)),
-                DocsProtocol::Close(msg) => local.send((msg, tx)),
-                DocsProtocol::Status(msg) => local.send((msg, tx)),
-                DocsProtocol::List(msg) => local.send((msg, tx)),
-                DocsProtocol::Create(msg) => local.send((msg, tx)),
-                DocsProtocol::Drop(msg) => local.send((msg, tx)),
-                DocsProtocol::Import(msg) => local.send((msg, tx)),
-                DocsProtocol::Set(msg) => local.send((msg, tx)),
-                DocsProtocol::SetHash(msg) => local.send((msg, tx)),
-                DocsProtocol::Get(msg) => local.send((msg, tx)),
-                DocsProtocol::GetExact(msg) => local.send((msg, tx)),
-                // DocsProtocol::ImportFile(msg) => local.send((msg, tx)),
-                // DocsProtocol::ExportFile(msg) => local.send((msg, tx)),
-                DocsProtocol::Del(msg) => local.send((msg, tx)),
-                DocsProtocol::StartSync(msg) => local.send((msg, tx)),
-                DocsProtocol::Leave(msg) => local.send((msg, tx)),
-                DocsProtocol::Share(msg) => local.send((msg, tx)),
-                DocsProtocol::Subscribe(msg) => local.send((msg, tx)),
-                DocsProtocol::GetDownloadPolicy(msg) => local.send((msg, tx)),
-                DocsProtocol::SetDownloadPolicy(msg) => local.send((msg, tx)),
-                DocsProtocol::GetSyncPeers(msg) => local.send((msg, tx)),
-                DocsProtocol::AuthorList(msg) => local.send((msg, tx)),
-                DocsProtocol::AuthorCreate(msg) => local.send((msg, tx)),
-                DocsProtocol::AuthorGetDefault(msg) => local.send((msg, tx)),
-                DocsProtocol::AuthorSetDefault(msg) => local.send((msg, tx)),
-                DocsProtocol::AuthorImport(msg) => local.send((msg, tx)),
-                DocsProtocol::AuthorExport(msg) => local.send((msg, tx)),
-                DocsProtocol::AuthorDelete(msg) => local.send((msg, tx)),
+            Box::pin(async move {
+                match msg {
+                    DocsProtocol::Open(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::Close(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::Status(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::List(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::Create(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::Drop(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::Import(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::Set(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::SetHash(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::Get(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::GetExact(msg) => local.send((msg, tx)).await,
+                    // DocsProtocol::ImportFile(msg) => local.send((msg, tx)).await,
+                    // DocsProtocol::ExportFile(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::Del(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::StartSync(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::Leave(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::Share(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::Subscribe(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::GetDownloadPolicy(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::SetDownloadPolicy(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::GetSyncPeers(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::AuthorList(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::AuthorCreate(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::AuthorGetDefault(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::AuthorSetDefault(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::AuthorImport(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::AuthorExport(msg) => local.send((msg, tx)).await,
+                    DocsProtocol::AuthorDelete(msg) => local.send((msg, tx)).await,
+                }
             })
         });
         let join_handle = task::spawn(irpc::rpc::listen(endpoint, handler));
@@ -634,7 +636,7 @@ impl Stream for ImportFileProgress {
                                 .take()
                                 .expect("AddProgressItem::Done may be emitted only once");
                             let size = size.expect("Size must be emitted before done");
-                            let hash = *tag.hash();
+                            let hash = tag.hash();
                             *this = Self(ImportInner::Entry(Box::pin(async move {
                                 doc.set_hash(author, key.clone(), hash, size).await?;
                                 Ok(ImportFileOutcome { hash, size, key })

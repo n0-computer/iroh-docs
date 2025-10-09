@@ -1061,7 +1061,7 @@ mod tests {
     async fn open_close() -> anyhow::Result<()> {
         let store = store::Store::memory();
         let sync = SyncHandle::spawn(store, None, "foo".into());
-        let namespace = NamespaceSecret::new(&mut rand::rngs::OsRng {});
+        let namespace = NamespaceSecret::new(&mut rand::rng());
         let id = namespace.id();
         sync.import_namespace(namespace.into()).await?;
         sync.open(id, Default::default()).await?;

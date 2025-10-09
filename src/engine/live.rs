@@ -971,10 +971,10 @@ impl Subscribers {
 
 fn fmt_accept_peer(res: &Result<SyncFinished, AcceptError>) -> String {
     match res {
-        Ok(res) => res.peer.fmt_short(),
+        Ok(res) => res.peer.fmt_short().to_string(),
         Err(err) => err
             .peer()
-            .map(|x| x.fmt_short())
+            .map(|x| x.fmt_short().to_string())
             .unwrap_or_else(|| "unknown".to_string()),
     }
 }

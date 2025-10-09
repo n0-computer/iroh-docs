@@ -1196,7 +1196,7 @@ mod tests {
     use std::collections::HashSet;
 
     use anyhow::Result;
-    use rand_core::SeedableRng;
+    use rand::SeedableRng;
 
     use super::*;
     use crate::{
@@ -1222,7 +1222,7 @@ mod tests {
     }
 
     fn test_basics(mut store: Store) -> Result<()> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let alice = Author::new(&mut rng);
         let bob = Author::new(&mut rng);
         let myspace = NamespaceSecret::new(&mut rng);
@@ -1406,7 +1406,7 @@ mod tests {
     }
 
     fn test_content_hashes_iterator(mut store: Store) -> Result<()> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut expected = HashSet::new();
         let n_replicas = 3;
         let n_entries = 4;
@@ -1429,7 +1429,7 @@ mod tests {
 
     #[test]
     fn test_multikey() {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
         let k = ["a", "c", "z"];
 
@@ -1602,7 +1602,7 @@ mod tests {
         let alice_set = ["ape", "eel", "fox", "gnu"];
         let bob_set = ["bee", "cat", "doe", "eel", "fox", "hog"];
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let author = Author::new(&mut rng);
         let myspace = NamespaceSecret::new(&mut rng);
         let mut alice = alice_store.new_replica(myspace.clone())?;
@@ -1655,7 +1655,7 @@ mod tests {
         mut alice_store: Store,
         mut bob_store: Store,
     ) -> Result<()> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let author = Author::new(&mut rng);
         let namespace = NamespaceSecret::new(&mut rng);
         let mut alice = alice_store.new_replica(namespace.clone())?;
@@ -1700,7 +1700,7 @@ mod tests {
 
     #[test]
     fn test_future_timestamp() -> Result<()> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut store = store::Store::memory();
         let author = Author::new(&mut rng);
         let namespace = NamespaceSecret::new(&mut rng);
@@ -1759,7 +1759,7 @@ mod tests {
     #[test]
     fn test_insert_empty() -> Result<()> {
         let mut store = store::Store::memory();
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let alice = Author::new(&mut rng);
         let myspace = NamespaceSecret::new(&mut rng);
         let mut replica = store.new_replica(myspace.clone())?;
@@ -1786,7 +1786,7 @@ mod tests {
     }
 
     fn test_prefix_delete(mut store: Store) -> Result<()> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let alice = Author::new(&mut rng);
         let myspace = NamespaceSecret::new(&mut rng);
         let mut replica = store.new_replica(myspace.clone())?;
@@ -1844,7 +1844,7 @@ mod tests {
         let alice_set = ["foot"];
         let bob_set = ["fool", "foo", "fog"];
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let author = Author::new(&mut rng);
         let myspace = NamespaceSecret::new(&mut rng);
         let mut alice = alice_store.new_replica(myspace.clone())?;
@@ -1890,7 +1890,7 @@ mod tests {
     }
 
     fn test_replica_remove(mut store: Store) -> Result<()> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let namespace = NamespaceSecret::new(&mut rng);
         let author = Author::new(&mut rng);
         let mut replica = store.new_replica(namespace.clone())?;
@@ -1942,7 +1942,7 @@ mod tests {
     }
 
     fn test_replica_delete_edge_cases(mut store: Store) -> Result<()> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let author = Author::new(&mut rng);
         let namespace = NamespaceSecret::new(&mut rng);
 
@@ -2009,7 +2009,7 @@ mod tests {
     }
 
     fn test_latest_iter(mut store: Store) -> Result<()> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let author0 = Author::new(&mut rng);
         let author1 = Author::new(&mut rng);
         let namespace = NamespaceSecret::new(&mut rng);
@@ -2053,7 +2053,7 @@ mod tests {
     }
 
     fn test_replica_byte_keys(mut store: Store) -> Result<()> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let author = Author::new(&mut rng);
         let namespace = NamespaceSecret::new(&mut rng);
 
