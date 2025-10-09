@@ -59,7 +59,7 @@ the whole store with all replicas to a single file.</p>
 
     <span class="comment">// setup router
     </span><span class="kw">let </span>_router = builder
-        .accept(BLOBS_ALPN, BlobsProtocol::new(<span class="kw-2">&amp;</span>blobs, endpoint.clone(), <span class="prelude-val">None</span>))
+        .accept(BLOBS_ALPN, BlobsProtocol::new(<span class="kw-2">&amp;</span>blobs, <span class="prelude-val">None</span>))
         .accept(GOSSIP_ALPN, gossip)
         .accept(DOCS_ALPN, docs)
         .spawn();
