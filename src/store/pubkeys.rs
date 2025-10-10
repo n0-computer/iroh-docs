@@ -11,7 +11,7 @@ use crate::{AuthorId, AuthorPublicKey, NamespaceId, NamespacePublicKey};
 ///
 /// Used to cache [`ed25519_dalek::VerifyingKey`].
 ///
-/// This trait is implemented for the unit type [`()`], where no caching is used.
+/// This trait is implemented for the unit type `()`, where no caching is used.
 pub trait PublicKeyStore {
     /// Convert a byte array into a  [`VerifyingKey`].
     ///
