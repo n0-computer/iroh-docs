@@ -2,6 +2,12 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.93.1](https://github.com/n0-computer/iroh-docs/compare/v0.93.0..0.93.1) - 2025-10-11
+
+### ⚙️ Miscellaneous Tasks
+
+- Upgrade nightly version in CI and doc workflows ([#72](https://github.com/n0-computer/iroh-docs/issues/72)) - ([415f62a](https://github.com/n0-computer/iroh-docs/commit/415f62ab79ddf8a4c7cf7af383f8d382c0e7c91a))
+
 ## [0.93.0](https://github.com/n0-computer/iroh-docs/compare/v0.92.0..0.93.0) - 2025-10-09
 
 ### ⚙️ Miscellaneous Tasks
