@@ -14,7 +14,7 @@ use ed25519_dalek::{SignatureError, VerifyingKey};
 use iroh_blobs::Hash;
 use rand::CryptoRng;
 use redb::{Database, DatabaseError, ReadableMultimapTable, ReadableTable};
-use tracing::warn;
+use tracing::{info, warn};
 
 use super::{
     pubkeys::MemPublicKeyStore, DownloadPolicy, ImportNamespaceOutcome, OpenError, PublicKeyStore,
@@ -30,7 +30,6 @@ use crate::{
 };
 
 mod bounds;
-mod migrate_v1_v2;
 mod migrations;
 mod query;
 mod ranges;
@@ -100,11 +99,18 @@ impl Store {
     ///
     /// The file will be created if it does not exist, otherwise it will be opened.
     pub fn persistent(path: impl AsRef<Path>) -> Result<Self> {
-        let db = match Database::create(&path) {
+        let mut db = match Database::create(&path) {
             Ok(db) => db,
-            Err(DatabaseError::UpgradeRequired(1)) => migrate_v1_v2::run(&path)?,
+            Err(DatabaseError::UpgradeRequired(1)) => return Err(
+                anyhow!("Opening the database failed: Upgrading from old format is no longer supported. Use iroh-docs 0.92 to perform the upgrade, then upgrade to the latest release again.")
+            ),
             Err(err) => return Err(err.into()),
         };
+        match db.upgrade() {
+            Ok(true) => info!("Database was upgraded to redb v3 compatible format"),
+            Ok(false) => {}
+            Err(err) => warn!("Database upgrade to redb v3 compatible format failed: {err:#}"),
+        }
         Self::new_impl(db)
     }
 
