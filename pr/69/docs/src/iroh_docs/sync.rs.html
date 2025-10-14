@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/sync.rs`."><title>sync.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-20739d33.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="iroh_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0-nightly (b45dd71d1 2025-04-30)" data-channel="nightly" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">iroh_docs/</div>sync.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! API for iroh-docs replicas
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/sync.rs`."><title>sync.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="iroh_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0-nightly (b6f0945e4 2025-10-08)" data-channel="nightly" data-search-js="search-8d3311b9.js" data-stringdex-js="stringdex-828709d0.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">iroh_docs/</div>sync.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! API for iroh-docs replicas
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a></span><span class="comment">// Names and concepts are roughly based on Willows design at the moment:
 <a href=#4 id=4 data-nosnippet>4</a>//
@@ -1196,7 +1196,7 @@
 <a href=#1196 id=1196 data-nosnippet>1196</a>    <span class="kw">use </span>std::collections::HashSet;
 <a href=#1197 id=1197 data-nosnippet>1197</a>
 <a href=#1198 id=1198 data-nosnippet>1198</a>    <span class="kw">use </span>anyhow::Result;
-<a href=#1199 id=1199 data-nosnippet>1199</a>    <span class="kw">use </span>rand_core::SeedableRng;
+<a href=#1199 id=1199 data-nosnippet>1199</a>    <span class="kw">use </span>rand::SeedableRng;
 <a href=#1200 id=1200 data-nosnippet>1200</a>
 <a href=#1201 id=1201 data-nosnippet>1201</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <a href=#1202 id=1202 data-nosnippet>1202</a>    <span class="kw">use crate</span>::{
@@ -1222,7 +1222,7 @@
 <a href=#1222 id=1222 data-nosnippet>1222</a>    }
 <a href=#1223 id=1223 data-nosnippet>1223</a>
 <a href=#1224 id=1224 data-nosnippet>1224</a>    <span class="kw">fn </span>test_basics(<span class="kw-2">mut </span>store: Store) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#1225 id=1225 data-nosnippet>1225</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
+<a href=#1225 id=1225 data-nosnippet>1225</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rng();
 <a href=#1226 id=1226 data-nosnippet>1226</a>        <span class="kw">let </span>alice = Author::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1227 id=1227 data-nosnippet>1227</a>        <span class="kw">let </span>bob = Author::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1228 id=1228 data-nosnippet>1228</a>        <span class="kw">let </span>myspace = NamespaceSecret::new(<span class="kw-2">&amp;mut </span>rng);
@@ -1406,7 +1406,7 @@
 <a href=#1406 id=1406 data-nosnippet>1406</a>    }
 <a href=#1407 id=1407 data-nosnippet>1407</a>
 <a href=#1408 id=1408 data-nosnippet>1408</a>    <span class="kw">fn </span>test_content_hashes_iterator(<span class="kw-2">mut </span>store: Store) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#1409 id=1409 data-nosnippet>1409</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
+<a href=#1409 id=1409 data-nosnippet>1409</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rng();
 <a href=#1410 id=1410 data-nosnippet>1410</a>        <span class="kw">let </span><span class="kw-2">mut </span>expected = HashSet::new();
 <a href=#1411 id=1411 data-nosnippet>1411</a>        <span class="kw">let </span>n_replicas = <span class="number">3</span>;
 <a href=#1412 id=1412 data-nosnippet>1412</a>        <span class="kw">let </span>n_entries = <span class="number">4</span>;
@@ -1429,7 +1429,7 @@
 <a href=#1429 id=1429 data-nosnippet>1429</a>
 <a href=#1430 id=1430 data-nosnippet>1430</a>    <span class="attr">#[test]
 <a href=#1431 id=1431 data-nosnippet>1431</a>    </span><span class="kw">fn </span>test_multikey() {
-<a href=#1432 id=1432 data-nosnippet>1432</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
+<a href=#1432 id=1432 data-nosnippet>1432</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rng();
 <a href=#1433 id=1433 data-nosnippet>1433</a>
 <a href=#1434 id=1434 data-nosnippet>1434</a>        <span class="kw">let </span>k = [<span class="string">"a"</span>, <span class="string">"c"</span>, <span class="string">"z"</span>];
 <a href=#1435 id=1435 data-nosnippet>1435</a>
@@ -1602,7 +1602,7 @@
 <a href=#1602 id=1602 data-nosnippet>1602</a>        <span class="kw">let </span>alice_set = [<span class="string">"ape"</span>, <span class="string">"eel"</span>, <span class="string">"fox"</span>, <span class="string">"gnu"</span>];
 <a href=#1603 id=1603 data-nosnippet>1603</a>        <span class="kw">let </span>bob_set = [<span class="string">"bee"</span>, <span class="string">"cat"</span>, <span class="string">"doe"</span>, <span class="string">"eel"</span>, <span class="string">"fox"</span>, <span class="string">"hog"</span>];
 <a href=#1604 id=1604 data-nosnippet>1604</a>
-<a href=#1605 id=1605 data-nosnippet>1605</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
+<a href=#1605 id=1605 data-nosnippet>1605</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rng();
 <a href=#1606 id=1606 data-nosnippet>1606</a>        <span class="kw">let </span>author = Author::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1607 id=1607 data-nosnippet>1607</a>        <span class="kw">let </span>myspace = NamespaceSecret::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1608 id=1608 data-nosnippet>1608</a>        <span class="kw">let </span><span class="kw-2">mut </span>alice = alice_store.new_replica(myspace.clone())<span class="question-mark">?</span>;
@@ -1655,7 +1655,7 @@
 <a href=#1655 id=1655 data-nosnippet>1655</a>        <span class="kw-2">mut </span>alice_store: Store,
 <a href=#1656 id=1656 data-nosnippet>1656</a>        <span class="kw-2">mut </span>bob_store: Store,
 <a href=#1657 id=1657 data-nosnippet>1657</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#1658 id=1658 data-nosnippet>1658</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
+<a href=#1658 id=1658 data-nosnippet>1658</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rng();
 <a href=#1659 id=1659 data-nosnippet>1659</a>        <span class="kw">let </span>author = Author::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1660 id=1660 data-nosnippet>1660</a>        <span class="kw">let </span>namespace = NamespaceSecret::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1661 id=1661 data-nosnippet>1661</a>        <span class="kw">let </span><span class="kw-2">mut </span>alice = alice_store.new_replica(namespace.clone())<span class="question-mark">?</span>;
@@ -1700,7 +1700,7 @@
 <a href=#1700 id=1700 data-nosnippet>1700</a>
 <a href=#1701 id=1701 data-nosnippet>1701</a>    <span class="attr">#[test]
 <a href=#1702 id=1702 data-nosnippet>1702</a>    </span><span class="kw">fn </span>test_future_timestamp() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#1703 id=1703 data-nosnippet>1703</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
+<a href=#1703 id=1703 data-nosnippet>1703</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rng();
 <a href=#1704 id=1704 data-nosnippet>1704</a>        <span class="kw">let </span><span class="kw-2">mut </span>store = store::Store::memory();
 <a href=#1705 id=1705 data-nosnippet>1705</a>        <span class="kw">let </span>author = Author::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1706 id=1706 data-nosnippet>1706</a>        <span class="kw">let </span>namespace = NamespaceSecret::new(<span class="kw-2">&amp;mut </span>rng);
@@ -1759,7 +1759,7 @@
 <a href=#1759 id=1759 data-nosnippet>1759</a>    <span class="attr">#[test]
 <a href=#1760 id=1760 data-nosnippet>1760</a>    </span><span class="kw">fn </span>test_insert_empty() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 <a href=#1761 id=1761 data-nosnippet>1761</a>        <span class="kw">let </span><span class="kw-2">mut </span>store = store::Store::memory();
-<a href=#1762 id=1762 data-nosnippet>1762</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
+<a href=#1762 id=1762 data-nosnippet>1762</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rng();
 <a href=#1763 id=1763 data-nosnippet>1763</a>        <span class="kw">let </span>alice = Author::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1764 id=1764 data-nosnippet>1764</a>        <span class="kw">let </span>myspace = NamespaceSecret::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1765 id=1765 data-nosnippet>1765</a>        <span class="kw">let </span><span class="kw-2">mut </span>replica = store.new_replica(myspace.clone())<span class="question-mark">?</span>;
@@ -1786,7 +1786,7 @@
 <a href=#1786 id=1786 data-nosnippet>1786</a>    }
 <a href=#1787 id=1787 data-nosnippet>1787</a>
 <a href=#1788 id=1788 data-nosnippet>1788</a>    <span class="kw">fn </span>test_prefix_delete(<span class="kw-2">mut </span>store: Store) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#1789 id=1789 data-nosnippet>1789</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
+<a href=#1789 id=1789 data-nosnippet>1789</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rng();
 <a href=#1790 id=1790 data-nosnippet>1790</a>        <span class="kw">let </span>alice = Author::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1791 id=1791 data-nosnippet>1791</a>        <span class="kw">let </span>myspace = NamespaceSecret::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1792 id=1792 data-nosnippet>1792</a>        <span class="kw">let </span><span class="kw-2">mut </span>replica = store.new_replica(myspace.clone())<span class="question-mark">?</span>;
@@ -1844,7 +1844,7 @@
 <a href=#1844 id=1844 data-nosnippet>1844</a>        <span class="kw">let </span>alice_set = [<span class="string">"foot"</span>];
 <a href=#1845 id=1845 data-nosnippet>1845</a>        <span class="kw">let </span>bob_set = [<span class="string">"fool"</span>, <span class="string">"foo"</span>, <span class="string">"fog"</span>];
 <a href=#1846 id=1846 data-nosnippet>1846</a>
-<a href=#1847 id=1847 data-nosnippet>1847</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
+<a href=#1847 id=1847 data-nosnippet>1847</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rng();
 <a href=#1848 id=1848 data-nosnippet>1848</a>        <span class="kw">let </span>author = Author::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1849 id=1849 data-nosnippet>1849</a>        <span class="kw">let </span>myspace = NamespaceSecret::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1850 id=1850 data-nosnippet>1850</a>        <span class="kw">let </span><span class="kw-2">mut </span>alice = alice_store.new_replica(myspace.clone())<span class="question-mark">?</span>;
@@ -1890,7 +1890,7 @@
 <a href=#1890 id=1890 data-nosnippet>1890</a>    }
 <a href=#1891 id=1891 data-nosnippet>1891</a>
 <a href=#1892 id=1892 data-nosnippet>1892</a>    <span class="kw">fn </span>test_replica_remove(<span class="kw-2">mut </span>store: Store) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#1893 id=1893 data-nosnippet>1893</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
+<a href=#1893 id=1893 data-nosnippet>1893</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rng();
 <a href=#1894 id=1894 data-nosnippet>1894</a>        <span class="kw">let </span>namespace = NamespaceSecret::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1895 id=1895 data-nosnippet>1895</a>        <span class="kw">let </span>author = Author::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1896 id=1896 data-nosnippet>1896</a>        <span class="kw">let </span><span class="kw-2">mut </span>replica = store.new_replica(namespace.clone())<span class="question-mark">?</span>;
@@ -1942,7 +1942,7 @@
 <a href=#1942 id=1942 data-nosnippet>1942</a>    }
 <a href=#1943 id=1943 data-nosnippet>1943</a>
 <a href=#1944 id=1944 data-nosnippet>1944</a>    <span class="kw">fn </span>test_replica_delete_edge_cases(<span class="kw-2">mut </span>store: Store) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#1945 id=1945 data-nosnippet>1945</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
+<a href=#1945 id=1945 data-nosnippet>1945</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rng();
 <a href=#1946 id=1946 data-nosnippet>1946</a>        <span class="kw">let </span>author = Author::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1947 id=1947 data-nosnippet>1947</a>        <span class="kw">let </span>namespace = NamespaceSecret::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1948 id=1948 data-nosnippet>1948</a>
@@ -2009,7 +2009,7 @@
 <a href=#2009 id=2009 data-nosnippet>2009</a>    }
 <a href=#2010 id=2010 data-nosnippet>2010</a>
 <a href=#2011 id=2011 data-nosnippet>2011</a>    <span class="kw">fn </span>test_latest_iter(<span class="kw-2">mut </span>store: Store) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#2012 id=2012 data-nosnippet>2012</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
+<a href=#2012 id=2012 data-nosnippet>2012</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rng();
 <a href=#2013 id=2013 data-nosnippet>2013</a>        <span class="kw">let </span>author0 = Author::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#2014 id=2014 data-nosnippet>2014</a>        <span class="kw">let </span>author1 = Author::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#2015 id=2015 data-nosnippet>2015</a>        <span class="kw">let </span>namespace = NamespaceSecret::new(<span class="kw-2">&amp;mut </span>rng);
@@ -2053,7 +2053,7 @@
 <a href=#2053 id=2053 data-nosnippet>2053</a>    }
 <a href=#2054 id=2054 data-nosnippet>2054</a>
 <a href=#2055 id=2055 data-nosnippet>2055</a>    <span class="kw">fn </span>test_replica_byte_keys(<span class="kw-2">mut </span>store: Store) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#2056 id=2056 data-nosnippet>2056</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
+<a href=#2056 id=2056 data-nosnippet>2056</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rng();
 <a href=#2057 id=2057 data-nosnippet>2057</a>        <span class="kw">let </span>author = Author::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#2058 id=2058 data-nosnippet>2058</a>        <span class="kw">let </span>namespace = NamespaceSecret::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#2059 id=2059 data-nosnippet>2059</a>
