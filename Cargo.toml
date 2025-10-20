@@ -93,3 +93,10 @@ missing_debug_implementations = "warn"
 # do.  To enable for a crate set `#![cfg_attr(iroh_docsrs,
 # feature(doc_cfg))]` in the crate.
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(iroh_docsrs)"] }
+
+[patch.crates-io]
+iroh = { git = "https://github.com/n0-computer/iroh.git", branch = "main" }
+irpc = { git = "https://github.com/n0-computer/irpc.git", branch = "main" }
+iroh-base = { git = "https://github.com/n0-computer/iroh.git", branch = "main" }
+iroh-gossip = { git = "https://github.com/n0-computer/iroh-gossip.git", branch = "main" }
+iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs.git", branch = "main" }
