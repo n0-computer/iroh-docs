@@ -2,6 +2,16 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.94.0](https://github.com/n0-computer/iroh-docs/compare/v0.93.1..0.94.0) - 2025-10-22
+
+### ⛰️  Features
+
+- Upgrade redb to v3 compatible format ([#69](https://github.com/n0-computer/iroh-docs/issues/69)) - ([b257606](https://github.com/n0-computer/iroh-docs/commit/b257606c6b40abc0fa4d0d78542e267367d45bdb))
+
+### ⚙️ Miscellaneous Tasks
+
+- Release prep ([#73](https://github.com/n0-computer/iroh-docs/issues/73)) - ([f1b53df](https://github.com/n0-computer/iroh-docs/commit/f1b53df9e61fbe3f2513652b121f482eb85be484))
+
 ## [0.93.1](https://github.com/n0-computer/iroh-docs/compare/v0.93.0..0.93.1) - 2025-10-11
 
 ### ⚙️ Miscellaneous Tasks
