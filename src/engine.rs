@@ -10,7 +10,7 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use futures_lite::{Stream, StreamExt};
-use iroh::{Endpoint, NodeAddr, PublicKey};
+use iroh::{Endpoint, EndpointAddr, PublicKey};
 use iroh_blobs::{
     api::{blobs::BlobStatus, downloader::Downloader, Store},
     store::fs::options::{ProtectCb, ProtectOutcome},
@@ -75,7 +75,7 @@ impl Engine {
         protect_cb: Option<ProtectCallbackHandler>,
     ) -> anyhow::Result<Self> {
         let (live_actor_tx, to_live_actor_recv) = mpsc::channel(ACTOR_CHANNEL_CAP);
-        let me = endpoint.node_id().fmt_short().to_string();
+        let me = endpoint.id().fmt_short().to_string();
 
         let content_status_cb: ContentStatusCallback = {
             let blobs = bao_store.blobs().clone();
@@ -173,7 +173,7 @@ impl Engine {
     ///
     /// If `peers` is non-empty, it will both do an initial set-reconciliation sync with each peer,
     /// and join an iroh-gossip swarm with these peers to receive and broadcast document updates.
-    pub async fn start_sync(&self, namespace: NamespaceId, peers: Vec<NodeAddr>) -> Result<()> {
+    pub async fn start_sync(&self, namespace: NamespaceId, peers: Vec<EndpointAddr>) -> Result<()> {
         let (reply, reply_rx) = oneshot::channel();
         self.to_live_actor
             .send(ToLiveActor::StartSync {

@@ -7,7 +7,7 @@ use iroh_gossip::{net::Gossip, ALPN as GOSSIP_ALPN};
 async fn main() -> anyhow::Result<()> {
     // create an iroh endpoint that includes the standard discovery mechanisms
     // we've built at number0
-    let endpoint = Endpoint::builder().discovery_n0().bind().await?;
+    let endpoint = Endpoint::builder().bind().await?;
 
     // build the blobs protocol
     let blobs = MemStore::default();
