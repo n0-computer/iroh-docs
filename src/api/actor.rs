@@ -389,7 +389,7 @@ impl RpcActor {
             mode,
             addr_options,
         } = req;
-        let me = self.endpoint.node_addr();
+        let me = self.endpoint.addr();
         let me = addr_options.apply(&me);
 
         let capability = match mode {

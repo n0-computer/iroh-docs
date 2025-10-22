@@ -1,19 +1,19 @@
 //! Tickets for `iroh-docs` documents.
 
-use iroh::NodeAddr;
-use iroh_base::ticket;
+use iroh::EndpointAddr;
+use iroh_tickets::{ParseError, Ticket};
 use serde::{Deserialize, Serialize};
 
 use crate::Capability;
 
 /// Contains both a key (either secret or public) to a document, and a list of peers to join.
 #[derive(Serialize, Deserialize, Clone, Debug, derive_more::Display)]
-#[display("{}", ticket::Ticket::serialize(self))]
+#[display("{}", Ticket::serialize(self))]
 pub struct DocTicket {
     /// either a public or private key
     pub capability: Capability,
     /// A list of nodes to contact.
-    pub nodes: Vec<NodeAddr>,
+    pub nodes: Vec<EndpointAddr>,
 }
 
 /// Wire format for [`DocTicket`].
@@ -26,7 +26,7 @@ enum TicketWireFormat {
     Variant0(DocTicket),
 }
 
-impl ticket::Ticket for DocTicket {
+impl Ticket for DocTicket {
     const KIND: &'static str = "doc";
 
     fn to_bytes(&self) -> Vec<u8> {
@@ -34,11 +34,11 @@ impl ticket::Ticket for DocTicket {
         postcard::to_stdvec(&data).expect("postcard serialization failed")
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<Self, ticket::ParseError> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let res: TicketWireFormat = postcard::from_bytes(bytes)?;
         let TicketWireFormat::Variant0(res) = res;
         if res.nodes.is_empty() {
-            return Err(ticket::ParseError::verification_failed(
+            return Err(ParseError::verification_failed(
                 "addressing info cannot be empty",
             ));
         }
@@ -48,7 +48,7 @@ impl ticket::Ticket for DocTicket {
 
 impl DocTicket {
     /// Create a new doc ticket
-    pub fn new(capability: Capability, peers: Vec<NodeAddr>) -> Self {
+    pub fn new(capability: Capability, peers: Vec<EndpointAddr>) -> Self {
         Self {
             capability,
             nodes: peers,
@@ -57,9 +57,9 @@ impl DocTicket {
 }
 
 impl std::str::FromStr for DocTicket {
-    type Err = ticket::ParseError;
+    type Err = ParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        ticket::Ticket::deserialize(s)
+        Ticket::deserialize(s)
     }
 }
 
@@ -88,7 +88,7 @@ mod tests {
 
         let ticket = DocTicket {
             capability: Capability::Read(namespace_id),
-            nodes: vec![NodeAddr::from_parts(node_id, None, [])],
+            nodes: vec![EndpointAddr::new(node_id)],
         };
         let s = ticket.to_string();
         let base32 = data_encoding::BASE32_NOPAD
@@ -105,8 +105,7 @@ mod tests {
             ae58ff8833241ac82d6ff7611046ed67b5072d142c588d0063e942d9a75502b6 # namespace id, 32 bytes, see above
             01 # one node
             ae58ff8833241ac82d6ff7611046ed67b5072d142c588d0063e942d9a75502b6 # node id, 32 bytes, see above
-            00 # no relay url
-            00 # no direct addresses
+            00 # no addrs
         ").unwrap();
         assert_eq!(base32, expected);
     }

@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Result;
-use iroh::NodeId;
+use iroh::EndpointId;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
@@ -55,7 +55,7 @@ pub struct NamespaceStates(BTreeMap<NamespaceId, NamespaceState>);
 
 #[derive(Default)]
 struct NamespaceState {
-    nodes: BTreeMap<NodeId, PeerState>,
+    nodes: BTreeMap<EndpointId, PeerState>,
     may_emit_ready: bool,
 }
 
@@ -76,7 +76,7 @@ impl NamespaceStates {
     pub fn start_connect(
         &mut self,
         namespace: &NamespaceId,
-        node: NodeId,
+        node: EndpointId,
         reason: SyncReason,
     ) -> bool {
         match self.entry(namespace, node) {
@@ -93,9 +93,9 @@ impl NamespaceStates {
     /// Returns the [`AcceptOutcome`] to be performed.
     pub fn accept_request(
         &mut self,
-        me: &NodeId,
+        me: &EndpointId,
         namespace: &NamespaceId,
-        node: NodeId,
+        node: EndpointId,
     ) -> AcceptOutcome {
         let Some(state) = self.entry(namespace, node) else {
             return AcceptOutcome::Reject(AbortReason::NotFound);
@@ -113,7 +113,7 @@ impl NamespaceStates {
     pub fn finish(
         &mut self,
         namespace: &NamespaceId,
-        node: NodeId,
+        node: EndpointId,
         origin: &Origin,
         result: Result<SyncFinished>,
     ) -> Option<(SystemTime, bool)> {
@@ -155,7 +155,7 @@ impl NamespaceStates {
     /// Get the [`PeerState`] for a namespace and node.
     /// If the namespace is syncing and the node so far unknown, initialize and return a default [`PeerState`].
     /// If the namespace is not syncing return None.
-    fn entry(&mut self, namespace: &NamespaceId, node: NodeId) -> Option<&mut PeerState> {
+    fn entry(&mut self, namespace: &NamespaceId, node: EndpointId) -> Option<&mut PeerState> {
         self.0
             .get_mut(namespace)
             .map(|n| n.nodes.entry(node).or_default())
@@ -216,7 +216,7 @@ impl PeerState {
         }
     }
 
-    fn accept_request(&mut self, me: &NodeId, node: &NodeId) -> AcceptOutcome {
+    fn accept_request(&mut self, me: &EndpointId, node: &EndpointId) -> AcceptOutcome {
         let outcome = match &self.state {
             SyncState::Idle => AcceptOutcome::Allow,
             SyncState::Running { origin, .. } => match origin {
@@ -251,7 +251,7 @@ enum SyncDirection {
     Connect,
 }
 
-fn expected_sync_direction(self_node_id: &NodeId, other_node_id: &NodeId) -> SyncDirection {
+fn expected_sync_direction(self_node_id: &EndpointId, other_node_id: &EndpointId) -> SyncDirection {
     if self_node_id.as_bytes() > other_node_id.as_bytes() {
         SyncDirection::Accept
     } else {

@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use bytes::Bytes;
-use iroh::NodeAddr;
+use iroh::EndpointAddr;
 use iroh_blobs::{api::blobs::ExportMode, Hash};
 use irpc::{
     channel::{mpsc, oneshot},
@@ -179,7 +179,7 @@ pub struct DelResponse {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StartSyncRequest {
     pub doc_id: NamespaceId,
-    pub peers: Vec<NodeAddr>,
+    pub peers: Vec<EndpointAddr>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -365,7 +365,7 @@ pub enum DocsProtocol {
     AuthorDelete(AuthorDeleteRequest),
 }
 
-/// Options to configure what is included in a [`iroh::NodeAddr`].
+/// Options to configure what is included in a [`iroh::EndpointAddr`].
 #[derive(
     Copy,
     Clone,
@@ -396,32 +396,29 @@ impl AddrInfoOptions {
     /// Apply the options to the given address.
     pub fn apply(
         &self,
-        iroh::NodeAddr {
-            node_id,
-            relay_url,
-            direct_addresses,
-        }: &iroh::NodeAddr,
-    ) -> iroh::NodeAddr {
+        iroh::EndpointAddr { id, addrs }: &iroh::EndpointAddr,
+    ) -> iroh::EndpointAddr {
         match self {
-            Self::Id => iroh::NodeAddr {
-                node_id: *node_id,
-                relay_url: None,
-                direct_addresses: Default::default(),
+            Self::Id => iroh::EndpointAddr::new(*id),
+            Self::Relay => iroh::EndpointAddr {
+                id: *id,
+                addrs: addrs
+                    .iter()
+                    .filter(|addr| matches!(addr, iroh::TransportAddr::Relay(_)))
+                    .cloned()
+                    .collect(),
             },
-            Self::Relay => iroh::NodeAddr {
-                node_id: *node_id,
-                relay_url: relay_url.clone(),
-                direct_addresses: Default::default(),
+            Self::Addresses => iroh::EndpointAddr {
+                id: *id,
+                addrs: addrs
+                    .iter()
+                    .filter(|addr| matches!(addr, iroh::TransportAddr::Ip(_)))
+                    .cloned()
+                    .collect(),
             },
-            Self::Addresses => iroh::NodeAddr {
-                node_id: *node_id,
-                relay_url: None,
-                direct_addresses: direct_addresses.clone(),
-            },
-            Self::RelayAndAddresses => iroh::NodeAddr {
-                node_id: *node_id,
-                relay_url: relay_url.clone(),
-                direct_addresses: direct_addresses.clone(),
+            Self::RelayAndAddresses => iroh::EndpointAddr {
+                id: *id,
+                addrs: addrs.clone(),
             },
         }
     }

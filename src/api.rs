@@ -16,7 +16,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use bytes::Bytes;
-use iroh::NodeAddr;
+use iroh::EndpointAddr;
 use iroh_blobs::{
     api::blobs::{AddPathOptions, AddProgressItem, ExportMode, ExportOptions, ExportProgress},
     Hash,
@@ -433,7 +433,7 @@ impl Doc {
     }
 
     /// Starts to sync this document with a list of peers.
-    pub async fn start_sync(&self, peers: Vec<NodeAddr>) -> Result<()> {
+    pub async fn start_sync(&self, peers: Vec<EndpointAddr>) -> Result<()> {
         self.ensure_open()?;
         self.inner
             .rpc(StartSyncRequest {

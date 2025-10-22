@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use iroh::{discovery::IntoDiscovery, dns::DnsResolver, NodeId, RelayMode, SecretKey};
+use iroh::{discovery::IntoDiscovery, dns::DnsResolver, EndpointId, RelayMode, SecretKey};
 use iroh_blobs::store::fs::options::{GcConfig, Options};
 use iroh_docs::{engine::ProtectCallbackHandler, protocol::Docs};
 use iroh_gossip::net::Gossip;
@@ -87,9 +87,13 @@ impl Builder {
         }
         let mut builder = self.endpoint.bind_addr_v4(addr_v4).bind_addr_v6(addr_v6);
         if self.use_n0_discovery {
-            builder = builder.discovery_n0();
+            builder = builder.discovery(iroh::discovery::pkarr::PkarrPublisher::n0_dns());
+            // Resolve using HTTPS requests to our DNS server's /pkarr path in browsers
+            builder = builder.discovery(iroh::discovery::pkarr::PkarrResolver::n0_dns());
+            // Resolve using DNS queries outside browsers.
+            builder = builder.discovery(iroh::discovery::dns::DnsDiscovery::n0_dns());
         }
-        builder = builder.discovery_n0();
+
         let endpoint = builder.bind().await?;
         let mut router = iroh::protocol::Router::builder(endpoint.clone());
         let gossip = Gossip::builder().spawn(endpoint.clone());
@@ -181,7 +185,7 @@ impl Builder {
 
     fn new(path: Option<PathBuf>) -> Self {
         Self {
-            endpoint: iroh::Endpoint::builder(),
+            endpoint: iroh::Endpoint::empty_builder(RelayMode::Disabled),
             use_n0_discovery: true,
             path,
             gc_interval: None,
@@ -237,8 +241,8 @@ impl Builder {
 
 impl Node {
     /// Returns the node id
-    pub fn node_id(&self) -> NodeId {
-        self.router.endpoint().node_id()
+    pub fn id(&self) -> EndpointId {
+        self.router.endpoint().id()
     }
 
     // /// Returns the blob store

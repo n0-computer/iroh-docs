@@ -46,7 +46,7 @@ fn spawn_node(
     async move {
         let node = test_node(secret_key);
         let node = node.spawn().await?;
-        info!(?i, me = %node.node_id().fmt_short(), "node spawned");
+        info!(?i, me = %node.id().fmt_short(), "node spawned");
         Ok(node)
     }
 }
@@ -78,7 +78,7 @@ async fn sync_simple() -> Result<()> {
     let clients = nodes.iter().map(|node| node.client()).collect::<Vec<_>>();
 
     // create doc on node0
-    let peer0 = nodes[0].node_id();
+    let peer0 = nodes[0].id();
     let author0 = clients[0].docs().author_create().await?;
     let doc0 = clients[0].docs().create().await?;
     let blobs0 = clients[0].blobs();
@@ -93,7 +93,7 @@ async fn sync_simple() -> Result<()> {
     let mut events0 = doc0.subscribe().await?;
 
     info!("node1: join");
-    let peer1 = nodes[1].node_id();
+    let peer1 = nodes[1].id();
     let doc1 = clients[1].docs().import(ticket.clone()).await?;
     let blobs1 = clients[1].blobs();
     let mut events1 = doc1.subscribe().await?;
@@ -160,7 +160,7 @@ async fn sync_gossip_bulk() -> Result<()> {
     let nodes = spawn_nodes(2, &mut rng).await?;
     let clients = nodes.iter().map(|node| node.client()).collect::<Vec<_>>();
 
-    let _peer0 = nodes[0].node_id();
+    let _peer0 = nodes[0].id();
     let author0 = clients[0].docs().author_create().await?;
     let doc0 = clients[0].docs().create().await?;
     let mut ticket = doc0
@@ -251,7 +251,7 @@ async fn sync_full_basic() -> testresult::TestResult<()> {
         .collect::<Vec<_>>();
 
     // peer0: create doc and ticket
-    let peer0 = nodes[0].node_id();
+    let peer0 = nodes[0].id();
     let author0 = clients[0].docs().author_create().await?;
     let doc0 = clients[0].docs().create().await?;
     let blobs0 = clients[0].blobs();
@@ -274,7 +274,7 @@ async fn sync_full_basic() -> testresult::TestResult<()> {
         .await?;
 
     info!("peer1: spawn");
-    let peer1 = nodes[1].node_id();
+    let peer1 = nodes[1].id();
     let author1 = clients[1].docs().author_create().await?;
     info!("peer1: join doc");
     let doc1 = clients[1].docs().import(ticket.clone()).await?;
@@ -346,7 +346,7 @@ async fn sync_full_basic() -> testresult::TestResult<()> {
     clients.push(nodes.last().unwrap().client().clone());
     let doc2 = clients[2].docs().import(ticket).await?;
     let blobs2 = clients[2].blobs();
-    let peer2 = nodes[2].node_id();
+    let peer2 = nodes[2].id();
     let mut events2 = doc2.subscribe().await?;
 
     info!("peer2: wait for 9 events (from sync with peers)");
@@ -494,7 +494,7 @@ async fn test_sync_via_relay() -> Result<()> {
         .insecure_skip_relay_cert_verify(true)
         .spawn()
         .await?;
-    let node1_id = node1.node_id();
+    let node1_id = node1.id();
     let node2 = Node::memory()
         .bind_random_port()
         .relay_mode(RelayMode::Custom(relay_map.clone()))
@@ -514,8 +514,14 @@ async fn test_sync_via_relay() -> Result<()> {
         .await?;
 
     // remove direct addrs to force connect via relay
-    ticket.nodes[0].direct_addresses = Default::default();
-
+    let mut relay_ticket = ticket.nodes[0].clone();
+    relay_ticket.addrs = relay_ticket
+        .addrs
+        .iter()
+        .filter(|addr| matches!(addr, iroh::TransportAddr::Relay(_)))
+        .cloned()
+        .collect();
+    ticket.nodes[0] = relay_ticket;
     // join
     let doc2 = node2.docs().import(ticket).await?;
     let blobs2 = node2.blobs();
@@ -599,7 +605,7 @@ async fn sync_restart_node() -> Result<()> {
         .node_discovery(discovery_server.discovery(secret_key_1.clone()))
         .spawn()
         .await?;
-    let id1 = node1.node_id();
+    let id1 = node1.id();
 
     // create doc & ticket on node1
     let doc1 = node1.docs().create().await?;
@@ -619,7 +625,7 @@ async fn sync_restart_node() -> Result<()> {
         .node_discovery(discovery_server.discovery(secret_key_2.clone()))
         .spawn()
         .await?;
-    let id2 = node2.node_id();
+    let id2 = node2.id();
     let author2 = node2.docs().author_create().await?;
     let doc2 = node2.docs().import(ticket.clone()).await?;
     let blobs2 = node2.blobs();
@@ -665,7 +671,7 @@ async fn sync_restart_node() -> Result<()> {
         .node_discovery(discovery_server.discovery(secret_key_1.clone()))
         .spawn()
         .await?;
-    assert_eq!(id1, node1.node_id());
+    assert_eq!(id1, node1.id());
 
     let doc1 = node1.docs().open(doc1.id()).await?.expect("doc to exist");
     let blobs1 = node1.blobs();
@@ -874,7 +880,7 @@ async fn sync_big() -> Result<()> {
     });
 
     let nodes = spawn_nodes(n_nodes, &mut rng).await?;
-    let node_ids = nodes.iter().map(|node| node.node_id()).collect::<Vec<_>>();
+    let node_ids = nodes.iter().map(|node| node.id()).collect::<Vec<_>>();
     let clients = nodes.iter().map(|node| node.client()).collect::<Vec<_>>();
     let authors = collect_futures(clients.iter().map(|c| c.docs().author_create())).await?;
 
@@ -927,7 +933,7 @@ async fn sync_big() -> Result<()> {
 
     // join nodes together
     for (i, doc) in docs.iter().enumerate().skip(1) {
-        info!(me = %node_ids[i].fmt_short(), peer = %peer0.node_id.fmt_short(), "join");
+        info!(me = %node_ids[i].fmt_short(), peer = %peer0.id.fmt_short(), "join");
         doc.start_sync(vec![peer0.clone()]).await?;
     }
 

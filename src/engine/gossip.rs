@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use bytes::Bytes;
 use futures_lite::StreamExt;
 use futures_util::FutureExt;
-use iroh::NodeId;
+use iroh::EndpointId;
 use iroh_gossip::{
     api::{Event, GossipReceiver, GossipSender, JoinOptions},
     net::Gossip,
@@ -44,7 +44,7 @@ impl GossipState {
         }
     }
 
-    pub async fn join(&mut self, namespace: NamespaceId, bootstrap: Vec<NodeId>) -> Result<()> {
+    pub async fn join(&mut self, namespace: NamespaceId, bootstrap: Vec<EndpointId>) -> Result<()> {
         match self.active.entry(namespace) {
             hash_map::Entry::Occupied(mut entry) => {
                 if !bootstrap.is_empty() {

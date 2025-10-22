@@ -31,13 +31,13 @@ futures-buffered = "0.2.4"
 futures-lite = "2.3.0"
 futures-util = { version = "0.3.25" }
 hex = "0.4"
-iroh = { version = "0.93" }
-iroh-base = { version = "0.93", features = ["ticket"] }
-iroh-blobs = { version = "0.95" }
-iroh-gossip = { version = "0.93", features = ["net"] }
+iroh = { version = "0.94" }
+iroh-tickets = { version = "0.1"}
+iroh-blobs = { version = "0.96" }
+iroh-gossip = { version = "0.94", features = ["net"] }
 iroh-metrics = { version = "0.36", default-features = false }
-irpc = { version = "0.9.0" }
-n0-future = "0.1.3"
+irpc = { version = "0.10.0" }
+n0-future = "0.3"
 num_enum = "0.7"
 postcard = { version = "1", default-features = false, features = [
     "alloc",
@@ -60,8 +60,8 @@ tracing = "0.1"
 
 [dev-dependencies]
 data-encoding = "2.6.0"
-iroh = { version = "0.93", features = ["test-utils"] }
-nested_enum_utils = "0.1.0"
+iroh = { version = "0.94", features = ["test-utils"] }
+nested_enum_utils = "0.2"
 parking_lot = "0.12.3"
 proptest = "1.2.0"
 rand_chacha = "0.9"
@@ -93,10 +93,3 @@ missing_debug_implementations = "warn"
 # do.  To enable for a crate set `#![cfg_attr(iroh_docsrs,
 # feature(doc_cfg))]` in the crate.
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(iroh_docsrs)"] }
-
-[patch.crates-io]
-iroh = { git = "https://github.com/n0-computer/iroh.git", branch = "main" }
-irpc = { git = "https://github.com/n0-computer/irpc.git", branch = "main" }
-iroh-base = { git = "https://github.com/n0-computer/iroh.git", branch = "main" }
-iroh-gossip = { git = "https://github.com/n0-computer/iroh-gossip.git", branch = "main" }
-iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs.git", branch = "main" }

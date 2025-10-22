@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use iroh::{Endpoint, NodeAddr, PublicKey};
+use iroh::{Endpoint, EndpointAddr, PublicKey};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error_span, trace, Instrument};
 
@@ -26,11 +26,11 @@ pub async fn connect_and_sync(
     endpoint: &Endpoint,
     sync: &SyncHandle,
     namespace: NamespaceId,
-    peer: NodeAddr,
+    peer: EndpointAddr,
     metrics: Option<&Metrics>,
 ) -> Result<SyncFinished, ConnectError> {
     let t_start = Instant::now();
-    let peer_id = peer.node_id;
+    let peer_id = peer.id;
     trace!("connect");
     let connection = endpoint
         .connect(peer, crate::ALPN)
@@ -114,7 +114,7 @@ where
     Fut: Future<Output = AcceptOutcome>,
 {
     let t_start = Instant::now();
-    let peer = connection.remote_node_id().map_err(AcceptError::connect)?;
+    let peer = connection.remote_id().map_err(AcceptError::connect)?;
     let (mut send_stream, mut recv_stream) = connection
         .accept_bi()
         .await

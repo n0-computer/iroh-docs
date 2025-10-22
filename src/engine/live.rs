@@ -8,7 +8,9 @@ use std::{
 
 use anyhow::{Context, Result};
 use futures_lite::FutureExt;
-use iroh::{Endpoint, NodeAddr, NodeId, PublicKey};
+use iroh::{
+    discovery::static_provider::StaticProvider, Endpoint, EndpointAddr, EndpointId, PublicKey,
+};
 use iroh_blobs::{
     api::{
         blobs::BlobStatus,
@@ -38,9 +40,6 @@ use crate::{
     AuthorHeads, ContentStatus, NamespaceId, SignedEntry,
 };
 
-/// Name used for logging when new node addresses are added from the docs engine.
-const SOURCE_NAME: &str = "docs_engine";
-
 /// An iroh-docs operation
 ///
 /// This is the message that is broadcast over iroh-gossip.
@@ -67,7 +66,7 @@ pub struct SyncReport {
 pub enum ToLiveActor {
     StartSync {
         namespace: NamespaceId,
-        peers: Vec<NodeAddr>,
+        peers: Vec<EndpointAddr>,
         #[debug("onsehot::Sender")]
         reply: sync::oneshot::Sender<anyhow::Result<()>>,
     },
@@ -157,6 +156,7 @@ pub struct LiveActor {
     endpoint: Endpoint,
     bao_store: Store,
     downloader: Downloader,
+    static_provider: StaticProvider,
     replica_events_tx: async_channel::Sender<crate::Event>,
     replica_events_rx: async_channel::Receiver<crate::Event>,
 
@@ -201,12 +201,15 @@ impl LiveActor {
     ) -> Self {
         let (replica_events_tx, replica_events_rx) = async_channel::bounded(1024);
         let gossip_state = GossipState::new(gossip, sync.clone(), sync_actor_tx.clone());
+        let static_provider = StaticProvider::new();
+        endpoint.discovery().add(static_provider.clone());
         Self {
             inbox,
             sync,
             replica_events_rx,
             replica_events_tx,
             endpoint,
+            static_provider,
             gossip: gossip_state,
             bao_store,
             downloader,
@@ -376,7 +379,7 @@ impl LiveActor {
                 &endpoint,
                 &sync,
                 namespace,
-                NodeAddr::new(peer),
+                EndpointAddr::new(peer),
                 Some(&metrics),
             )
             .await;
@@ -401,7 +404,11 @@ impl LiveActor {
         Ok(())
     }
 
-    async fn start_sync(&mut self, namespace: NamespaceId, mut peers: Vec<NodeAddr>) -> Result<()> {
+    async fn start_sync(
+        &mut self,
+        namespace: NamespaceId,
+        mut peers: Vec<EndpointAddr>,
+    ) -> Result<()> {
         debug!(?namespace, peers = peers.len(), "start sync");
         // update state to allow sync
         if !self.state.is_syncing(&namespace) {
@@ -421,7 +428,7 @@ impl LiveActor {
                     // peers are stored as bytes, don't fail the operation if they can't be
                     // decoded: simply ignore the peer
                     match PublicKey::from_bytes(&peer_id_bytes) {
-                        Ok(public_key) => Some(NodeAddr::new(public_key)),
+                        Ok(public_key) => Some(EndpointAddr::new(public_key)),
                         Err(_signing_error) => {
                             warn!("potential db corruption: peers per doc can't be decoded");
                             None
@@ -459,26 +466,18 @@ impl LiveActor {
         Ok(())
     }
 
-    async fn join_peers(&mut self, namespace: NamespaceId, peers: Vec<NodeAddr>) -> Result<()> {
+    async fn join_peers(&mut self, namespace: NamespaceId, peers: Vec<EndpointAddr>) -> Result<()> {
         let mut peer_ids = Vec::new();
 
         // add addresses of peers to our endpoint address book
         for peer in peers.into_iter() {
-            let peer_id = peer.node_id;
+            let peer_id = peer.id;
             // adding a node address without any addressing info fails with an error,
             // but we still want to include those peers because node discovery might find addresses for them
-            if peer.is_empty() {
-                peer_ids.push(peer_id)
-            } else {
-                match self.endpoint.add_node_addr_with_source(peer, SOURCE_NAME) {
-                    Ok(()) => {
-                        peer_ids.push(peer_id);
-                    }
-                    Err(err) => {
-                        warn!(peer = %peer_id.fmt_short(), "failed to add known addrs: {err:?}");
-                    }
-                }
+            if !peer.is_empty() {
+                self.static_provider.add_endpoint_info(peer);
             }
+            peer_ids.push(peer_id);
         }
 
         // tell gossip to join
@@ -679,7 +678,7 @@ impl LiveActor {
     async fn on_neighbor_content_ready(
         &mut self,
         namespace: NamespaceId,
-        node: NodeId,
+        node: EndpointId,
         hash: Hash,
     ) {
         self.start_download(namespace, hash, node, true).await;
@@ -826,7 +825,7 @@ impl LiveActor {
         peer: PublicKey,
     ) -> AcceptOutcome {
         self.state
-            .accept_request(&self.endpoint.node_id(), &namespace, peer)
+            .accept_request(&self.endpoint.id(), &namespace, peer)
     }
 }
 
@@ -898,10 +897,10 @@ struct QueuedHashes {
 }
 
 #[derive(Debug, Clone, Default)]
-struct ProviderNodes(Arc<std::sync::Mutex<HashMap<Hash, HashSet<NodeId>>>>);
+struct ProviderNodes(Arc<std::sync::Mutex<HashMap<Hash, HashSet<EndpointId>>>>);
 
 impl ContentDiscovery for ProviderNodes {
-    fn find_providers(&self, hash: HashAndFormat) -> n0_future::stream::Boxed<NodeId> {
+    fn find_providers(&self, hash: HashAndFormat) -> n0_future::stream::Boxed<EndpointId> {
         let nodes = self
             .0
             .lock()
