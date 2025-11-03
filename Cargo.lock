@@ -1797,7 +1797,11 @@ dependencies = [
  "iroh-quinn",
  "iroh-quinn-proto",
  "iroh-quinn-udp",
+<<<<<<< HEAD
  "iroh-relay 0.94.0",
+=======
+ "iroh-relay",
+>>>>>>> df4c3ab (remove path dep)
  "n0-future 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "n0-snafu",
  "n0-watcher 0.4.0",
@@ -1945,7 +1949,11 @@ dependencies = [
  "iroh-metrics 0.36.2",
  "iroh-quinn",
  "iroh-tickets",
+<<<<<<< HEAD
  "irpc 0.11.0",
+=======
+ "irpc 0.10.0 (git+https://github.com/n0-computer/irpc?branch=main)",
+>>>>>>> df4c3ab (remove path dep)
  "n0-future 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "n0-snafu",
  "nested_enum_utils",
@@ -2030,10 +2038,17 @@ dependencies = [
  "futures-util",
  "hex",
  "indexmap",
+<<<<<<< HEAD
  "iroh 0.94.0",
  "iroh-base 0.94.1",
  "iroh-metrics 0.36.2",
  "irpc 0.10.0",
+=======
+ "iroh",
+ "iroh-base",
+ "iroh-metrics",
+ "irpc 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
+>>>>>>> df4c3ab (remove path dep)
  "n0-future 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "n0-snafu",
  "nested_enum_utils",
@@ -2246,9 +2261,16 @@ dependencies = [
  "iroh-metrics 0.37.0",
  "iroh-quinn",
  "iroh-quinn-proto",
+<<<<<<< HEAD
  "lru 0.16.2",
  "n0-error",
  "n0-future 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+=======
+ "lru 0.16.1",
+ "n0-future 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "n0-snafu",
+ "nested_enum_utils",
+>>>>>>> df4c3ab (remove path dep)
  "num_enum",
  "pin-project",
  "pkarr",
@@ -2305,7 +2327,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52cf44fdb253f2a3e22e5ecfa8efa466929f8b7cdd4fc0f958f655406e8cdab6"
 dependencies = [
  "futures-util",
+<<<<<<< HEAD
  "irpc-derive 0.8.0",
+=======
+ "irpc-derive 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+>>>>>>> df4c3ab (remove path dep)
  "n0-future 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "thiserror 2.0.17",
@@ -2322,8 +2348,12 @@ dependencies = [
  "futures-buffered",
  "futures-util",
  "iroh-quinn",
+<<<<<<< HEAD
  "irpc-derive 0.9.0",
  "n0-error",
+=======
+ "irpc-derive 0.8.0 (git+https://github.com/n0-computer/irpc?branch=main)",
+>>>>>>> df4c3ab (remove path dep)
  "n0-future 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "postcard",
  "rcgen",
@@ -2751,7 +2781,11 @@ dependencies = [
  "js-sys",
  "libc",
  "n0-future 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+<<<<<<< HEAD
  "n0-watcher 0.4.0",
+=======
+ "n0-watcher",
+>>>>>>> df4c3ab (remove path dep)
  "nested_enum_utils",
  "netdev",
  "netlink-packet-core",

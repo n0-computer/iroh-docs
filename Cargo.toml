@@ -99,6 +99,3 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(iroh_docsrs)"] }
 
 [build-dependencies]
 cfg_aliases = "0.2.1"
-
-# [patch.crates-io]
-# n0-future = { path = "../n0-future" }
