@@ -605,24 +605,27 @@ impl SyncHandle {
 
 impl Drop for SyncHandle {
     fn drop(&mut self) {
-        #[cfg(wasm_browser)]
-        {
-            let tx = self.tx.clone();
-            n0_future::task::spawn(async move {
-                tx.send(Action::Shutdown { reply: None }).await.ok();
-            });
-        }
         // this means we're dropping the last reference
-        #[cfg(not(wasm_browser))]
+        #[allow(unused)]
         if let Some(handle) = Arc::get_mut(&mut self.join_handle) {
-            // this call is the reason tx can not be a tokio mpsc channel.
-            // we have no control about where drop is called, yet tokio send_blocking panics
-            // when called from inside a tokio runtime.
-            self.tx.send_blocking(Action::Shutdown { reply: None }).ok();
-            let handle = handle.take().expect("this can only run once");
+            #[cfg(wasm_browser)]
+            {
+                let tx = self.tx.clone();
+                n0_future::task::spawn(async move {
+                    tx.send(Action::Shutdown { reply: None }).await.ok();
+                });
+            }
+            #[cfg(not(wasm_browser))]
+            {
+                // this call is the reason tx can not be a tokio mpsc channel.
+                // we have no control about where drop is called, yet tokio send_blocking panics
+                // when called from inside a tokio runtime.
+                self.tx.send_blocking(Action::Shutdown { reply: None }).ok();
+                let handle = handle.take().expect("this can only run once");
 
-            if let Err(err) = handle.join() {
-                warn!(?err, "Failed to join sync actor");
+                if let Err(err) = handle.join() {
+                    warn!(?err, "Failed to join sync actor");
+                }
             }
         }
     }
