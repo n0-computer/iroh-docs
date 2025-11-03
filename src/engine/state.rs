@@ -1,7 +1,8 @@
 use std::{
     collections::BTreeMap,
-    time::{Instant, SystemTime},
+    time::Instant,
 };
+use n0_future::time::SystemTime;
 
 use anyhow::Result;
 use iroh::EndpointId;

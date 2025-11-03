@@ -3,8 +3,8 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
-    time::SystemTime,
 };
+use n0_future::time::SystemTime;
 
 use anyhow::{Context, Result};
 use futures_lite::FutureExt;

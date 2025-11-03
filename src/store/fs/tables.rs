@@ -61,7 +61,7 @@ pub type RecordsByKeyIdOwned = ([u8; 32], Bytes, [u8; 32]);
 /// Value: `(u64, [u8; 32])` # ([`Nanos`], &[`PeerIdBytes`]) representing the last time a peer was used.
 pub const NAMESPACE_PEERS_TABLE: MultimapTableDefinition<&[u8; 32], (Nanos, &PeerIdBytes)> =
     MultimapTableDefinition::new("sync-peers-1");
-/// Number of seconds elapsed since [`std::time::SystemTime::UNIX_EPOCH`]. Used to register the
+/// Number of seconds elapsed since [`n0_future::time::SystemTime::UNIX_EPOCH`]. Used to register the
 /// last time a peer was useful in a document.
 // NOTE: resolution is nanoseconds, stored as a u64 since this covers ~500years from unix epoch,
 // which should be more than enough

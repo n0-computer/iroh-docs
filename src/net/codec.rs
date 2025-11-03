@@ -322,6 +322,7 @@ mod tests {
         let alice_replica_id = alice_replica.id();
         alice_replica
             .hash_and_insert("hello bob", &author, "from alice")
+            .await
             .unwrap();
 
         let mut bob_store = store::Store::memory();
@@ -329,6 +330,7 @@ mod tests {
         let bob_replica_id = bob_replica.id();
         bob_replica
             .hash_and_insert("hello alice", &author, "from bob")
+            .await
             .unwrap();
 
         assert_eq!(
@@ -438,9 +440,9 @@ mod tests {
 
     type Message = (AuthorId, Vec<u8>, Hash);
 
-    fn insert_messages(
+    async fn insert_messages(
         mut rng: impl CryptoRng,
-        replica: &mut crate::sync::Replica,
+        replica: &mut crate::sync::Replica<'_>,
         num_authors: usize,
         msgs_per_author: usize,
         key_value_fn: impl Fn(&AuthorId, usize) -> (String, String),
@@ -453,7 +455,10 @@ mod tests {
         for i in 0..msgs_per_author {
             for author in authors.iter() {
                 let (key, value) = key_value_fn(&author.id(), i);
-                let hash = replica.hash_and_insert(key.clone(), author, value).unwrap();
+                let hash = replica
+                    .hash_and_insert(key.clone(), author, value)
+                    .await
+                    .unwrap();
                 res.push((author.id(), key.as_bytes().to_vec(), hash));
             }
         }
@@ -509,7 +514,8 @@ mod tests {
                             format!("from alice by {author}: {i}"),
                         )
                     },
-                );
+                )
+                .await;
                 all_messages.extend_from_slice(&alice_messages);
 
                 let mut bob_replica = bob_store.new_replica(namespace.clone()).unwrap();
@@ -524,7 +530,8 @@ mod tests {
                             format!("from bob by {author}: {i}"),
                         )
                     },
-                );
+                )
+                .await;
                 all_messages.extend_from_slice(&bob_messages);
 
                 all_messages.sort();
@@ -646,10 +653,12 @@ mod tests {
         // Insert into alice
         let hash_alice = alice_replica
             .hash_and_insert(&key, &author, &value_alice)
+            .await
             .unwrap();
         // Insert into bob
         let hash_bob = bob_replica
             .hash_and_insert(&key, &author, &value_bob)
+            .await
             .unwrap();
 
         assert_eq!(

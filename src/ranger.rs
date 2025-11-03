@@ -1,7 +1,7 @@
 //! Implementation of Set Reconcilliation based on
 //! "Range-Based Set Reconciliation" by Aljoscha Meyer.
 
-use std::{fmt::Debug, pin::Pin};
+use std::fmt::Debug;
 
 use n0_future::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -330,11 +330,8 @@ pub trait Store<E: RangeEntry>: Sized {
     ) -> Result<Option<Message<E>>, Self::Error>
     where
         F: Fn(&Self, &E, ContentStatus) -> bool,
-        F2: FnMut(&Self, E, ContentStatus),
-        F3: for<'a> Fn(
-            &'a E,
-        )
-            -> Pin<Box<dyn std::future::Future<Output = ContentStatus> + Send + 'a>>,
+        F2: AsyncFnMut(&Self, E, ContentStatus),
+        F3: for<'a> AsyncFn(&'a E) -> ContentStatus,
     {
         let mut out = Vec::new();
 
@@ -397,7 +394,7 @@ pub trait Store<E: RangeEntry>: Sized {
                     // TODO: Get rid of the clone?
                     let outcome = self.put(entry.clone())?;
                     if let InsertOutcome::Inserted { .. } = outcome {
-                        on_insert_cb(self, entry, content_status);
+                        on_insert_cb(self, entry, content_status).await;
                     }
                 }
             }
@@ -1419,8 +1416,8 @@ mod tests {
                     &Default::default(),
                     msg,
                     &bob_validate_cb,
-                    |_, _, _| (),
-                    |_| Box::pin(async move { ContentStatus::Complete }),
+                    async |_, _, _| (),
+                    async |_| ContentStatus::Complete,
                 )
                 .await
                 .unwrap()
@@ -1431,8 +1428,8 @@ mod tests {
                         &Default::default(),
                         msg,
                         &alice_validate_cb,
-                        |_, _, _| (),
-                        |_| Box::pin(async move { ContentStatus::Complete }),
+                        async |_, _, _| (),
+                        async |_| ContentStatus::Complete,
                     )
                     .await
                     .unwrap();

@@ -140,7 +140,7 @@ async fn sync_subscribe_no_sync() -> Result<()> {
     let mut sub = doc.subscribe().await?;
     let author = client.docs().author_create().await?;
     doc.set_bytes(author, b"k".to_vec(), b"v".to_vec()).await?;
-    let event = tokio::time::timeout(Duration::from_millis(100), sub.next()).await?;
+    let event = n0_future::time::timeout(Duration::from_millis(100), sub.next()).await?;
     assert!(
         matches!(event, Some(Ok(LiveEvent::InsertLocal { .. }))),
         "expected InsertLocal but got {event:?}"
@@ -657,7 +657,7 @@ async fn sync_restart_node() -> Result<()> {
     info!(me = %id1.fmt_short(), "node1 down");
 
     info!(me = %id1.fmt_short(), "sleep 1s");
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    n0_future::time::sleep(Duration::from_secs(1)).await;
 
     info!(me = %id2.fmt_short(), "node2 set b");
     let hash_b = doc2.set_bytes(author2, "n2/b", "b").await?;
@@ -843,7 +843,7 @@ async fn test_download_policies() -> Result<()> {
         (downloaded_a, downloaded_b)
     };
 
-    let (downloaded_a, mut downloaded_b) = tokio::time::timeout(TIMEOUT, fut)
+    let (downloaded_a, mut downloaded_b) = n0_future::time::timeout(TIMEOUT, fut)
         .await
         .context("timeout elapsed")?;
 
@@ -874,7 +874,7 @@ async fn sync_big() -> Result<()> {
 
     tokio::task::spawn(async move {
         for i in 0.. {
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            n0_future::time::sleep(Duration::from_secs(1)).await;
             info!("tick {i}");
         }
     });
@@ -1012,7 +1012,7 @@ async fn test_list_docs_stream() -> testresult::TestResult<()> {
         }
     };
 
-    tokio::time::timeout(Duration::from_secs(2), fut)
+    n0_future::time::timeout(Duration::from_secs(2), fut)
         .await
         .expect("not to timeout");
 
@@ -1081,7 +1081,7 @@ async fn wait_for_events(
     matcher: impl Fn(&LiveEvent) -> bool,
 ) -> anyhow::Result<Vec<LiveEvent>> {
     let mut res = Vec::with_capacity(count);
-    let sleep = tokio::time::sleep(timeout);
+    let sleep = n0_future::time::sleep(timeout);
     tokio::pin!(sleep);
     while res.len() < count {
         tokio::select! {
@@ -1184,7 +1184,7 @@ async fn doc_delete() -> Result<()> {
 
     // wait for gc
     // TODO: allow to manually trigger gc
-    tokio::time::sleep(Duration::from_secs(2)).await;
+    n0_future::time::sleep(Duration::from_secs(2)).await;
     let bytes = client.blobs().get_bytes(hash).await;
     assert!(bytes.is_err());
     node.shutdown().await?;
@@ -1289,7 +1289,7 @@ async fn assert_next<T: std::fmt::Debug + Clone>(
         }
         items
     };
-    let res = tokio::time::timeout(timeout, fut).await;
+    let res = n0_future::time::timeout(timeout, fut).await;
     res.expect("timeout reached")
 }
 
@@ -1357,7 +1357,7 @@ async fn assert_next_unordered_with_optionals<T: std::fmt::Debug + Clone>(
         Ok(())
     };
     tokio::pin!(fut);
-    let res = tokio::time::timeout(timeout, fut)
+    let res = n0_future::time::timeout(timeout, fut)
         .await
         .map_err(|_| anyhow!("Timeout reached ({timeout:?})"))
         .and_then(|res| res);
