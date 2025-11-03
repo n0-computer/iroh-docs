@@ -28,6 +28,7 @@ impl Docs {
 
     /// Create a new [`Builder`] for the docs protocol, using a persistent replica and author storage
     /// in the given directory.
+    #[cfg(feature = "fs-store")]
     pub fn persistent(path: PathBuf) -> Builder {
         Builder {
             path: Some(path),
