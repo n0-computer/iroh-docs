@@ -97,3 +97,6 @@ missing_debug_implementations = "warn"
 # do.  To enable for a crate set `#![cfg_attr(iroh_docsrs,
 # feature(doc_cfg))]` in the crate.
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(iroh_docsrs)"] }
+
+[build-dependencies]
+cfg_aliases = "0.2.1"

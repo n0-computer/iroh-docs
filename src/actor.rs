@@ -13,8 +13,9 @@ use bytes::Bytes;
 use futures_util::FutureExt;
 use iroh_blobs::Hash;
 use irpc::channel::mpsc;
+use n0_future::task::JoinSet;
 use serde::{Deserialize, Serialize};
-use tokio::{sync::oneshot, task::JoinSet};
+use tokio::sync::oneshot;
 use tracing::{debug, error, error_span, trace, warn};
 
 use crate::{
@@ -226,7 +227,10 @@ struct OpenReplica {
 #[derive(Debug, Clone)]
 pub struct SyncHandle {
     tx: async_channel::Sender<Action>,
-    join_handle: Arc<Option<JoinHandle<()>>>,
+    #[cfg(wasm_browser)]
+    join_handle: Arc<Option<n0_future::task::JoinHandle<()>>>,
+    #[cfg(not(wasm_browser))]
+    join_handle: Arc<Option<std::thread::JoinHandle<()>>>,
     metrics: Arc<Metrics>,
 }
 
@@ -270,13 +274,18 @@ impl SyncHandle {
             tasks: Default::default(),
             metrics: metrics.clone(),
         };
+
+        #[cfg(wasm_browser)]
+        let join_handle = n0_future::task::spawn(actor.run_async());
+
+        #[cfg(not(wasm_browser))]
         let join_handle = std::thread::Builder::new()
             .name("sync-actor".to_string())
             .spawn(move || {
                 let span = error_span!("sync", %me);
                 let _enter = span.enter();
 
-                if let Err(err) = actor.run() {
+                if let Err(err) = actor.run_in_thread() {
                     error!("Sync actor closed with error: {err:?}");
                 }
             })
@@ -600,6 +609,8 @@ impl Drop for SyncHandle {
             // when called from inside a tokio runtime.
             self.tx.send_blocking(Action::Shutdown { reply: None }).ok();
             let handle = handle.take().expect("this can only run once");
+
+            #[cfg(not(wasm_browser))]
             if let Err(err) = handle.join() {
                 warn!(?err, "Failed to join sync actor");
             }
@@ -617,7 +628,11 @@ struct Actor {
 }
 
 impl Actor {
-    fn run(self) -> Result<()> {
+    async fn run_in_task(self) {
+        self.run_async().await
+    }
+
+    fn run_in_thread(self) -> Result<()> {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_time()
             .build()?;
@@ -628,7 +643,7 @@ impl Actor {
 
     async fn run_async(mut self) {
         let reply = loop {
-            let timeout = tokio::time::sleep(MAX_COMMIT_DELAY);
+            let timeout = n0_future::time::sleep(MAX_COMMIT_DELAY);
             tokio::pin!(timeout);
             let action = tokio::select! {
                 _ = &mut timeout => {
