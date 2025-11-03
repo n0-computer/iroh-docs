@@ -167,6 +167,7 @@ async fn test_default_author_memory() -> Result<()> {
 
 #[tokio::test]
 #[traced_test]
+#[cfg(feature = "fs-store")]
 async fn test_default_author_persist() -> TestResult<()> {
     let iroh_root_dir = tempfile::TempDir::new()?;
     let iroh_root = iroh_root_dir.path();
