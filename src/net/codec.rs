@@ -431,6 +431,7 @@ mod tests {
 
     #[tokio::test]
     #[traced_test]
+    #[cfg(feature = "fs-store")]
     async fn test_sync_many_authors_fs() -> Result<()> {
         let tmpdir = tempfile::tempdir()?;
         let alice_store = store::fs::Store::persistent(tmpdir.path().join("a.db"))?;
@@ -629,6 +630,7 @@ mod tests {
 
     #[tokio::test]
     #[traced_test]
+    #[cfg(feature = "fs-store")]
     async fn test_sync_timestamps_fs() -> Result<()> {
         let tmpdir = tempfile::tempdir()?;
         let alice_store = store::fs::Store::persistent(tmpdir.path().join("a.db"))?;

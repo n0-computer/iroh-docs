@@ -1221,6 +1221,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_basics_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
@@ -1410,6 +1411,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_content_hashes_iterator_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
@@ -1537,6 +1539,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_timestamps_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
@@ -1600,6 +1603,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_replica_sync_fs() -> Result<()> {
         let alice_dbfile = tempfile::NamedTempFile::new()?;
         let alice_store = store::fs::Store::persistent(alice_dbfile.path())?;
@@ -1653,6 +1657,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_replica_timestamp_sync_fs() -> Result<()> {
         let alice_dbfile = tempfile::NamedTempFile::new()?;
         let alice_store = store::fs::Store::persistent(alice_dbfile.path())?;
@@ -1796,6 +1801,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_prefix_delete_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
@@ -1850,6 +1856,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_replica_sync_delete_fs() -> Result<()> {
         let alice_dbfile = tempfile::NamedTempFile::new()?;
         let alice_store = store::fs::Store::persistent(alice_dbfile.path())?;
@@ -1902,6 +1909,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_replica_remove_fs() -> Result<()> {
         let alice_dbfile = tempfile::NamedTempFile::new()?;
         let alice_store = store::fs::Store::persistent(alice_dbfile.path())?;
@@ -1954,6 +1962,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_replica_delete_edge_cases_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
@@ -2021,6 +2030,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_latest_iter_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
@@ -2063,6 +2073,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_replica_byte_keys_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
@@ -2111,6 +2122,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_replica_capability_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
@@ -2159,6 +2171,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_actor_capability_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
@@ -2282,6 +2295,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_replica_queries_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
@@ -2470,6 +2484,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "fs-store")]
     fn test_dl_policies_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let mut store = store::fs::Store::persistent(dbfile.path())?;
