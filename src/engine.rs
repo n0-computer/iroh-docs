@@ -372,8 +372,9 @@ impl DefaultAuthorStorage {
             }
             #[cfg(feature = "fs-store")]
             Self::Persistent(ref path) => {
-                use anyhow::Context;
                 use std::str::FromStr;
+
+                use anyhow::Context;
                 if path.exists() {
                     let data = tokio::fs::read_to_string(path).await.with_context(|| {
                         format!(

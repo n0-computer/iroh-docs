@@ -15,10 +15,9 @@ use irpc::channel::mpsc;
 use n0_future::task::JoinSet;
 use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
-use tracing::{debug, error, error_span, trace, warn};
-
 #[cfg(wasm_browser)]
 use tracing::Instrument;
+use tracing::{debug, error, error_span, trace, warn};
 
 use crate::{
     api::{

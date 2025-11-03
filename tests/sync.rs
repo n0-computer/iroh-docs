@@ -1,9 +1,4 @@
-use std::{
-    collections::HashMap,
-    future::Future,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{collections::HashMap, future::Future, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, bail, Context, Result};
 use bytes::Bytes;
@@ -20,6 +15,7 @@ use iroh_docs::{
     store::{DownloadPolicy, FilterKind, Query},
     AuthorId, ContentStatus, Entry,
 };
+use n0_future::time::Instant;
 use rand::{CryptoRng, Rng, SeedableRng};
 use tempfile::tempdir;
 use tracing::{debug, error_span, info, Instrument};

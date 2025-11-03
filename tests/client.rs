@@ -216,7 +216,7 @@ async fn test_default_author_persist() -> TestResult<()> {
         // somehow the blob store is not shutdown correctly (yet?) on macos.
         // so we give it some time until we find a proper fix.
         #[cfg(target_os = "macos")]
-    n0_future::time::sleep(std::time::Duration::from_secs(1)).await;
+        n0_future::time::sleep(std::time::Duration::from_secs(1)).await;
 
         tokio::fs::remove_file(iroh_root.join("default-author")).await?;
         drop(iroh);

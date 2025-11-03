@@ -6,7 +6,6 @@
 //
 // This is going to change!
 
-use n0_future::{time::SystemTime, IterExt};
 use std::{
     cmp::Ordering,
     fmt::Debug,
@@ -18,6 +17,7 @@ use std::{
 use bytes::{Bytes, BytesMut};
 use ed25519_dalek::{Signature, SignatureError};
 use iroh_blobs::Hash;
+use n0_future::{time::SystemTime, IterExt};
 use serde::{Deserialize, Serialize};
 
 pub use crate::heads::AuthorHeads;

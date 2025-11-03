@@ -1,11 +1,8 @@
-use std::{
-    collections::BTreeMap,
-    time::Instant,
-};
-use n0_future::time::SystemTime;
+use std::collections::BTreeMap;
 
 use anyhow::Result;
 use iroh::EndpointId;
+use n0_future::time::{Instant, SystemTime};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 

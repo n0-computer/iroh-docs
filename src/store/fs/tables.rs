@@ -1,9 +1,8 @@
 #![allow(missing_docs)]
 // Table Definitions
 
-use std::time::Instant;
-
 use bytes::Bytes;
+use n0_future::time::Instant;
 use redb::{
     MultimapTable, MultimapTableDefinition, ReadOnlyMultimapTable, ReadOnlyTable, ReadTransaction,
     Table, TableDefinition, WriteTransaction,
