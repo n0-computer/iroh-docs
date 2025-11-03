@@ -990,6 +990,7 @@ mod tests {
     use crate::ranger::Store as _;
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_ranges() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let mut store = Store::persistent(dbfile.path())?;
@@ -1017,6 +1018,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "fs-store")]
     fn test_basics() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let mut store = Store::persistent(dbfile.path())?;
@@ -1108,6 +1110,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_migration_001_populate_latest_table() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let namespace = NamespaceSecret::new(&mut rand::rng());
@@ -1151,6 +1154,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "fs-store")]
     fn test_migration_004_populate_by_key_index() -> Result<()> {
         use redb::ReadableTableMetadata;
         let dbfile = tempfile::NamedTempFile::new()?;
