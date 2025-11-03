@@ -1,4 +1,5 @@
-#![allow(dead_code)]
+#![allow(unused)]
+
 use std::{
     net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6},
     ops::Deref,

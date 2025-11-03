@@ -288,6 +288,7 @@ pub trait Store<E: RangeEntry>: Sized {
     ///
     /// This will remove just the entry with the given key, but will not perform prefix deletion.
     #[cfg(test)]
+    #[allow(unused)]
     fn entry_remove(&mut self, key: &E::Key) -> Result<Option<E>, Self::Error>;
 
     /// Remove all entries whose key start with a prefix and for which the `predicate` callback

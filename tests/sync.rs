@@ -17,6 +17,7 @@ use iroh_docs::{
 };
 use n0_future::time::Instant;
 use rand::{CryptoRng, Rng, SeedableRng};
+#[cfg(feature = "fs-store")]
 use tempfile::tempdir;
 use tracing::{debug, error_span, info, Instrument};
 use tracing_test::traced_test;
@@ -584,6 +585,7 @@ async fn test_sync_via_relay() -> Result<()> {
 #[tokio::test]
 #[traced_test]
 #[ignore = "flaky"]
+#[cfg(feature = "fs-store")]
 async fn sync_restart_node() -> Result<()> {
     let mut rng = test_rng(b"sync_restart_node");
     let (relay_map, _relay_url, _guard) = iroh::test_utils::run_relay_server().await?;
@@ -1156,6 +1158,7 @@ impl PartialEq<ExpectedEntry> for (Entry, Bytes) {
 
 #[tokio::test]
 #[traced_test]
+#[cfg(feature = "fs-store")]
 async fn doc_delete() -> Result<()> {
     let tempdir = tempdir()?;
     // TODO(Frando): iroh-blobs has gc only for fs store atm, change test to test both

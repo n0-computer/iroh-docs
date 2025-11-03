@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use std::{path::PathBuf, time::Duration};
 
 use anyhow::Result;
@@ -18,6 +20,7 @@ pub fn create_test_data(size: usize) -> Bytes {
 }
 
 /// Wrap a bao store in a node that has gc enabled.
+#[cfg(feature = "fs-store")]
 async fn persistent_node(
     path: PathBuf,
     gc_period: Duration,
@@ -35,6 +38,7 @@ async fn persistent_node(
 }
 
 #[tokio::test]
+#[cfg(feature = "fs-store")]
 async fn redb_doc_import_stress() -> Result<()> {
     let _ = tracing_subscriber::fmt::try_init();
     let dir = testdir!();
