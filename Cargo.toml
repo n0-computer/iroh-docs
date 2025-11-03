@@ -37,7 +37,7 @@ iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs", branch = "Fran
 iroh-gossip = { version = "0.94", features = ["net"], default-features = false }
 iroh-metrics = { version = "0.36", default-features = false }
 irpc = { git = "https://github.com/n0-computer/irpc", branch = "main", default-features = false }
-n0-future = { version = "0.3", features = ["serde"] }
+n0-future = { version = "0.3", features = ["serde"], git = "https://github.com/n0-computer/n0-future", branch = "Frando/time-serde" }
 num_enum = "0.7"
 postcard = { version = "1", default-features = false, features = [
     "alloc",
@@ -100,5 +100,5 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(iroh_docsrs)"] }
 [build-dependencies]
 cfg_aliases = "0.2.1"
 
-[patch.crates-io]
-n0-future = { path = "../n0-future" }
+# [patch.crates-io]
+# n0-future = { path = "../n0-future" }
