@@ -483,7 +483,7 @@ impl ProtectCallbackHandler {
     /// in any doc.
     ///
     /// [`Builder::protect_handler`]: crate::protocol::Builder::protect_handler
-    /// [`GcConfig`]: iroh_blobs::store::fs::options::GcConfig
+    /// [`GcConfig`]: iroh_blobs::store::GcConfig
     pub fn new() -> (Self, ProtectCb) {
         let (tx, rx) = mpsc::channel(4);
         let cb = ProtectCallbackSender(tx).into_cb();

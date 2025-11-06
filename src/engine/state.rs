@@ -36,16 +36,14 @@ pub enum Origin {
 }
 
 /// The state we're in for a node and a namespace
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum SyncState {
+    #[default]
     Idle,
-    Running { start: SystemTime, origin: Origin },
-}
-
-impl Default for SyncState {
-    fn default() -> Self {
-        Self::Idle
-    }
+    Running {
+        start: SystemTime,
+        origin: Origin,
+    },
 }
 
 /// Contains an entry for each active (syncing) namespace, and in there an entry for each node we
