@@ -114,7 +114,7 @@ where
     Fut: Future<Output = AcceptOutcome>,
 {
     let t_start = Instant::now();
-    let peer = connection.remote_id().map_err(AcceptError::connect)?;
+    let peer = connection.remote_id();
     let (mut send_stream, mut recv_stream) = connection
         .accept_bi()
         .await
@@ -290,11 +290,6 @@ pub enum AbortReason {
 }
 
 impl AcceptError {
-    fn connect(error: impl Into<anyhow::Error>) -> Self {
-        Self::Connect {
-            error: error.into(),
-        }
-    }
     fn open(peer: PublicKey, error: impl Into<anyhow::Error>) -> Self {
         Self::Open {
             peer,

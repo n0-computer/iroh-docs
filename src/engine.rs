@@ -13,7 +13,7 @@ use futures_lite::{Stream, StreamExt};
 use iroh::{Endpoint, EndpointAddr, PublicKey};
 use iroh_blobs::{
     api::{blobs::BlobStatus, downloader::Downloader, Store},
-    store::fs::options::{ProtectCb, ProtectOutcome},
+    store::{ProtectCb, ProtectOutcome},
     Hash,
 };
 use iroh_gossip::net::Gossip;
