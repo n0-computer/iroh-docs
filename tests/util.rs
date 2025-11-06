@@ -6,7 +6,7 @@ use std::{
 };
 
 use iroh::{discovery::IntoDiscovery, dns::DnsResolver, EndpointId, RelayMode, SecretKey};
-use iroh_blobs::store::fs::options::{GcConfig, Options};
+use iroh_blobs::store::{fs::options::Options, GcConfig};
 use iroh_docs::{engine::ProtectCallbackHandler, protocol::Docs};
 use iroh_gossip::net::Gossip;
 

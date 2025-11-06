@@ -13,7 +13,7 @@ use futures_lite::{Stream, StreamExt};
 use iroh::{Endpoint, EndpointAddr, PublicKey};
 use iroh_blobs::{
     api::{blobs::BlobStatus, downloader::Downloader, Store},
-    store::fs::options::{ProtectCb, ProtectOutcome},
+    store::{ProtectCb, ProtectOutcome},
     Hash,
 };
 use iroh_gossip::net::Gossip;
@@ -483,7 +483,7 @@ impl ProtectCallbackHandler {
     /// in any doc.
     ///
     /// [`Builder::protect_handler`]: crate::protocol::Builder::protect_handler
-    /// [`GcConfig`]: iroh_blobs::store::fs::options::GcConfig
+    /// [`GcConfig`]: iroh_blobs::store::GcConfig
     pub fn new() -> (Self, ProtectCb) {
         let (tx, rx) = mpsc::channel(4);
         let cb = ProtectCallbackSender(tx).into_cb();

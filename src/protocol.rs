@@ -61,7 +61,7 @@ impl ProtocolHandler for Docs {
         self.engine
             .handle_connection(connection)
             .await
-            .map_err(|err| err.into_boxed_dyn_error())?;
+            .map_err(|err| iroh::protocol::AcceptError::from_err(n0_error::anyerr!(err)))?;
         Ok(())
     }
 
