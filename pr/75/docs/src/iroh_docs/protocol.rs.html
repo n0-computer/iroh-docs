@@ -70,7 +70,7 @@
 <a href=#70 id=70 data-nosnippet>70</a>        <span class="self">self</span>.engine
 <a href=#71 id=71 data-nosnippet>71</a>            .handle_connection(connection)
 <a href=#72 id=72 data-nosnippet>72</a>            .<span class="kw">await
-<a href=#73 id=73 data-nosnippet>73</a>            </span>.map_err(|err| err.into_boxed_dyn_error())<span class="question-mark">?</span>;
+<a href=#73 id=73 data-nosnippet>73</a>            </span>.map_err(|err| iroh::protocol::AcceptError::from_err(<span class="macro">n0_error::anyerr!</span>(err)))<span class="question-mark">?</span>;
 <a href=#74 id=74 data-nosnippet>74</a>        <span class="prelude-val">Ok</span>(())
 <a href=#75 id=75 data-nosnippet>75</a>    }
 <a href=#76 id=76 data-nosnippet>76</a>
