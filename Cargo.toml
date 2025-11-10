@@ -33,11 +33,11 @@ futures-util = { version = "0.3.25" }
 hex = "0.4"
 iroh = { version = "0.94", default-features = false }
 iroh-tickets = { version = "0.1"}
-iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs", branch = "Frando/wasm-nopatch", default-features = false }
+iroh-blobs = { version = "0.97", default-features = false }
 iroh-gossip = { version = "0.94", features = ["net"], default-features = false }
 iroh-metrics = { version = "0.36", default-features = false }
-irpc = { git = "https://github.com/n0-computer/irpc", branch = "main", default-features = false }
-n0-future = { version = "0.3", features = ["serde"], git = "https://github.com/n0-computer/n0-future", branch = "Frando/time-serde" }
+irpc = { version = "0.11", default-features = false }
+n0-future = { version = "0.3", features = ["serde"], git = "https://github.com/n0-computer/n0-future", branch = "main" }
 num_enum = "0.7"
 postcard = { version = "1", default-features = false, features = [
     "alloc",
