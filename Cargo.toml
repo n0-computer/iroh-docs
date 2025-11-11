@@ -37,7 +37,7 @@ iroh-blobs = { version = "0.97", default-features = false }
 iroh-gossip = { version = "0.95", features = ["net"], default-features = false }
 iroh-metrics = { version = "0.36", default-features = false }
 irpc = { version = "0.11", default-features = false }
-n0-future = { version = "0.3", features = ["serde"], git = "https://github.com/n0-computer/n0-future", branch = "main" }
+n0-future = { version = "0.3.1", features = ["serde"] }
 num_enum = "0.7"
 postcard = { version = "1", default-features = false, features = [
     "alloc",

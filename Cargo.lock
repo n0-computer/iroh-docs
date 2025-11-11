@@ -1801,7 +1801,7 @@ dependencies = [
  "iroh-quinn-udp",
  "iroh-relay",
  "n0-error",
- "n0-future 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "n0-future",
  "n0-watcher",
  "netdev",
  "netwatch",
@@ -1872,7 +1872,7 @@ dependencies = [
  "iroh-tickets",
  "irpc",
  "n0-error",
- "n0-future 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "n0-future",
  "n0-snafu",
  "nested_enum_utils",
  "postcard",
@@ -1913,7 +1913,7 @@ dependencies = [
  "iroh-tickets",
  "irpc",
  "n0-error",
- "n0-future 0.3.0 (git+https://github.com/n0-computer/n0-future?branch=main)",
+ "n0-future",
  "nested_enum_utils",
  "num_enum",
  "parking_lot",
@@ -1960,7 +1960,7 @@ dependencies = [
  "iroh-metrics 0.37.0",
  "irpc",
  "n0-error",
- "n0-future 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "n0-future",
  "postcard",
  "rand 0.9.2",
  "serde",
@@ -2122,7 +2122,7 @@ dependencies = [
  "iroh-quinn-proto",
  "lru 0.16.2",
  "n0-error",
- "n0-future 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "n0-future",
  "num_enum",
  "pin-project",
  "pkarr",
@@ -2181,7 +2181,7 @@ dependencies = [
  "iroh-quinn",
  "irpc-derive",
  "n0-error",
- "n0-future 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "n0-future",
  "postcard",
  "rcgen",
  "rustls",
@@ -2434,29 +2434,9 @@ dependencies = [
 
 [[package]]
 name = "n0-future"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "439e746b307c1fd0c08771c3cafcd1746c3ccdb0d9c7b859d3caded366b6da76"
-dependencies = [
- "cfg_aliases",
- "derive_more 1.0.0",
- "futures-buffered",
- "futures-lite",
- "futures-util",
- "js-sys",
- "pin-project",
- "send_wrapper",
- "tokio",
- "tokio-util",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-time",
-]
-
-[[package]]
-name = "n0-future"
-version = "0.3.0"
-source = "git+https://github.com/n0-computer/n0-future?branch=main#f5ea6ede1f468658fda2cbd7764b6679c8d2898c"
+checksum = "8c0709ac8235ce13b82bc4d180ee3c42364b90c1a8a628c3422d991d75a728b5"
 dependencies = [
  "cfg_aliases",
  "derive_more 1.0.0",
@@ -2494,7 +2474,7 @@ checksum = "38acf13c1ddafc60eb7316d52213467f8ccb70b6f02b65e7d97f7799b1f50be4"
 dependencies = [
  "derive_more 2.0.1",
  "n0-error",
- "n0-future 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "n0-future",
 ]
 
 [[package]]
@@ -2588,7 +2568,7 @@ dependencies = [
  "js-sys",
  "libc",
  "n0-error",
- "n0-future 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "n0-future",
  "n0-watcher",
  "netdev",
  "netlink-packet-core",
