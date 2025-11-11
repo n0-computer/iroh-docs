@@ -11,6 +11,7 @@ use std::{
 use anyhow::{anyhow, Result};
 use ed25519_dalek::{SignatureError, VerifyingKey};
 use iroh_blobs::Hash;
+use n0_future::time::SystemTime;
 use rand::CryptoRng;
 use redb::{Database, ReadableMultimapTable, ReadableTable};
 use tracing::warn;
@@ -487,7 +488,7 @@ impl Store {
         let peer = &peer;
         let namespace = namespace.as_bytes();
         // calculate nanos since UNIX_EPOCH for a time measurement
-        let nanos = std::time::UNIX_EPOCH
+        let nanos = SystemTime::UNIX_EPOCH
             .elapsed()
             .map(|duration| duration.as_nanos() as u64)?;
         self.modify(|tables| {
