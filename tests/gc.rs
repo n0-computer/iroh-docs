@@ -1,9 +1,12 @@
-use std::{path::PathBuf, time::Duration};
+#![allow(unused)]
+
+use std::path::PathBuf;
 
 use anyhow::Result;
 use bytes::Bytes;
 use futures_lite::StreamExt;
 use iroh_blobs::api::blobs::ImportMode;
+use n0_future::time::Duration;
 use rand::RngCore;
 use testdir::testdir;
 use util::Node;
@@ -18,6 +21,7 @@ pub fn create_test_data(size: usize) -> Bytes {
 }
 
 /// Wrap a bao store in a node that has gc enabled.
+#[cfg(feature = "fs-store")]
 async fn persistent_node(
     path: PathBuf,
     gc_period: Duration,
@@ -35,6 +39,7 @@ async fn persistent_node(
 }
 
 #[tokio::test]
+#[cfg(feature = "fs-store")]
 async fn redb_doc_import_stress() -> Result<()> {
     let _ = tracing_subscriber::fmt::try_init();
     let dir = testdir!();

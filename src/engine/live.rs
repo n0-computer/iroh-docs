@@ -3,7 +3,6 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
-    time::SystemTime,
 };
 
 use anyhow::{Context, Result};
@@ -20,11 +19,9 @@ use iroh_blobs::{
     Hash, HashAndFormat,
 };
 use iroh_gossip::net::Gossip;
+use n0_future::{task::JoinSet, time::SystemTime};
 use serde::{Deserialize, Serialize};
-use tokio::{
-    sync::{self, mpsc, oneshot},
-    task::JoinSet,
-};
+use tokio::sync::{self, mpsc, oneshot};
 use tracing::{debug, error, info, instrument, trace, warn, Instrument, Span};
 
 // use super::gossip::{GossipActor, ToGossipActor};

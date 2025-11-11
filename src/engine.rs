@@ -2,13 +2,9 @@
 //!
 //! [`crate::Replica`] is also called documents here.
 
-use std::{
-    path::PathBuf,
-    str::FromStr,
-    sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use futures_lite::{Stream, StreamExt};
 use iroh::{Endpoint, EndpointAddr, PublicKey};
 use iroh_blobs::{
@@ -17,9 +13,9 @@ use iroh_blobs::{
     Hash,
 };
 use iroh_gossip::net::Gossip;
+use n0_future::task::AbortOnDropHandle;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
-use tokio_util::task::AbortOnDropHandle;
 use tracing::{debug, error, error_span, Instrument};
 
 use self::live::{LiveActor, ToLiveActor};
@@ -128,7 +124,7 @@ impl Engine {
             live_actor_tx.clone(),
             sync.metrics().clone(),
         );
-        let actor_handle = tokio::task::spawn(
+        let actor_handle = n0_future::task::spawn(
             async move {
                 if let Err(err) = actor.run().await {
                     error!("sync actor failed: {err:?}");
@@ -355,7 +351,8 @@ pub enum DefaultAuthorStorage {
     /// Memory storage.
     Mem,
     /// File based persistent storage.
-    Persistent(PathBuf),
+    #[cfg(feature = "fs-store")]
+    Persistent(std::path::PathBuf),
 }
 
 impl DefaultAuthorStorage {
@@ -373,7 +370,11 @@ impl DefaultAuthorStorage {
                 docs_store.import_author(author).await?;
                 Ok(author_id)
             }
+            #[cfg(feature = "fs-store")]
             Self::Persistent(ref path) => {
+                use std::str::FromStr;
+
+                use anyhow::Context;
                 if path.exists() {
                     let data = tokio::fs::read_to_string(path).await.with_context(|| {
                         format!(
@@ -407,12 +408,14 @@ impl DefaultAuthorStorage {
     }
 
     /// Save a new default author.
-    pub async fn persist(&self, author_id: AuthorId) -> anyhow::Result<()> {
+    pub async fn persist(&self, #[allow(unused)] author_id: AuthorId) -> anyhow::Result<()> {
         match self {
             Self::Mem => {
                 // persistence is not possible for the mem storage so this is a noop.
             }
+            #[cfg(feature = "fs-store")]
             Self::Persistent(ref path) => {
+                use anyhow::Context;
                 tokio::fs::write(path, author_id.to_string())
                     .await
                     .with_context(|| {

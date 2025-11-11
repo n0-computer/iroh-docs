@@ -1,11 +1,9 @@
 //! Network implementation of the iroh-docs protocol
 
-use std::{
-    future::Future,
-    time::{Duration, Instant},
-};
+use std::future::Future;
 
 use iroh::{Endpoint, EndpointAddr, PublicKey};
+use n0_future::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error_span, trace, Instrument};
 

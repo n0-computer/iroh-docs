@@ -1,4 +1,5 @@
-#![allow(dead_code)]
+#![allow(unused)]
+
 use std::{
     net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6},
     ops::Deref,
@@ -6,7 +7,7 @@ use std::{
 };
 
 use iroh::{discovery::IntoDiscovery, dns::DnsResolver, EndpointId, RelayMode, SecretKey};
-use iroh_blobs::store::{fs::options::Options, GcConfig};
+use iroh_blobs::store::GcConfig;
 use iroh_docs::{engine::ProtectCallbackHandler, protocol::Docs};
 use iroh_gossip::net::Gossip;
 
@@ -64,9 +65,9 @@ impl Client {
 pub struct Builder {
     endpoint: iroh::endpoint::Builder,
     use_n0_discovery: bool,
-    path: Option<PathBuf>,
+    storage: Storage,
     // node_discovery: Option<Box<dyn Discovery>>,
-    gc_interval: Option<std::time::Duration>,
+    gc_interval: Option<n0_future::time::Duration>,
     #[debug(skip)]
     register_gc_done_cb: Option<Box<dyn Fn() + Send + 'static>>,
     bind_random_port: bool,
@@ -97,9 +98,10 @@ impl Builder {
         let endpoint = builder.bind().await?;
         let mut router = iroh::protocol::Router::builder(endpoint.clone());
         let gossip = Gossip::builder().spawn(endpoint.clone());
-        let mut docs_builder = match self.path {
-            Some(ref path) => Docs::persistent(path.to_path_buf()),
-            None => Docs::memory(),
+        let mut docs_builder = match self.storage {
+            Storage::Memory => Docs::memory(),
+            #[cfg(feature = "fs-store")]
+            Storage::Persistent(ref path) => Docs::persistent(path.to_path_buf()),
         };
         if let Some(protect_cb) = protect_cb {
             docs_builder = docs_builder.protect_handler(protect_cb);
@@ -163,7 +165,7 @@ impl Builder {
         self
     }
 
-    pub fn gc_interval(mut self, value: Option<std::time::Duration>) -> Self {
+    pub fn gc_interval(mut self, value: Option<n0_future::time::Duration>) -> Self {
         self.gc_interval = value;
         self
     }
@@ -183,11 +185,11 @@ impl Builder {
         self
     }
 
-    fn new(path: Option<PathBuf>) -> Self {
+    fn new(storage: Storage) -> Self {
         Self {
             endpoint: iroh::Endpoint::empty_builder(RelayMode::Disabled),
             use_n0_discovery: true,
-            path,
+            storage,
             gc_interval: None,
             bind_random_port: false,
             // node_discovery: None,
@@ -197,30 +199,38 @@ impl Builder {
     }
 }
 
+#[derive(Debug)]
+enum Storage {
+    Memory,
+    #[cfg(feature = "fs-store")]
+    Persistent(PathBuf),
+}
+
 impl Node {
     /// Creates a new node with memory storage
     pub fn memory() -> Builder {
-        Builder::new(None)
+        Builder::new(Storage::Memory)
     }
 
     /// Creates a new node with persistent storage
+    #[cfg(feature = "fs-store")]
     pub fn persistent(path: impl AsRef<Path>) -> Builder {
-        let path = Some(path.as_ref().to_owned());
-        Builder::new(path)
+        Builder::new(Storage::Persistent(path.as_ref().to_owned()))
     }
 }
 
 impl Builder {
     /// Spawns the node
     pub async fn spawn(self) -> anyhow::Result<Node> {
-        let (store, protect_handler) = match self.path {
-            None => {
+        let (store, protect_handler) = match self.storage {
+            Storage::Memory => {
                 let store = iroh_blobs::store::mem::MemStore::new();
                 ((*store).clone(), None)
             }
-            Some(ref path) => {
+            #[cfg(feature = "fs-store")]
+            Storage::Persistent(ref path) => {
                 let db_path = path.join("blobs.db");
-                let mut opts = Options::new(path);
+                let mut opts = iroh_blobs::store::fs::options::Options::new(path);
                 let protect_handler = if let Some(interval) = self.gc_interval {
                     let (handler, cb) = ProtectCallbackHandler::new();
                     opts.gc = Some(GcConfig {

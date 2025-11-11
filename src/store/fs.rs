@@ -6,15 +6,15 @@ use std::{
     iter::{Chain, Flatten},
     num::NonZeroU64,
     ops::Bound,
-    path::Path,
 };
 
 use anyhow::{anyhow, Result};
 use ed25519_dalek::{SignatureError, VerifyingKey};
 use iroh_blobs::Hash;
+use n0_future::time::SystemTime;
 use rand::CryptoRng;
-use redb::{Database, DatabaseError, ReadableMultimapTable, ReadableTable};
-use tracing::{info, warn};
+use redb::{Database, ReadableMultimapTable, ReadableTable};
+use tracing::warn;
 
 use super::{
     pubkeys::MemPublicKeyStore, DownloadPolicy, ImportNamespaceOutcome, OpenError, PublicKeyStore,
@@ -98,16 +98,17 @@ impl Store {
     /// Create or open a store from a `path` to a database file.
     ///
     /// The file will be created if it does not exist, otherwise it will be opened.
-    pub fn persistent(path: impl AsRef<Path>) -> Result<Self> {
+    #[cfg(feature = "fs-store")]
+    pub fn persistent(path: impl AsRef<std::path::Path>) -> Result<Self> {
         let mut db = match Database::create(&path) {
             Ok(db) => db,
-            Err(DatabaseError::UpgradeRequired(1)) => return Err(
+            Err(redb::DatabaseError::UpgradeRequired(1)) => return Err(
                 anyhow!("Opening the database failed: Upgrading from old format is no longer supported. Use iroh-docs 0.92 to perform the upgrade, then upgrade to the latest release again.")
             ),
             Err(err) => return Err(err.into()),
         };
         match db.upgrade() {
-            Ok(true) => info!("Database was upgraded to redb v3 compatible format"),
+            Ok(true) => tracing::info!("Database was upgraded to redb v3 compatible format"),
             Ok(false) => {}
             Err(err) => warn!("Database upgrade to redb v3 compatible format failed: {err:#}"),
         }
@@ -487,7 +488,7 @@ impl Store {
         let peer = &peer;
         let namespace = namespace.as_bytes();
         // calculate nanos since UNIX_EPOCH for a time measurement
-        let nanos = std::time::UNIX_EPOCH
+        let nanos = SystemTime::UNIX_EPOCH
             .elapsed()
             .map(|duration| duration.as_nanos() as u64)?;
         self.modify(|tables| {
@@ -984,13 +985,13 @@ fn into_entry(key: RecordsId, value: RecordsValue) -> SignedEntry {
     SignedEntry::new(entry_signature, entry)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "fs-store"))]
 mod tests {
-    use super::{tables::LATEST_PER_AUTHOR_TABLE, *};
+    use super::*;
     use crate::ranger::Store as _;
 
-    #[test]
-    fn test_ranges() -> Result<()> {
+    #[tokio::test]
+    async fn test_ranges() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let mut store = Store::persistent(dbfile.path())?;
 
@@ -1001,8 +1002,8 @@ mod tests {
         // test author prefix relation for all-255 keys
         let key1 = vec![255, 255];
         let key2 = vec![255, 255, 255];
-        replica.hash_and_insert(&key1, &author, b"v1")?;
-        replica.hash_and_insert(&key2, &author, b"v2")?;
+        replica.hash_and_insert(&key1, &author, b"v1").await?;
+        replica.hash_and_insert(&key2, &author, b"v2").await?;
         let res = store
             .get_many(namespace.id(), Query::author(author.id()).key_prefix([255]))?
             .collect::<Result<Vec<_>>>()?;
@@ -1094,7 +1095,7 @@ mod tests {
     }
 
     fn copy_and_modify(
-        source: &Path,
+        source: &std::path::Path,
         modify: impl Fn(&redb::WriteTransaction) -> Result<()>,
     ) -> Result<tempfile::NamedTempFile> {
         let dbfile = tempfile::NamedTempFile::new()?;
@@ -1107,8 +1108,10 @@ mod tests {
         Ok(dbfile)
     }
 
-    #[test]
-    fn test_migration_001_populate_latest_table() -> Result<()> {
+    #[tokio::test]
+    #[cfg(feature = "fs-store")]
+    async fn test_migration_001_populate_latest_table() -> Result<()> {
+        use super::tables::LATEST_PER_AUTHOR_TABLE;
         let dbfile = tempfile::NamedTempFile::new()?;
         let namespace = NamespaceSecret::new(&mut rand::rng());
 
@@ -1118,9 +1121,9 @@ mod tests {
             let author1 = store.new_author(&mut rand::rng())?;
             let author2 = store.new_author(&mut rand::rng())?;
             let mut replica = store.new_replica(namespace.clone())?;
-            replica.hash_and_insert(b"k1", &author1, b"v1")?;
-            replica.hash_and_insert(b"k2", &author2, b"v1")?;
-            replica.hash_and_insert(b"k3", &author1, b"v1")?;
+            replica.hash_and_insert(b"k1", &author1, b"v1").await?;
+            replica.hash_and_insert(b"k2", &author2, b"v1").await?;
+            replica.hash_and_insert(b"k3", &author1, b"v1").await?;
 
             let expected = store
                 .get_latest_for_each_author(namespace.id())?
@@ -1151,6 +1154,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "fs-store")]
     fn test_migration_004_populate_by_key_index() -> Result<()> {
         use redb::ReadableTableMetadata;
         let dbfile = tempfile::NamedTempFile::new()?;
