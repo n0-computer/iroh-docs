@@ -1496,9 +1496,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb3aa54a13a0dfe7fbe3a59e0c76093041720fdc77b110cc0fc260fafb4dc51e"
+checksum = "1744436df46f0bde35af3eda22aeaba453aada65d8f1c171cd8a5f59030bd69f"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -1850,8 +1850,7 @@ dependencies = [
 [[package]]
 name = "iroh-blobs"
 version = "0.97.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c901304c1c28f257fcf9aae8c9149e54e0baf62f5eb2788cecde3bf1206a04e6"
+source = "git+https://github.com/n0-computer/iroh-blobs.git?branch=b5%2Ffix-std-time#74175f18714e24356e9fa9171fd36cb96777420e"
 dependencies = [
  "anyhow",
  "arrayvec",
@@ -2456,8 +2455,7 @@ dependencies = [
 [[package]]
 name = "n0-snafu"
 version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1815107e577a95bfccedb4cfabc73d709c0db6d12de3f14e0f284a8c5036dc4f"
+source = "git+https://github.com/n0-computer/n0-snafu.git?branch=b5%2Fwasm#fbee015d3789c8e7d86647399e9021f9e651d7d6"
 dependencies = [
  "anyhow",
  "btparse",
