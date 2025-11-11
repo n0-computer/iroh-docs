@@ -67,7 +67,7 @@ pub struct Builder {
     use_n0_discovery: bool,
     storage: Storage,
     // node_discovery: Option<Box<dyn Discovery>>,
-    gc_interval: Option<std::time::Duration>,
+    gc_interval: Option<n0_future::time::Duration>,
     #[debug(skip)]
     register_gc_done_cb: Option<Box<dyn Fn() + Send + 'static>>,
     bind_random_port: bool,
@@ -165,7 +165,7 @@ impl Builder {
         self
     }
 
-    pub fn gc_interval(mut self, value: Option<std::time::Duration>) -> Self {
+    pub fn gc_interval(mut self, value: Option<n0_future::time::Duration>) -> Self {
         self.gc_interval = value;
         self
     }

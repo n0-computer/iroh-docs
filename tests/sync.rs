@@ -1,4 +1,4 @@
-use std::{collections::HashMap, future::Future, sync::Arc, time::Duration};
+use std::{collections::HashMap, future::Future, sync::Arc};
 
 use anyhow::{anyhow, bail, Context, Result};
 use bytes::Bytes;
@@ -15,7 +15,7 @@ use iroh_docs::{
     store::{DownloadPolicy, FilterKind, Query},
     AuthorId, ContentStatus, Entry,
 };
-use n0_future::time::Instant;
+use n0_future::time::{Duration, Instant};
 use rand::{CryptoRng, Rng, SeedableRng};
 #[cfg(feature = "fs-store")]
 use tempfile::tempdir;

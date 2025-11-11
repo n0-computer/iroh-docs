@@ -11,13 +11,15 @@ use std::{
     fmt::Debug,
     ops::{Deref, DerefMut},
     sync::Arc,
-    time::Duration,
 };
 
 use bytes::{Bytes, BytesMut};
 use ed25519_dalek::{Signature, SignatureError};
 use iroh_blobs::Hash;
-use n0_future::{time::SystemTime, IterExt};
+use n0_future::{
+    time::{Duration, SystemTime},
+    IterExt,
+};
 use serde::{Deserialize, Serialize};
 
 pub use crate::heads::AuthorHeads;

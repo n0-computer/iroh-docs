@@ -4,7 +4,6 @@ use std::{
     collections::{hash_map, HashMap},
     num::NonZeroU64,
     sync::Arc,
-    time::Duration,
 };
 
 use anyhow::{anyhow, Context, Result};
@@ -12,7 +11,7 @@ use bytes::Bytes;
 use futures_util::FutureExt;
 use iroh_blobs::Hash;
 use irpc::channel::mpsc;
-use n0_future::task::JoinSet;
+use n0_future::{task::JoinSet, time::Duration};
 use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
 #[cfg(wasm_browser)]

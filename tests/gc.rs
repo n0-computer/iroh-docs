@@ -1,11 +1,12 @@
 #![allow(unused)]
 
-use std::{path::PathBuf, time::Duration};
+use std::path::PathBuf;
 
 use anyhow::Result;
 use bytes::Bytes;
 use futures_lite::StreamExt;
 use iroh_blobs::api::blobs::ImportMode;
+use n0_future::time::Duration;
 use rand::RngCore;
 use testdir::testdir;
 use util::Node;
