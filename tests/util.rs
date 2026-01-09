@@ -85,7 +85,7 @@ impl Builder {
             addr_v4.set_port(0);
             addr_v6.set_port(0);
         }
-        let mut builder = self.endpoint.bind_addr_v4(addr_v4).bind_addr_v6(addr_v6);
+        let mut builder = self.endpoint.bind_addr(addr_v4)?.bind_addr(addr_v6)?;
         if self.use_n0_discovery {
             builder = builder.discovery(iroh::discovery::pkarr::PkarrPublisher::n0_dns());
             // Resolve using HTTPS requests to our DNS server's /pkarr path in browsers

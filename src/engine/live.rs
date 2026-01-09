@@ -778,8 +778,13 @@ impl LiveActor {
 
             self.queued_hashes.insert(hash, namespace);
             self.missing_hashes.remove(&hash);
-            self.download_tasks
-                .spawn(async move { (namespace, hash, handle.await) });
+            self.download_tasks.spawn(async move {
+                (
+                    namespace,
+                    hash,
+                    handle.await.map_err(|e| anyhow::anyhow!(e)),
+                )
+            });
         }
     }
 
