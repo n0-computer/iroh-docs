@@ -103,3 +103,6 @@ iroh-tickets = { git = "https://github.com/n0-computer/iroh-tickets", branch = "
 iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs", branch = "feat-multipath" }
 iroh-gossip = { git = "https://github.com/n0-computer/iroh-gossip", branch = "feat-multipath" }
 irpc = { git = "https://github.com/n0-computer/irpc", branch = "feat-multipath" }
+iroh-quinn = { git = "https://github.com/n0-computer/quinn", branch = "main" }
+iroh-quinn-proto = { git = "https://github.com/n0-computer/quinn", branch = "main" }
+iroh-quinn-udp = { git = "https://github.com/n0-computer/quinn", branch = "main" }
