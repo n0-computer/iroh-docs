@@ -2,6 +2,12 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.96.0](https://github.com/n0-computer/iroh-docs/compare/v0.95.0..0.96.0) - 2026-01-29
+
+### ⚙️ Miscellaneous Tasks
+
+- Upgrade to `iroh` 0.96 - ([5133ca4](https://github.com/n0-computer/iroh-docs/commit/5133ca4360f3fd9e4891103d73cd6878200fde27))
+
 ## [0.95.0](https://github.com/n0-computer/iroh-docs/compare/v0.94.0..0.95.0) - 2025-11-06
 
 ### ⚙️ Miscellaneous Tasks
