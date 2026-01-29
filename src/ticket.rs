@@ -121,7 +121,7 @@ mod tests {
             let cleaned: String = data_part.chars().filter(|c| !c.is_whitespace()).collect();
 
             ensure!(
-                cleaned.len() % 2 == 0,
+                cleaned.len().is_multiple_of(2),
                 "Non-even number of hex chars detected on line {}.",
                 line_number + 1
             );

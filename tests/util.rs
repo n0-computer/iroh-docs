@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use iroh::{discovery::IntoDiscovery, dns::DnsResolver, EndpointId, RelayMode, SecretKey};
+use iroh::{address_lookup::IntoAddressLookup, dns::DnsResolver, EndpointId, RelayMode, SecretKey};
 use iroh_blobs::store::{fs::options::Options, GcConfig};
 use iroh_docs::{engine::ProtectCallbackHandler, protocol::Docs};
 use iroh_gossip::net::Gossip;
@@ -63,9 +63,9 @@ impl Client {
 #[derive(derive_more::Debug)]
 pub struct Builder {
     endpoint: iroh::endpoint::Builder,
-    use_n0_discovery: bool,
+    use_n0_address_lookup: bool,
     path: Option<PathBuf>,
-    // node_discovery: Option<Box<dyn Discovery>>,
+    // node_address_lookup: Option<Box<dyn AddressLookup>>,
     gc_interval: Option<std::time::Duration>,
     #[debug(skip)]
     register_gc_done_cb: Option<Box<dyn Fn() + Send + 'static>>,
@@ -85,13 +85,13 @@ impl Builder {
             addr_v4.set_port(0);
             addr_v6.set_port(0);
         }
-        let mut builder = self.endpoint.bind_addr_v4(addr_v4).bind_addr_v6(addr_v6);
-        if self.use_n0_discovery {
-            builder = builder.discovery(iroh::discovery::pkarr::PkarrPublisher::n0_dns());
+        let mut builder = self.endpoint.bind_addr(addr_v4)?.bind_addr(addr_v6)?;
+        if self.use_n0_address_lookup {
+            builder = builder.address_lookup(iroh::address_lookup::pkarr::PkarrPublisher::n0_dns());
             // Resolve using HTTPS requests to our DNS server's /pkarr path in browsers
-            builder = builder.discovery(iroh::discovery::pkarr::PkarrResolver::n0_dns());
+            builder = builder.address_lookup(iroh::address_lookup::pkarr::PkarrResolver::n0_dns());
             // Resolve using DNS queries outside browsers.
-            builder = builder.discovery(iroh::discovery::dns::DnsDiscovery::n0_dns());
+            builder = builder.address_lookup(iroh::address_lookup::dns::DnsAddressLookup::n0_dns());
         }
 
         let endpoint = builder.bind().await?;
@@ -157,9 +157,9 @@ impl Builder {
         self
     }
 
-    pub fn node_discovery(mut self, value: impl IntoDiscovery) -> Self {
-        self.use_n0_discovery = false;
-        self.endpoint = self.endpoint.discovery(value);
+    pub fn node_address_lookup(mut self, value: impl IntoAddressLookup) -> Self {
+        self.use_n0_address_lookup = false;
+        self.endpoint = self.endpoint.address_lookup(value);
         self
     }
 
@@ -178,19 +178,19 @@ impl Builder {
         self
     }
 
-    pub fn bind_random_port(mut self) -> Self {
-        self.bind_random_port = true;
+    pub fn bind_random_port(mut self, bind_random_port: bool) -> Self {
+        self.bind_random_port = bind_random_port;
         self
     }
 
     fn new(path: Option<PathBuf>) -> Self {
         Self {
             endpoint: iroh::Endpoint::empty_builder(RelayMode::Disabled),
-            use_n0_discovery: true,
+            use_n0_address_lookup: true,
             path,
             gc_interval: None,
-            bind_random_port: false,
-            // node_discovery: None,
+            bind_random_port: true,
+            // node_address_lookup: None,
             register_gc_done_cb: None,
             // _p: PhantomData,
         }

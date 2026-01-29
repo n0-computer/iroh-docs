@@ -8,9 +8,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use futures_lite::FutureExt;
-use iroh::{
-    discovery::static_provider::StaticProvider, Endpoint, EndpointAddr, EndpointId, PublicKey,
-};
+use iroh::{address_lookup::memory::MemoryLookup, Endpoint, EndpointAddr, EndpointId, PublicKey};
 use iroh_blobs::{
     api::{
         blobs::BlobStatus,
@@ -156,7 +154,7 @@ pub struct LiveActor {
     endpoint: Endpoint,
     bao_store: Store,
     downloader: Downloader,
-    static_provider: StaticProvider,
+    memory_lookup: MemoryLookup,
     replica_events_tx: async_channel::Sender<crate::Event>,
     replica_events_rx: async_channel::Receiver<crate::Event>,
 
@@ -201,15 +199,15 @@ impl LiveActor {
     ) -> Self {
         let (replica_events_tx, replica_events_rx) = async_channel::bounded(1024);
         let gossip_state = GossipState::new(gossip, sync.clone(), sync_actor_tx.clone());
-        let static_provider = StaticProvider::new();
-        endpoint.discovery().add(static_provider.clone());
+        let memory_lookup = MemoryLookup::new();
+        endpoint.address_lookup().add(memory_lookup.clone());
         Self {
             inbox,
             sync,
             replica_events_rx,
             replica_events_tx,
             endpoint,
-            static_provider,
+            memory_lookup,
             gossip: gossip_state,
             bao_store,
             downloader,
@@ -473,9 +471,9 @@ impl LiveActor {
         for peer in peers.into_iter() {
             let peer_id = peer.id;
             // adding a node address without any addressing info fails with an error,
-            // but we still want to include those peers because node discovery might find addresses for them
+            // but we still want to include those peers because endpoint address lookup might find addresses for them
             if !peer.is_empty() {
-                self.static_provider.add_endpoint_info(peer);
+                self.memory_lookup.add_endpoint_info(peer);
             }
             peer_ids.push(peer_id);
         }
@@ -778,8 +776,13 @@ impl LiveActor {
 
             self.queued_hashes.insert(hash, namespace);
             self.missing_hashes.remove(&hash);
-            self.download_tasks
-                .spawn(async move { (namespace, hash, handle.await) });
+            self.download_tasks.spawn(async move {
+                (
+                    namespace,
+                    hash,
+                    handle.await.map_err(|e| anyhow::anyhow!(e)),
+                )
+            });
         }
     }
 

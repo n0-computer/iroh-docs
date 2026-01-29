@@ -496,7 +496,6 @@ async fn test_sync_via_relay() -> Result<()> {
         .await?;
     let node1_id = node1.id();
     let node2 = Node::memory()
-        .bind_random_port()
         .relay_mode(RelayMode::Custom(relay_map.clone()))
         .insecure_skip_relay_cert_verify(true)
         .spawn()
@@ -592,7 +591,7 @@ async fn sync_restart_node() -> Result<()> {
     let mut rng = test_rng(b"sync_restart_node");
     let (relay_map, _relay_url, _guard) = iroh::test_utils::run_relay_server().await?;
 
-    let discovery_server = iroh::test_utils::DnsPkarrServer::run().await?;
+    let lookup_server = iroh::test_utils::DnsPkarrServer::run().await?;
 
     let node1_dir = tempfile::TempDir::with_prefix("test-sync_restart_node-node1")?;
     let secret_key_1 = SecretKey::generate(&mut rng);
@@ -601,8 +600,8 @@ async fn sync_restart_node() -> Result<()> {
         .secret_key(secret_key_1.clone())
         .insecure_skip_relay_cert_verify(true)
         .relay_mode(RelayMode::Custom(relay_map.clone()))
-        .dns_resolver(discovery_server.dns_resolver())
-        .node_discovery(discovery_server.discovery(secret_key_1.clone()))
+        .dns_resolver(lookup_server.dns_resolver())
+        .node_address_lookup(lookup_server.address_lookup(secret_key_1.clone()))
         .spawn()
         .await?;
     let id1 = node1.id();
@@ -621,8 +620,8 @@ async fn sync_restart_node() -> Result<()> {
         .secret_key(secret_key_2.clone())
         .relay_mode(RelayMode::Custom(relay_map.clone()))
         .insecure_skip_relay_cert_verify(true)
-        .dns_resolver(discovery_server.dns_resolver())
-        .node_discovery(discovery_server.discovery(secret_key_2.clone()))
+        .dns_resolver(lookup_server.dns_resolver())
+        .node_address_lookup(lookup_server.address_lookup(secret_key_2.clone()))
         .spawn()
         .await?;
     let id2 = node2.id();
@@ -667,8 +666,8 @@ async fn sync_restart_node() -> Result<()> {
         .secret_key(secret_key_1.clone())
         .insecure_skip_relay_cert_verify(true)
         .relay_mode(RelayMode::Custom(relay_map.clone()))
-        .dns_resolver(discovery_server.dns_resolver())
-        .node_discovery(discovery_server.discovery(secret_key_1.clone()))
+        .dns_resolver(lookup_server.dns_resolver())
+        .node_address_lookup(lookup_server.address_lookup(secret_key_1.clone()))
         .spawn()
         .await?;
     assert_eq!(id1, node1.id());
