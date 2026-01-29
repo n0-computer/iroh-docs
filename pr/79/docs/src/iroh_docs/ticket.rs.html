@@ -121,7 +121,7 @@
 <a href=#121 id=121 data-nosnippet>121</a>            <span class="kw">let </span>cleaned: String = data_part.chars().filter(|c| !c.is_whitespace()).collect();
 <a href=#122 id=122 data-nosnippet>122</a>
 <a href=#123 id=123 data-nosnippet>123</a>            <span class="macro">ensure!</span>(
-<a href=#124 id=124 data-nosnippet>124</a>                cleaned.len() % <span class="number">2 </span>== <span class="number">0</span>,
+<a href=#124 id=124 data-nosnippet>124</a>                cleaned.len().is_multiple_of(<span class="number">2</span>),
 <a href=#125 id=125 data-nosnippet>125</a>                <span class="string">"Non-even number of hex chars detected on line {}."</span>,
 <a href=#126 id=126 data-nosnippet>126</a>                line_number + <span class="number">1
 <a href=#127 id=127 data-nosnippet>127</a>            </span>);
