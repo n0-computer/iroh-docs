@@ -993,7 +993,6 @@ impl OpenReplicas {
             }
             hash_map::Entry::Occupied(mut e) => {
                 let state = e.get_mut();
-                tracing::debug!("STATE {state:?}");
                 state.handles = state.handles.wrapping_sub(1);
                 if state.handles == 0 {
                     let _ = e.remove_entry();
