@@ -381,7 +381,7 @@ pub enum DocsProtocol {
 pub enum AddrInfoOptions {
     /// Only the Node ID is added.
     ///
-    /// This usually means that iroh-dns discovery is used to find address information.
+    /// This usually means that iroh-dns address lookup is used to find address information.
     #[default]
     Id,
     /// Includes the Node ID and both the relay URL, and the direct addresses.

@@ -5,7 +5,7 @@ use iroh_gossip::{net::Gossip, ALPN as GOSSIP_ALPN};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // create an iroh endpoint that includes the standard discovery mechanisms
+    // create an iroh endpoint that includes the standard address lookup mechanisms
     // we've built at number0
     let endpoint = Endpoint::builder().bind().await?;
 
