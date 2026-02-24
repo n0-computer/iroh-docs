@@ -429,7 +429,7 @@ impl RpcActor {
                 return;
             }
         };
-        tokio::task::spawn(async move {
+        n0_future::task::spawn(async move {
             loop {
                 tokio::select! {
                     msg = stream.next() => {

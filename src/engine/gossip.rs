@@ -9,10 +9,8 @@ use iroh_gossip::{
     api::{Event, GossipReceiver, GossipSender, JoinOptions},
     net::Gossip,
 };
-use tokio::{
-    sync::mpsc,
-    task::{AbortHandle, JoinSet},
-};
+use n0_future::task::{AbortHandle, JoinSet};
+use tokio::sync::mpsc;
 use tracing::{debug, instrument, warn};
 
 use super::live::{Op, ToLiveActor};

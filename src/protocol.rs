@@ -1,6 +1,6 @@
 //! [`ProtocolHandler`] implementation for the docs [`Engine`].
 
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::Result;
 use iroh::{endpoint::Connection, protocol::ProtocolHandler, Endpoint};
@@ -12,6 +12,14 @@ use crate::{
     engine::{DefaultAuthorStorage, Engine, ProtectCallbackHandler},
     store::Store,
 };
+
+#[derive(Default, Debug)]
+enum Storage {
+    #[default]
+    Memory,
+    #[cfg(feature = "fs-store")]
+    Persistent(std::path::PathBuf),
+}
 
 /// Docs protocol.
 #[derive(Debug, Clone)]
@@ -28,9 +36,10 @@ impl Docs {
 
     /// Create a new [`Builder`] for the docs protocol, using a persistent replica and author storage
     /// in the given directory.
-    pub fn persistent(path: PathBuf) -> Builder {
+    #[cfg(feature = "fs-store")]
+    pub fn persistent(path: std::path::PathBuf) -> Builder {
         Builder {
-            path: Some(path),
+            storage: Storage::Persistent(path),
             protect_cb: None,
         }
     }
@@ -75,7 +84,7 @@ impl ProtocolHandler for Docs {
 /// Builder for the docs protocol.
 #[derive(Debug, Default)]
 pub struct Builder {
-    path: Option<PathBuf>,
+    storage: Storage,
     protect_cb: Option<ProtectCallbackHandler>,
 }
 
@@ -95,13 +104,17 @@ impl Builder {
         blobs: BlobsStore,
         gossip: Gossip,
     ) -> anyhow::Result<Docs> {
-        let replica_store = match self.path {
-            Some(ref path) => Store::persistent(path.join("docs.redb"))?,
-            None => Store::memory(),
+        let replica_store = match &self.storage {
+            Storage::Memory => Store::memory(),
+            #[cfg(feature = "fs-store")]
+            Storage::Persistent(path) => Store::persistent(path.join("docs.redb"))?,
         };
-        let author_store = match self.path {
-            Some(ref path) => DefaultAuthorStorage::Persistent(path.join("default-author")),
-            None => DefaultAuthorStorage::Mem,
+        let author_store = match &self.storage {
+            Storage::Memory => DefaultAuthorStorage::Mem,
+            #[cfg(feature = "fs-store")]
+            Storage::Persistent(path) => {
+                DefaultAuthorStorage::Persistent(path.join("default-author"))
+            }
         };
         let downloader = blobs.downloader(&endpoint);
         let engine = Engine::spawn(

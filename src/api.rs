@@ -4,7 +4,6 @@
 
 use std::{
     future::Future,
-    net::SocketAddr,
     path::Path,
     pin::Pin,
     sync::{
@@ -14,18 +13,14 @@ use std::{
     task::{ready, Poll},
 };
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use bytes::Bytes;
 use iroh::EndpointAddr;
 use iroh_blobs::{
     api::blobs::{AddPathOptions, AddProgressItem, ExportMode, ExportOptions, ExportProgress},
     Hash,
 };
-use irpc::rpc::Handler;
-use n0_future::{
-    task::{self, AbortOnDropHandle},
-    FutureExt, Stream, StreamExt,
-};
+use n0_future::{FutureExt, Stream, StreamExt};
 
 use self::{
     actor::RpcActor,
@@ -67,19 +62,25 @@ impl DocsApi {
     }
 
     /// Connect to a remote docs service
-    pub fn connect(endpoint: quinn::Endpoint, addr: SocketAddr) -> Result<DocsApi> {
+    #[cfg(feature = "rpc")]
+    pub fn connect(endpoint: quinn::Endpoint, addr: std::net::SocketAddr) -> Result<DocsApi> {
         Ok(DocsApi {
             inner: Client::quinn(endpoint, addr),
         })
     }
 
     /// Listen for incoming RPC connections
-    pub fn listen(&self, endpoint: quinn::Endpoint) -> Result<AbortOnDropHandle<()>> {
+    #[cfg(feature = "rpc")]
+    pub fn listen(
+        &self,
+        endpoint: quinn::Endpoint,
+    ) -> Result<n0_future::task::AbortOnDropHandle<()>> {
+        use anyhow::Context;
         let local = self
             .inner
             .as_local()
             .context("cannot listen on remote API")?;
-        let handler: Handler<DocsProtocol> = Arc::new(move |msg, _rx, tx| {
+        let handler: irpc::rpc::Handler<DocsProtocol> = Arc::new(move |msg, _rx, tx| {
             let local = local.clone();
             Box::pin(async move {
                 match msg {
@@ -114,8 +115,8 @@ impl DocsApi {
                 }
             })
         });
-        let join_handle = task::spawn(irpc::rpc::listen(endpoint, handler));
-        Ok(AbortOnDropHandle::new(join_handle))
+        let join_handle = n0_future::task::spawn(irpc::rpc::listen(endpoint, handler));
+        Ok(n0_future::task::AbortOnDropHandle::new(join_handle))
     }
 
     /// Creates a new document author.

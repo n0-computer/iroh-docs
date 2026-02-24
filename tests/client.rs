@@ -31,7 +31,7 @@ async fn test_doc_close() -> Result<()> {
     // dropping doc1 will close the doc if not already closed
     // wait a bit because the close-on-drop spawns a task for which we cannot track completion.
     drop(doc1);
-    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    n0_future::time::sleep(n0_future::time::Duration::from_millis(100)).await;
 
     // operations on doc2 still succeed
     doc2.set_bytes(author, "foo", "bar").await?;
@@ -167,6 +167,7 @@ async fn test_default_author_memory() -> Result<()> {
 
 #[tokio::test]
 #[traced_test]
+#[cfg(feature = "fs-store")]
 async fn test_default_author_persist() -> TestResult<()> {
     let iroh_root_dir = tempfile::TempDir::new()?;
     let iroh_root = iroh_root_dir.path();
@@ -216,7 +217,7 @@ async fn test_default_author_persist() -> TestResult<()> {
         // somehow the blob store is not shutdown correctly (yet?) on macos.
         // so we give it some time until we find a proper fix.
         #[cfg(target_os = "macos")]
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        n0_future::time::sleep(std::time::Duration::from_secs(1)).await;
 
         tokio::fs::remove_file(iroh_root.join("default-author")).await?;
         drop(iroh);

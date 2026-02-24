@@ -304,7 +304,7 @@ pub struct AuthorDeleteResponse;
 
 // Use the macro to generate both the DocsProtocol and DocsMessage enums
 // plus implement Channels for each type
-#[rpc_requests(message = DocsMessage)]
+#[rpc_requests(message = DocsMessage, rpc_feature = "rpc")]
 #[derive(Serialize, Deserialize, Debug)]
 pub enum DocsProtocol {
     #[rpc(tx = oneshot::Sender<RpcResult<OpenResponse>>)]

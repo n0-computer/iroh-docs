@@ -4,8 +4,6 @@ use std::{
     collections::{hash_map, HashMap},
     num::NonZeroU64,
     sync::Arc,
-    thread::JoinHandle,
-    time::Duration,
 };
 
 use anyhow::{anyhow, Context, Result};
@@ -13,8 +11,11 @@ use bytes::Bytes;
 use futures_util::FutureExt;
 use iroh_blobs::Hash;
 use irpc::channel::mpsc;
+use n0_future::{task::JoinSet, time::Duration};
 use serde::{Deserialize, Serialize};
-use tokio::{sync::oneshot, task::JoinSet};
+use tokio::sync::oneshot;
+#[cfg(wasm_browser)]
+use tracing::Instrument;
 use tracing::{debug, error, error_span, trace, warn};
 
 use crate::{
@@ -226,7 +227,11 @@ struct OpenReplica {
 #[derive(Debug, Clone)]
 pub struct SyncHandle {
     tx: async_channel::Sender<Action>,
-    join_handle: Arc<Option<JoinHandle<()>>>,
+    #[cfg(wasm_browser)]
+    #[allow(unused)]
+    join_handle: Arc<Option<n0_future::task::JoinHandle<()>>>,
+    #[cfg(not(wasm_browser))]
+    join_handle: Arc<Option<std::thread::JoinHandle<()>>>,
     metrics: Arc<Metrics>,
 }
 
@@ -270,17 +275,23 @@ impl SyncHandle {
             tasks: Default::default(),
             metrics: metrics.clone(),
         };
+
+        let span = error_span!("sync", %me);
+        #[cfg(wasm_browser)]
+        let join_handle = n0_future::task::spawn(actor.run_async().instrument(span));
+
+        #[cfg(not(wasm_browser))]
         let join_handle = std::thread::Builder::new()
             .name("sync-actor".to_string())
             .spawn(move || {
-                let span = error_span!("sync", %me);
                 let _enter = span.enter();
 
-                if let Err(err) = actor.run() {
+                if let Err(err) = actor.run_in_thread() {
                     error!("Sync actor closed with error: {err:?}");
                 }
             })
             .expect("failed to spawn thread");
+
         let join_handle = Arc::new(Some(join_handle));
         SyncHandle {
             tx: action_tx,
@@ -594,14 +605,26 @@ impl SyncHandle {
 impl Drop for SyncHandle {
     fn drop(&mut self) {
         // this means we're dropping the last reference
+        #[allow(unused)]
         if let Some(handle) = Arc::get_mut(&mut self.join_handle) {
-            // this call is the reason tx can not be a tokio mpsc channel.
-            // we have no control about where drop is called, yet tokio send_blocking panics
-            // when called from inside a tokio runtime.
-            self.tx.send_blocking(Action::Shutdown { reply: None }).ok();
-            let handle = handle.take().expect("this can only run once");
-            if let Err(err) = handle.join() {
-                warn!(?err, "Failed to join sync actor");
+            #[cfg(wasm_browser)]
+            {
+                let tx = self.tx.clone();
+                n0_future::task::spawn(async move {
+                    tx.send(Action::Shutdown { reply: None }).await.ok();
+                });
+            }
+            #[cfg(not(wasm_browser))]
+            {
+                // this call is the reason tx can not be a tokio mpsc channel.
+                // we have no control about where drop is called, yet tokio send_blocking panics
+                // when called from inside a tokio runtime.
+                self.tx.send_blocking(Action::Shutdown { reply: None }).ok();
+                let handle = handle.take().expect("this can only run once");
+
+                if let Err(err) = handle.join() {
+                    warn!(?err, "Failed to join sync actor");
+                }
             }
         }
     }
@@ -617,7 +640,8 @@ struct Actor {
 }
 
 impl Actor {
-    fn run(self) -> Result<()> {
+    #[cfg(not(wasm_browser))]
+    fn run_in_thread(self) -> Result<()> {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_time()
             .build()?;
@@ -628,7 +652,7 @@ impl Actor {
 
     async fn run_async(mut self) {
         let reply = loop {
-            let timeout = tokio::time::sleep(MAX_COMMIT_DELAY);
+            let timeout = n0_future::time::sleep(MAX_COMMIT_DELAY);
             tokio::pin!(timeout);
             let action = tokio::select! {
                 _ = &mut timeout => {
@@ -764,37 +788,46 @@ impl Actor {
                 hash,
                 len,
                 reply,
-            } => send_reply_with(reply, self, move |this| {
-                let author = get_author(&mut this.store, &author)?;
-                let mut replica = this.states.replica(namespace, &mut this.store)?;
-                replica.insert(&key, &author, hash, len)?;
-                this.metrics.new_entries_local.inc();
-                this.metrics.new_entries_local_size.inc_by(len);
-                Ok(())
-            }),
-            ReplicaAction::DeletePrefix { author, key, reply } => {
-                send_reply_with(reply, self, |this| {
+            } => {
+                send_reply_with_async(reply, self, async move |this| {
                     let author = get_author(&mut this.store, &author)?;
                     let mut replica = this.states.replica(namespace, &mut this.store)?;
-                    let res = replica.delete_prefix(&key, &author)?;
+                    replica.insert(&key, &author, hash, len).await?;
+                    this.metrics.new_entries_local.inc();
+                    this.metrics.new_entries_local_size.inc_by(len);
+                    Ok(())
+                })
+                .await
+            }
+            ReplicaAction::DeletePrefix { author, key, reply } => {
+                send_reply_with_async(reply, self, async |this| {
+                    let author = get_author(&mut this.store, &author)?;
+                    let mut replica = this.states.replica(namespace, &mut this.store)?;
+                    let res = replica.delete_prefix(&key, &author).await?;
                     Ok(res)
                 })
+                .await
             }
             ReplicaAction::InsertRemote {
                 entry,
                 from,
                 content_status,
                 reply,
-            } => send_reply_with(reply, self, move |this| {
-                let mut replica = this
-                    .states
-                    .replica_if_syncing(&namespace, &mut this.store)?;
-                let len = entry.content_len();
-                replica.insert_remote_entry(entry, from, content_status)?;
-                this.metrics.new_entries_remote.inc();
-                this.metrics.new_entries_remote_size.inc_by(len);
-                Ok(())
-            }),
+            } => {
+                send_reply_with_async(reply, self, async move |this| {
+                    let mut replica = this
+                        .states
+                        .replica_if_syncing(&namespace, &mut this.store)?;
+                    let len = entry.content_len();
+                    replica
+                        .insert_remote_entry(entry, from, content_status)
+                        .await?;
+                    this.metrics.new_entries_remote.inc();
+                    this.metrics.new_entries_remote_size.inc_by(len);
+                    Ok(())
+                })
+                .await
+            }
 
             ReplicaAction::SyncInitialMessage { reply } => {
                 send_reply_with(reply, self, move |this| {
@@ -1047,6 +1080,14 @@ fn send_reply_with<T>(
     f: impl FnOnce(&mut Actor) -> Result<T>,
 ) -> Result<(), SendReplyError> {
     sender.send(f(this)).map_err(send_reply_error)
+}
+
+async fn send_reply_with_async<T>(
+    sender: oneshot::Sender<Result<T>>,
+    this: &mut Actor,
+    f: impl AsyncFnOnce(&mut Actor) -> Result<T>,
+) -> Result<(), SendReplyError> {
+    sender.send(f(this).await).map_err(send_reply_error)
 }
 
 fn send_reply_error<T>(_err: T) -> SendReplyError {

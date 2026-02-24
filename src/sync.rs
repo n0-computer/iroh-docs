@@ -11,12 +11,15 @@ use std::{
     fmt::Debug,
     ops::{Deref, DerefMut},
     sync::Arc,
-    time::{Duration, SystemTime},
 };
 
 use bytes::{Bytes, BytesMut};
 use ed25519_dalek::{Signature, SignatureError};
 use iroh_blobs::Hash;
+use n0_future::{
+    time::{Duration, SystemTime},
+    IterExt,
+};
 use serde::{Deserialize, Serialize};
 
 pub use crate::heads::AuthorHeads;
@@ -129,16 +132,22 @@ impl Subscribers {
     pub fn unsubscribe(&mut self, sender: &async_channel::Sender<Event>) {
         self.0.retain(|s| !same_channel(s, sender));
     }
-    pub fn send(&mut self, event: Event) {
-        self.0
-            .retain(|sender| sender.send_blocking(event.clone()).is_ok())
+    pub async fn send(&mut self, event: Event) {
+        self.0 = std::mem::take(&mut self.0)
+            .into_iter()
+            .map(async |tx| tx.send(event.clone()).await.ok().map(|_| tx))
+            .join_all()
+            .await
+            .into_iter()
+            .flatten()
+            .collect();
     }
     pub fn len(&self) -> usize {
         self.0.len()
     }
-    pub fn send_with(&mut self, f: impl FnOnce() -> Event) {
+    pub async fn send_with(&mut self, f: impl FnOnce() -> Event) {
         if !self.0.is_empty() {
-            self.send(f())
+            self.send(f()).await
         }
     }
 }
@@ -361,7 +370,7 @@ where
     ///
     /// Returns the number of entries removed as a consequence of this insertion,
     /// or an error either if the entry failed to validate or if a store operation failed.
-    pub fn insert(
+    pub async fn insert(
         &mut self,
         key: impl AsRef<[u8]>,
         author: &Author,
@@ -377,7 +386,7 @@ where
         let entry = Entry::new(id, record);
         let secret = self.secret_key()?;
         let signed_entry = entry.sign(secret, author);
-        self.insert_entry(signed_entry, InsertOrigin::Local)
+        self.insert_entry(signed_entry, InsertOrigin::Local).await
     }
 
     /// Delete entries that match the given `author` and key `prefix`.
@@ -386,7 +395,7 @@ where
     /// entries whose key starts with or is equal to the given `prefix`.
     ///
     /// Returns the number of entries deleted.
-    pub fn delete_prefix(
+    pub async fn delete_prefix(
         &mut self,
         prefix: impl AsRef<[u8]>,
         author: &Author,
@@ -395,7 +404,7 @@ where
         let id = RecordIdentifier::new(self.id(), author.id(), prefix);
         let entry = Entry::new_empty(id);
         let signed_entry = entry.sign(self.secret_key()?, author);
-        self.insert_entry(signed_entry, InsertOrigin::Local)
+        self.insert_entry(signed_entry, InsertOrigin::Local).await
     }
 
     /// Insert an entry into this replica which was received from a remote peer.
@@ -405,7 +414,7 @@ where
     ///
     /// Returns the number of entries removed as a consequence of this insertion,
     /// or an error if the entry failed to validate or if a store operation failed.
-    pub fn insert_remote_entry(
+    pub async fn insert_remote_entry(
         &mut self,
         entry: SignedEntry,
         received_from: PeerIdBytes,
@@ -417,13 +426,13 @@ where
             from: received_from,
             remote_content_status: content_status,
         };
-        self.insert_entry(entry, origin)
+        self.insert_entry(entry, origin).await
     }
 
     /// Insert a signed entry into the database.
     ///
     /// Returns the number of entries removed as a consequence of this insertion.
-    fn insert_entry(
+    async fn insert_entry(
         &mut self,
         entry: SignedEntry,
         origin: InsertOrigin,
@@ -462,7 +471,7 @@ where
             }
         };
 
-        self.info.subscribers.send(insert_event);
+        self.info.subscribers.send(insert_event).await;
 
         Ok(removed_count)
     }
@@ -471,7 +480,7 @@ where
     ///
     /// This does not store the content, just the record of it.
     /// Returns the calculated hash.
-    pub fn hash_and_insert(
+    pub async fn hash_and_insert(
         &mut self,
         key: impl AsRef<[u8]>,
         author: &Author,
@@ -480,7 +489,7 @@ where
         self.info.ensure_open()?;
         let len = data.as_ref().len() as u64;
         let hash = Hash::new(data);
-        self.insert(key, author, hash, len)?;
+        self.insert(key, author, hash, len).await?;
         Ok(hash)
     }
 
@@ -537,29 +546,29 @@ where
                     validate_entry(now, store, my_namespace, entry, &origin).is_ok()
                 },
                 // on_insert callback: is called when an entry was actually inserted in the store
-                |_store, entry, content_status| {
+                async |_store, entry, content_status| {
                     // We use `send_with` to only clone the entry if we have active subscriptions.
-                    self.info.subscribers.send_with(|| {
-                        let should_download = download_policy.matches(entry.entry());
-                        Event::RemoteInsert {
-                            from: from_peer,
-                            namespace: my_namespace,
-                            entry: entry.clone(),
-                            should_download,
-                            remote_content_status: content_status,
-                        }
-                    })
+                    self.info
+                        .subscribers
+                        .send_with(|| {
+                            let should_download = download_policy.matches(entry.entry());
+                            Event::RemoteInsert {
+                                from: from_peer,
+                                namespace: my_namespace,
+                                entry: entry.clone(),
+                                should_download,
+                                remote_content_status: content_status,
+                            }
+                        })
+                        .await
                 },
                 // content_status callback: get content status for outgoing entries
-                move |entry| {
-                    let cb = cb.clone();
-                    Box::pin(async move {
-                        if let Some(cb) = cb.as_ref() {
-                            cb(entry.content_hash()).await
-                        } else {
-                            ContentStatus::Missing
-                        }
-                    })
+                async move |entry| {
+                    if let Some(cb) = cb.as_ref() {
+                        cb(entry.content_hash()).await
+                    } else {
+                        ContentStatus::Missing
+                    }
                 },
             )
             .await?;
@@ -1205,23 +1214,24 @@ mod tests {
         store::{OpenError, Query, SortBy, SortDirection, Store},
     };
 
-    #[test]
-    fn test_basics_memory() -> Result<()> {
+    #[tokio::test]
+    async fn test_basics_memory() -> Result<()> {
         let store = store::Store::memory();
-        test_basics(store)?;
+        test_basics(store).await?;
 
         Ok(())
     }
 
-    #[test]
-    fn test_basics_fs() -> Result<()> {
+    #[tokio::test]
+    #[cfg(feature = "fs-store")]
+    async fn test_basics_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
-        test_basics(store)?;
+        test_basics(store).await?;
         Ok(())
     }
 
-    fn test_basics(mut store: Store) -> Result<()> {
+    async fn test_basics(mut store: Store) -> Result<()> {
         let mut rng = rand::rng();
         let alice = Author::new(&mut rng);
         let bob = Author::new(&mut rng);
@@ -1235,11 +1245,9 @@ mod tests {
 
         let mut my_replica = store.new_replica(myspace.clone())?;
         for i in 0..10 {
-            my_replica.hash_and_insert(
-                format!("/{i}"),
-                &alice,
-                format!("{i}: hello from alice"),
-            )?;
+            my_replica
+                .hash_and_insert(format!("/{i}"), &alice, format!("{i}: hello from alice"))
+                .await?;
         }
 
         for i in 0..10 {
@@ -1253,13 +1261,17 @@ mod tests {
 
         // Test multiple records for the same key
         let mut my_replica = store.new_replica(myspace.clone())?;
-        my_replica.hash_and_insert("/cool/path", &alice, "round 1")?;
+        my_replica
+            .hash_and_insert("/cool/path", &alice, "round 1")
+            .await?;
         let _entry = store
             .get_exact(myspace.id(), alice.id(), "/cool/path", false)?
             .unwrap();
         // Second
         let mut my_replica = store.new_replica(myspace.clone())?;
-        my_replica.hash_and_insert("/cool/path", &alice, "round 2")?;
+        my_replica
+            .hash_and_insert("/cool/path", &alice, "round 2")
+            .await?;
         let _entry = store
             .get_exact(myspace.id(), alice.id(), "/cool/path", false)?
             .unwrap();
@@ -1290,7 +1302,9 @@ mod tests {
 
         // insert record from different author
         let mut my_replica = store.new_replica(myspace.clone())?;
-        let _entry = my_replica.hash_and_insert("/cool/path", &bob, "bob round 1")?;
+        let _entry = my_replica
+            .hash_and_insert("/cool/path", &bob, "bob round 1")
+            .await?;
 
         // Get All by author
         let entries: Vec<_> = store
@@ -1392,20 +1406,21 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_content_hashes_iterator_memory() -> Result<()> {
+    #[tokio::test]
+    async fn test_content_hashes_iterator_memory() -> Result<()> {
         let store = store::Store::memory();
-        test_content_hashes_iterator(store)
+        test_content_hashes_iterator(store).await
     }
 
-    #[test]
-    fn test_content_hashes_iterator_fs() -> Result<()> {
+    #[tokio::test]
+    #[cfg(feature = "fs-store")]
+    async fn test_content_hashes_iterator_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
-        test_content_hashes_iterator(store)
+        test_content_hashes_iterator(store).await
     }
 
-    fn test_content_hashes_iterator(mut store: Store) -> Result<()> {
+    async fn test_content_hashes_iterator(mut store: Store) -> Result<()> {
         let mut rng = rand::rng();
         let mut expected = HashSet::new();
         let n_replicas = 3;
@@ -1417,7 +1432,7 @@ mod tests {
             for j in 0..n_entries {
                 let key = format!("{j}");
                 let data = format!("{i}:{j}");
-                let hash = replica.hash_and_insert(key, &author, data)?;
+                let hash = replica.hash_and_insert(key, &author, data).await?;
                 expected.insert(hash);
             }
         }
@@ -1517,23 +1532,24 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_timestamps_memory() -> Result<()> {
+    #[tokio::test]
+    async fn test_timestamps_memory() -> Result<()> {
         let store = store::Store::memory();
-        test_timestamps(store)?;
+        test_timestamps(store).await?;
 
         Ok(())
     }
 
-    #[test]
-    fn test_timestamps_fs() -> Result<()> {
+    #[tokio::test]
+    #[cfg(feature = "fs-store")]
+    async fn test_timestamps_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
-        test_timestamps(store)?;
+        test_timestamps(store).await?;
         Ok(())
     }
 
-    fn test_timestamps(mut store: Store) -> Result<()> {
+    async fn test_timestamps(mut store: Store) -> Result<()> {
         let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(1);
         let namespace = NamespaceSecret::new(&mut rng);
         let _replica = store.new_replica(namespace.clone())?;
@@ -1552,6 +1568,7 @@ mod tests {
 
         replica
             .insert_entry(entry.clone(), InsertOrigin::Local)
+            .await
             .unwrap();
         store.close_replica(namespace.id());
         let res = store
@@ -1567,7 +1584,7 @@ mod tests {
         };
 
         let mut replica = store.open_replica(&namespace.id())?;
-        let res = replica.insert_entry(entry2, InsertOrigin::Local);
+        let res = replica.insert_entry(entry2, InsertOrigin::Local).await;
         store.close_replica(namespace.id());
         assert!(matches!(res, Err(InsertError::NewerEntryExists)));
         let res = store
@@ -1588,6 +1605,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_replica_sync_fs() -> Result<()> {
         let alice_dbfile = tempfile::NamedTempFile::new()?;
         let alice_store = store::fs::Store::persistent(alice_dbfile.path())?;
@@ -1607,12 +1625,12 @@ mod tests {
         let myspace = NamespaceSecret::new(&mut rng);
         let mut alice = alice_store.new_replica(myspace.clone())?;
         for el in &alice_set {
-            alice.hash_and_insert(el, &author, el.as_bytes())?;
+            alice.hash_and_insert(el, &author, el.as_bytes()).await?;
         }
 
         let mut bob = bob_store.new_replica(myspace.clone())?;
         for el in &bob_set {
-            bob.hash_and_insert(el, &author, el.as_bytes())?;
+            bob.hash_and_insert(el, &author, el.as_bytes()).await?;
         }
 
         let (alice_out, bob_out) = sync(&mut alice, &mut bob).await?;
@@ -1641,6 +1659,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_replica_timestamp_sync_fs() -> Result<()> {
         let alice_dbfile = tempfile::NamedTempFile::new()?;
         let alice_store = store::fs::Store::persistent(alice_dbfile.path())?;
@@ -1664,9 +1683,9 @@ mod tests {
         let key = b"key";
         let alice_value = b"alice";
         let bob_value = b"bob";
-        let _alice_hash = alice.hash_and_insert(key, &author, alice_value)?;
+        let _alice_hash = alice.hash_and_insert(key, &author, alice_value).await?;
         // system time increased - sync should overwrite
-        let bob_hash = bob.hash_and_insert(key, &author, bob_value)?;
+        let bob_hash = bob.hash_and_insert(key, &author, bob_value).await?;
         sync(&mut alice, &mut bob).await?;
         assert_eq!(
             get_content_hash(&mut alice_store, namespace.id(), author.id(), key)?,
@@ -1682,8 +1701,8 @@ mod tests {
 
         let alice_value_2 = b"alice2";
         // system time increased - sync should overwrite
-        let _bob_hash_2 = bob.hash_and_insert(key, &author, bob_value)?;
-        let alice_hash_2 = alice.hash_and_insert(key, &author, alice_value_2)?;
+        let _bob_hash_2 = bob.hash_and_insert(key, &author, bob_value).await?;
+        let alice_hash_2 = alice.hash_and_insert(key, &author, alice_value_2).await?;
         sync(&mut alice, &mut bob).await?;
         assert_eq!(
             get_content_hash(&mut alice_store, namespace.id(), author.id(), key)?,
@@ -1698,8 +1717,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_future_timestamp() -> Result<()> {
+    #[tokio::test]
+    async fn test_future_timestamp() -> Result<()> {
         let mut rng = rand::rng();
         let mut store = store::Store::memory();
         let author = Author::new(&mut rng);
@@ -1710,7 +1729,9 @@ mod tests {
         let t = system_time_now();
         let record = Record::from_data(b"1", t);
         let entry0 = SignedEntry::from_parts(&namespace, &author, key, record);
-        replica.insert_entry(entry0.clone(), InsertOrigin::Local)?;
+        replica
+            .insert_entry(entry0.clone(), InsertOrigin::Local)
+            .await?;
 
         assert_eq!(
             get_entry(&mut store, namespace.id(), author.id(), key)?,
@@ -1721,7 +1742,9 @@ mod tests {
         let t = system_time_now() + MAX_TIMESTAMP_FUTURE_SHIFT - 10000;
         let record = Record::from_data(b"2", t);
         let entry1 = SignedEntry::from_parts(&namespace, &author, key, record);
-        replica.insert_entry(entry1.clone(), InsertOrigin::Local)?;
+        replica
+            .insert_entry(entry1.clone(), InsertOrigin::Local)
+            .await?;
         assert_eq!(
             get_entry(&mut store, namespace.id(), author.id(), key)?,
             entry1
@@ -1731,7 +1754,9 @@ mod tests {
         let t = system_time_now() + MAX_TIMESTAMP_FUTURE_SHIFT;
         let record = Record::from_data(b"2", t);
         let entry2 = SignedEntry::from_parts(&namespace, &author, key, record);
-        replica.insert_entry(entry2.clone(), InsertOrigin::Local)?;
+        replica
+            .insert_entry(entry2.clone(), InsertOrigin::Local)
+            .await?;
         assert_eq!(
             get_entry(&mut store, namespace.id(), author.id(), key)?,
             entry2
@@ -1741,7 +1766,7 @@ mod tests {
         let t = system_time_now() + MAX_TIMESTAMP_FUTURE_SHIFT + 10000;
         let record = Record::from_data(b"2", t);
         let entry3 = SignedEntry::from_parts(&namespace, &author, key, record);
-        let res = replica.insert_entry(entry3, InsertOrigin::Local);
+        let res = replica.insert_entry(entry3, InsertOrigin::Local).await;
         assert!(matches!(
             res,
             Err(InsertError::Validation(
@@ -1756,42 +1781,43 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_insert_empty() -> Result<()> {
+    #[tokio::test]
+    async fn test_insert_empty() -> Result<()> {
         let mut store = store::Store::memory();
         let mut rng = rand::rng();
         let alice = Author::new(&mut rng);
         let myspace = NamespaceSecret::new(&mut rng);
         let mut replica = store.new_replica(myspace.clone())?;
         let hash = Hash::new(b"");
-        let res = replica.insert(b"foo", &alice, hash, 0);
+        let res = replica.insert(b"foo", &alice, hash, 0).await;
         assert!(matches!(res, Err(InsertError::EntryIsEmpty)));
         store.flush()?;
         Ok(())
     }
 
-    #[test]
-    fn test_prefix_delete_memory() -> Result<()> {
+    #[tokio::test]
+    async fn test_prefix_delete_memory() -> Result<()> {
         let store = store::Store::memory();
-        test_prefix_delete(store)?;
+        test_prefix_delete(store).await?;
         Ok(())
     }
 
-    #[test]
-    fn test_prefix_delete_fs() -> Result<()> {
+    #[tokio::test]
+    #[cfg(feature = "fs-store")]
+    async fn test_prefix_delete_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
-        test_prefix_delete(store)?;
+        test_prefix_delete(store).await?;
         Ok(())
     }
 
-    fn test_prefix_delete(mut store: Store) -> Result<()> {
+    async fn test_prefix_delete(mut store: Store) -> Result<()> {
         let mut rng = rand::rng();
         let alice = Author::new(&mut rng);
         let myspace = NamespaceSecret::new(&mut rng);
         let mut replica = store.new_replica(myspace.clone())?;
-        let hash1 = replica.hash_and_insert(b"foobar", &alice, b"hello")?;
-        let hash2 = replica.hash_and_insert(b"fooboo", &alice, b"world")?;
+        let hash1 = replica.hash_and_insert(b"foobar", &alice, b"hello").await?;
+        let hash2 = replica.hash_and_insert(b"fooboo", &alice, b"world").await?;
 
         // sanity checks
         assert_eq!(
@@ -1805,7 +1831,7 @@ mod tests {
 
         // delete
         let mut replica = store.new_replica(myspace.clone())?;
-        let deleted = replica.delete_prefix(b"foo", &alice)?;
+        let deleted = replica.delete_prefix(b"foo", &alice).await?;
         assert_eq!(deleted, 2);
         assert_eq!(
             store.get_exact(myspace.id(), alice.id(), b"foobar", false)?,
@@ -1832,6 +1858,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_replica_sync_delete_fs() -> Result<()> {
         let alice_dbfile = tempfile::NamedTempFile::new()?;
         let alice_store = store::fs::Store::persistent(alice_dbfile.path())?;
@@ -1849,12 +1876,12 @@ mod tests {
         let myspace = NamespaceSecret::new(&mut rng);
         let mut alice = alice_store.new_replica(myspace.clone())?;
         for el in &alice_set {
-            alice.hash_and_insert(el, &author, el.as_bytes())?;
+            alice.hash_and_insert(el, &author, el.as_bytes()).await?;
         }
 
         let mut bob = bob_store.new_replica(myspace.clone())?;
         for el in &bob_set {
-            bob.hash_and_insert(el, &author, el.as_bytes())?;
+            bob.hash_and_insert(el, &author, el.as_bytes()).await?;
         }
 
         sync(&mut alice, &mut bob).await?;
@@ -1866,8 +1893,9 @@ mod tests {
 
         let mut alice = alice_store.new_replica(myspace.clone())?;
         let mut bob = bob_store.new_replica(myspace.clone())?;
-        alice.delete_prefix("foo", &author)?;
-        bob.hash_and_insert("fooz", &author, "fooz".as_bytes())?;
+        alice.delete_prefix("foo", &author).await?;
+        bob.hash_and_insert("fooz", &author, "fooz".as_bytes())
+            .await?;
         sync(&mut alice, &mut bob).await?;
         check_entries(&mut alice_store, &myspace.id(), &author, &["fog", "fooz"])?;
         check_entries(&mut bob_store, &myspace.id(), &author, &["fog", "fooz"])?;
@@ -1876,27 +1904,28 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_replica_remove_memory() -> Result<()> {
+    #[tokio::test]
+    async fn test_replica_remove_memory() -> Result<()> {
         let alice_store = store::Store::memory();
-        test_replica_remove(alice_store)
+        test_replica_remove(alice_store).await
     }
 
-    #[test]
-    fn test_replica_remove_fs() -> Result<()> {
+    #[tokio::test]
+    #[cfg(feature = "fs-store")]
+    async fn test_replica_remove_fs() -> Result<()> {
         let alice_dbfile = tempfile::NamedTempFile::new()?;
         let alice_store = store::fs::Store::persistent(alice_dbfile.path())?;
-        test_replica_remove(alice_store)
+        test_replica_remove(alice_store).await
     }
 
-    fn test_replica_remove(mut store: Store) -> Result<()> {
+    async fn test_replica_remove(mut store: Store) -> Result<()> {
         let mut rng = rand::rng();
         let namespace = NamespaceSecret::new(&mut rng);
         let author = Author::new(&mut rng);
         let mut replica = store.new_replica(namespace.clone())?;
 
         // insert entry
-        let hash = replica.hash_and_insert(b"foo", &author, b"bar")?;
+        let hash = replica.hash_and_insert(b"foo", &author, b"bar").await?;
         let res = store
             .get_many(namespace.id(), Query::all())?
             .collect::<Vec<_>>();
@@ -1919,7 +1948,7 @@ mod tests {
 
         // may recreate replica
         let mut replica = store.new_replica(namespace.clone())?;
-        replica.insert(b"foo", &author, hash, 3)?;
+        replica.insert(b"foo", &author, hash, 3).await?;
         let res = store
             .get_many(namespace.id(), Query::all())?
             .collect::<Vec<_>>();
@@ -1928,20 +1957,21 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_replica_delete_edge_cases_memory() -> Result<()> {
+    #[tokio::test]
+    async fn test_replica_delete_edge_cases_memory() -> Result<()> {
         let store = store::Store::memory();
-        test_replica_delete_edge_cases(store)
+        test_replica_delete_edge_cases(store).await
     }
 
-    #[test]
-    fn test_replica_delete_edge_cases_fs() -> Result<()> {
+    #[tokio::test]
+    #[cfg(feature = "fs-store")]
+    async fn test_replica_delete_edge_cases_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
-        test_replica_delete_edge_cases(store)
+        test_replica_delete_edge_cases(store).await
     }
 
-    fn test_replica_delete_edge_cases(mut store: Store) -> Result<()> {
+    async fn test_replica_delete_edge_cases(mut store: Store) -> Result<()> {
         let mut rng = rand::rng();
         let author = Author::new(&mut rng);
         let namespace = NamespaceSecret::new(&mut rng);
@@ -1956,23 +1986,23 @@ mod tests {
             for suffix in edgecases {
                 let key = [prefix, suffix].to_vec();
                 expected.push(key.clone());
-                replica.insert(&key, &author, hash, len)?;
+                replica.insert(&key, &author, hash, len).await?;
             }
             assert_keys(&mut store, namespace.id(), expected);
             let mut replica = store.new_replica(namespace.clone())?;
-            replica.delete_prefix([prefix], &author)?;
+            replica.delete_prefix([prefix], &author).await?;
             assert_keys(&mut store, namespace.id(), vec![]);
         }
 
         let mut replica = store.new_replica(namespace.clone())?;
         let key = vec![1u8, 0u8];
-        replica.insert(key, &author, hash, len)?;
+        replica.insert(key, &author, hash, len).await?;
         let key = vec![1u8, 1u8];
-        replica.insert(key, &author, hash, len)?;
+        replica.insert(key, &author, hash, len).await?;
         let key = vec![1u8, 2u8];
-        replica.insert(key, &author, hash, len)?;
+        replica.insert(key, &author, hash, len).await?;
         let prefix = vec![1u8, 1u8];
-        replica.delete_prefix(prefix, &author)?;
+        replica.delete_prefix(prefix, &author).await?;
         assert_keys(
             &mut store,
             namespace.id(),
@@ -1981,11 +2011,11 @@ mod tests {
 
         let mut replica = store.new_replica(namespace.clone())?;
         let key = vec![0u8, 255u8];
-        replica.insert(key, &author, hash, len)?;
+        replica.insert(key, &author, hash, len).await?;
         let key = vec![0u8, 0u8];
-        replica.insert(key, &author, hash, len)?;
+        replica.insert(key, &author, hash, len).await?;
         let prefix = vec![0u8];
-        replica.delete_prefix(prefix, &author)?;
+        replica.delete_prefix(prefix, &author).await?;
         assert_keys(
             &mut store,
             namespace.id(),
@@ -1995,27 +2025,28 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_latest_iter_memory() -> Result<()> {
+    #[tokio::test]
+    async fn test_latest_iter_memory() -> Result<()> {
         let store = store::Store::memory();
-        test_latest_iter(store)
+        test_latest_iter(store).await
     }
 
-    #[test]
-    fn test_latest_iter_fs() -> Result<()> {
+    #[tokio::test]
+    #[cfg(feature = "fs-store")]
+    async fn test_latest_iter_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
-        test_latest_iter(store)
+        test_latest_iter(store).await
     }
 
-    fn test_latest_iter(mut store: Store) -> Result<()> {
+    async fn test_latest_iter(mut store: Store) -> Result<()> {
         let mut rng = rand::rng();
         let author0 = Author::new(&mut rng);
         let author1 = Author::new(&mut rng);
         let namespace = NamespaceSecret::new(&mut rng);
         let mut replica = store.new_replica(namespace.clone())?;
 
-        replica.hash_and_insert(b"a0.1", &author0, b"hi")?;
+        replica.hash_and_insert(b"a0.1", &author0, b"hi").await?;
         let latest = store
             .get_latest_for_each_author(namespace.id())?
             .collect::<Result<Vec<_>>>()?;
@@ -2023,8 +2054,8 @@ mod tests {
         assert_eq!(latest[0].2, b"a0.1".to_vec());
 
         let mut replica = store.new_replica(namespace.clone())?;
-        replica.hash_and_insert(b"a1.1", &author1, b"hi")?;
-        replica.hash_and_insert(b"a0.2", &author0, b"hi")?;
+        replica.hash_and_insert(b"a1.1", &author1, b"hi").await?;
+        replica.hash_and_insert(b"a0.2", &author0, b"hi").await?;
         let latest = store
             .get_latest_for_each_author(namespace.id())?
             .collect::<Result<Vec<_>>>()?;
@@ -2035,24 +2066,25 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_replica_byte_keys_memory() -> Result<()> {
+    #[tokio::test]
+    async fn test_replica_byte_keys_memory() -> Result<()> {
         let store = store::Store::memory();
 
-        test_replica_byte_keys(store)?;
+        test_replica_byte_keys(store).await?;
         Ok(())
     }
 
-    #[test]
-    fn test_replica_byte_keys_fs() -> Result<()> {
+    #[tokio::test]
+    #[cfg(feature = "fs-store")]
+    async fn test_replica_byte_keys_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
-        test_replica_byte_keys(store)?;
+        test_replica_byte_keys(store).await?;
 
         Ok(())
     }
 
-    fn test_replica_byte_keys(mut store: Store) -> Result<()> {
+    async fn test_replica_byte_keys(mut store: Store) -> Result<()> {
         let mut rng = rand::rng();
         let author = Author::new(&mut rng);
         let namespace = NamespaceSecret::new(&mut rng);
@@ -2062,11 +2094,11 @@ mod tests {
 
         let key = vec![1u8, 0u8];
         let mut replica = store.new_replica(namespace.clone())?;
-        replica.insert(key, &author, hash, len)?;
+        replica.insert(key, &author, hash, len).await?;
         assert_keys(&mut store, namespace.id(), vec![vec![1u8, 0u8]]);
         let key = vec![1u8, 2u8];
         let mut replica = store.new_replica(namespace.clone())?;
-        replica.insert(key, &author, hash, len)?;
+        replica.insert(key, &author, hash, len).await?;
         assert_keys(
             &mut store,
             namespace.id(),
@@ -2075,7 +2107,7 @@ mod tests {
 
         let key = vec![0u8, 255u8];
         let mut replica = store.new_replica(namespace.clone())?;
-        replica.insert(key, &author, hash, len)?;
+        replica.insert(key, &author, hash, len).await?;
         assert_keys(
             &mut store,
             namespace.id(),
@@ -2085,21 +2117,22 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_replica_capability_memory() -> Result<()> {
+    #[tokio::test]
+    async fn test_replica_capability_memory() -> Result<()> {
         let store = store::Store::memory();
-        test_replica_capability(store)
+        test_replica_capability(store).await
     }
 
-    #[test]
-    fn test_replica_capability_fs() -> Result<()> {
+    #[tokio::test]
+    #[cfg(feature = "fs-store")]
+    async fn test_replica_capability_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
-        test_replica_capability(store)
+        test_replica_capability(store).await
     }
 
     #[allow(clippy::redundant_pattern_matching)]
-    fn test_replica_capability(mut store: Store) -> Result<()> {
+    async fn test_replica_capability(mut store: Store) -> Result<()> {
         let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(1);
         let author = store.new_author(&mut rng)?;
         let namespace = NamespaceSecret::new(&mut rng);
@@ -2108,18 +2141,18 @@ mod tests {
         let capability = Capability::Read(namespace.id());
         store.import_namespace(capability)?;
         let mut replica = store.open_replica(&namespace.id())?;
-        let res = replica.hash_and_insert(b"foo", &author, b"bar");
+        let res = replica.hash_and_insert(b"foo", &author, b"bar").await;
         assert!(matches!(res, Err(InsertError::ReadOnly)));
 
         // import write capability - insert must succeed
         let capability = Capability::Write(namespace.clone());
         store.import_namespace(capability)?;
         let mut replica = store.open_replica(&namespace.id())?;
-        let res = replica.hash_and_insert(b"foo", &author, b"bar");
+        let res = replica.hash_and_insert(b"foo", &author, b"bar").await;
         assert!(matches!(res, Ok(_)));
         store.close_replica(namespace.id());
         let mut replica = store.open_replica(&namespace.id())?;
-        let res = replica.hash_and_insert(b"foo", &author, b"bar");
+        let res = replica.hash_and_insert(b"foo", &author, b"bar").await;
         assert!(res.is_ok());
 
         // import read capability again - insert must still succeed
@@ -2127,7 +2160,7 @@ mod tests {
         store.import_namespace(capability)?;
         store.close_replica(namespace.id());
         let mut replica = store.open_replica(&namespace.id())?;
-        let res = replica.hash_and_insert(b"foo", &author, b"bar");
+        let res = replica.hash_and_insert(b"foo", &author, b"bar").await;
         assert!(res.is_ok());
         store.flush()?;
         Ok(())
@@ -2140,6 +2173,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fs-store")]
     async fn test_actor_capability_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
@@ -2217,7 +2251,7 @@ mod tests {
         replica1.info.subscribe(events1_sender);
         replica2.info.subscribe(events2_sender);
 
-        replica1.hash_and_insert(b"foo", &author, b"init")?;
+        replica1.hash_and_insert(b"foo", &author, b"init").await?;
 
         let from1 = replica1.sync_initial_message()?;
         let from2 = replica2
@@ -2233,7 +2267,7 @@ mod tests {
         // now we will receive the entry from rpelica1. we will insert a newer entry now, while the
         // sync is already running. this means the entry from replica1 will be rejected. we make
         // sure that no InsertRemote event is emitted for this entry.
-        replica2.hash_and_insert(b"foo", &author, b"update")?;
+        replica2.hash_and_insert(b"foo", &author, b"update").await?;
         let from2 = replica2
             .sync_process_message(from1, peer1, &mut state2)
             .await
@@ -2254,24 +2288,25 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_replica_queries_mem() -> Result<()> {
+    #[tokio::test]
+    async fn test_replica_queries_mem() -> Result<()> {
         let store = store::Store::memory();
 
-        test_replica_queries(store)?;
+        test_replica_queries(store).await?;
         Ok(())
     }
 
-    #[test]
-    fn test_replica_queries_fs() -> Result<()> {
+    #[tokio::test]
+    #[cfg(feature = "fs-store")]
+    async fn test_replica_queries_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let store = store::fs::Store::persistent(dbfile.path())?;
-        test_replica_queries(store)?;
+        test_replica_queries(store).await?;
 
         Ok(())
     }
 
-    fn test_replica_queries(mut store: Store) -> Result<()> {
+    async fn test_replica_queries(mut store: Store) -> Result<()> {
         let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(1);
         let namespace = NamespaceSecret::new(&mut rng);
         let namespace_id = namespace.id();
@@ -2287,10 +2322,10 @@ mod tests {
         );
 
         let mut replica = store.new_replica(namespace.clone())?;
-        replica.hash_and_insert("hi/world", &a2, "a2")?;
-        replica.hash_and_insert("hi/world", &a1, "a1")?;
-        replica.hash_and_insert("hi/moon", &a2, "a1")?;
-        replica.hash_and_insert("hi", &a3, "a3")?;
+        replica.hash_and_insert("hi/world", &a2, "a2").await?;
+        replica.hash_and_insert("hi/world", &a1, "a1").await?;
+        replica.hash_and_insert("hi/moon", &a2, "a1").await?;
+        replica.hash_and_insert("hi", &a3, "a3").await?;
 
         struct QueryTester<'a> {
             store: &'a mut Store,
@@ -2420,7 +2455,7 @@ mod tests {
         );
 
         let mut replica = store.new_replica(namespace)?;
-        replica.delete_prefix("hi/world", &a2)?;
+        replica.delete_prefix("hi/world", &a2).await?;
         let mut qt = QueryTester {
             store: &mut store,
             namespace: namespace_id,
@@ -2451,6 +2486,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "fs-store")]
     fn test_dl_policies_fs() -> Result<()> {
         let dbfile = tempfile::NamedTempFile::new()?;
         let mut store = store::fs::Store::persistent(dbfile.path())?;
