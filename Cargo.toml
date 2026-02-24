@@ -37,6 +37,7 @@ iroh-blobs = { version = "0.98", default-features = false }
 iroh-gossip = { version = "0.96", features = ["net"], default-features = false }
 iroh-metrics = { version = "0.38", default-features = false }
 irpc = { version = "0.12.0", default-features = false }
+n0-error = "0.1.0"
 n0-future = { version = "0.3.1", features = ["serde"] }
 num_enum = "0.7"
 postcard = { version = "1", default-features = false, features = [
@@ -57,7 +58,6 @@ tokio = { version = "1", features = ["sync", "rt", "time", "io-util"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 tokio-util = { version = "0.7.12", features = ["codec", "io-util", "io", "rt"] }
 tracing = "0.1"
-n0-error = "0.1.0"
 
 [dev-dependencies]
 data-encoding = "2.6.0"
@@ -72,12 +72,7 @@ testdir = "0.7"
 testresult = "0.4.1"
 tokio = { version = "1", features = ["sync", "macros"] }
 tracing-test = "0.2.5"
-
-
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-tracing-subscriber = { version = "0.3.20", default-features = false, features = ["env-filter", "fmt", "json", "registry"] }
 
 [features]
 default = ["metrics", "rpc", "fs-store"]

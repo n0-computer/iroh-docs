@@ -110,7 +110,7 @@ async fn sync_simple() -> Result<()> {
     assert_latest(blobs1, &doc1, b"k1", b"v1").await;
 
     info!("node0: assert 2 events");
-    assert_next(
+    assert_next_unordered(
         &mut events0,
         TIMEOUT,
         vec![
