@@ -31,7 +31,7 @@ futures-buffered = "0.2.4"
 futures-lite = "2.3.0"
 futures-util = { version = "0.3.25" }
 hex = "0.4"
-iroh = { version = "0.96", default-features = false }
+iroh = { version = "0.96.1", default-features = false }
 iroh-tickets = { version = "0.2" }
 iroh-blobs = { version = "0.98", default-features = false }
 iroh-gossip = { version = "0.96", features = ["net"], default-features = false }
@@ -61,7 +61,7 @@ tracing = "0.1"
 
 [dev-dependencies]
 data-encoding = "2.6.0"
-iroh = { version = "0.96", features = ["test-utils"] }
+iroh = { version = "0.96.1", features = ["test-utils"] }
 nested_enum_utils = "0.2"
 parking_lot = "0.12.3"
 proptest = "1.2.0"
