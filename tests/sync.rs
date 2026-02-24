@@ -116,6 +116,7 @@ async fn sync_simple() -> Result<()> {
         vec![
             Box::new(move |e| matches!(e, LiveEvent::NeighborUp(peer) if *peer == peer1)),
             Box::new(move |e| match_sync_finished(e, peer1)),
+            match_event!(LiveEvent::PendingContentReady),
         ],
     )
     .await;
