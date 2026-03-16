@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["iroh_docs",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html\" title=\"trait core::convert::TryFrom\">TryFrom</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/nightly/std/primitive.u8.html\">u8</a>&gt; for <a class=\"enum\" href=\"iroh_docs/sync/enum.CapabilityKind.html\" title=\"enum iroh_docs::sync::CapabilityKind\">CapabilityKind</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html\" title=\"trait core::convert::TryFrom\">TryFrom</a>&lt;<a class=\"struct\" href=\"iroh_docs/struct.AuthorId.html\" title=\"struct iroh_docs::AuthorId\">AuthorId</a>&gt; for <a class=\"struct\" href=\"iroh_docs/struct.AuthorPublicKey.html\" title=\"struct iroh_docs::AuthorPublicKey\">AuthorPublicKey</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html\" title=\"trait core::convert::TryFrom\">TryFrom</a>&lt;<a class=\"struct\" href=\"iroh_docs/struct.NamespaceId.html\" title=\"struct iroh_docs::NamespaceId\">NamespaceId</a>&gt; for <a class=\"struct\" href=\"iroh_docs/struct.NamespacePublicKey.html\" title=\"struct iroh_docs::NamespacePublicKey\">NamespacePublicKey</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[1238]}
