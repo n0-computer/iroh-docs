@@ -99,3 +99,12 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(iroh_docsrs)"] }
 
 [build-dependencies]
 cfg_aliases = "0.2.1"
+
+
+[patch.crates-io]
+iroh = { git = "https://github.com/n0-computer/iroh.git", branch = "main" }
+iroh-base = { git = "https://github.com/n0-computer/iroh.git", branch = "main" }
+irpc = { git = "https://github.com/n0-computer/irpc.git", branch = "feat-noq" }
+iroh-tickets = { git = "https://github.com/n0-computer/iroh-tickets.git", branch = "iroh-X" }
+iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs.git", branch = "iroh-X" }
+iroh-gossip = { git = "https://github.com/n0-computer/iroh-gossip.git", branch = "iroh-X" }
