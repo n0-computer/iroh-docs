@@ -193,12 +193,12 @@
 <a href=#193 id=193 data-nosnippet>193</a>        inbox: mpsc::Receiver&lt;ToLiveActor&gt;,
 <a href=#194 id=194 data-nosnippet>194</a>        sync_actor_tx: mpsc::Sender&lt;ToLiveActor&gt;,
 <a href=#195 id=195 data-nosnippet>195</a>        metrics: Arc&lt;Metrics&gt;,
-<a href=#196 id=196 data-nosnippet>196</a>    ) -&gt; <span class="self">Self </span>{
+<a href=#196 id=196 data-nosnippet>196</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
 <a href=#197 id=197 data-nosnippet>197</a>        <span class="kw">let </span>(replica_events_tx, replica_events_rx) = async_channel::bounded(<span class="number">1024</span>);
 <a href=#198 id=198 data-nosnippet>198</a>        <span class="kw">let </span>gossip_state = GossipState::new(gossip, sync.clone(), sync_actor_tx.clone());
 <a href=#199 id=199 data-nosnippet>199</a>        <span class="kw">let </span>memory_lookup = MemoryLookup::new();
-<a href=#200 id=200 data-nosnippet>200</a>        endpoint.address_lookup().add(memory_lookup.clone());
-<a href=#201 id=201 data-nosnippet>201</a>        <span class="self">Self </span>{
+<a href=#200 id=200 data-nosnippet>200</a>        endpoint.address_lookup()<span class="question-mark">?</span>.add(memory_lookup.clone());
+<a href=#201 id=201 data-nosnippet>201</a>        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 <a href=#202 id=202 data-nosnippet>202</a>            inbox,
 <a href=#203 id=203 data-nosnippet>203</a>            sync,
 <a href=#204 id=204 data-nosnippet>204</a>            replica_events_rx,
@@ -218,7 +218,7 @@
 <a href=#218 id=218 data-nosnippet>218</a>            queued_hashes: Default::default(),
 <a href=#219 id=219 data-nosnippet>219</a>            hash_providers: Default::default(),
 <a href=#220 id=220 data-nosnippet>220</a>            metrics,
-<a href=#221 id=221 data-nosnippet>221</a>        }
+<a href=#221 id=221 data-nosnippet>221</a>        })
 <a href=#222 id=222 data-nosnippet>222</a>    }
 <a href=#223 id=223 data-nosnippet>223</a>
 <a href=#224 id=224 data-nosnippet>224</a>    <span class="doccomment">/// Run the actor loop.
