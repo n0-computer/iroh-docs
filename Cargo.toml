@@ -31,12 +31,12 @@ futures-buffered = "0.2.4"
 futures-lite = "2.3.0"
 futures-util = { version = "0.3.25" }
 hex = "0.4"
-iroh = { version = "0.96.1", default-features = false }
-iroh-tickets = { version = "0.2" }
-iroh-blobs = { version = "0.98", default-features = false }
-iroh-gossip = { version = "0.96", features = ["net"], default-features = false }
+iroh = { version = "0.97", default-features = false }
+iroh-tickets = { version = "0.4" }
+iroh-blobs = { version = "0.99", default-features = false }
+iroh-gossip = { version = "0.97", features = ["net"], default-features = false }
 iroh-metrics = { version = "0.38", default-features = false }
-irpc = { version = "0.12.0", default-features = false }
+irpc = { version = "0.13", default-features = false }
 n0-error = "0.1.0"
 n0-future = { version = "0.3.1", features = ["serde"] }
 num_enum = "0.7"
@@ -45,7 +45,7 @@ postcard = { version = "1", default-features = false, features = [
     "use-std",
     "experimental-derive",
 ] }
-quinn = { package = "iroh-quinn", version = "0.16.0", optional = true }
+noq = { version = "0.17.0", optional = true }
 rand = "0.9.2"
 redb = { version = "2.6.3" }
 self_cell = "1.0.3"
@@ -61,7 +61,7 @@ tracing = "0.1"
 
 [dev-dependencies]
 data-encoding = "2.6.0"
-iroh = { version = "0.96.1", features = ["test-utils"] }
+iroh = { version = "0.97", features = ["test-utils"] }
 nested_enum_utils = "0.2"
 parking_lot = "0.12.3"
 proptest = "1.2.0"
@@ -77,7 +77,7 @@ tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 [features]
 default = ["metrics", "rpc", "fs-store"]
 metrics = ["iroh-metrics/metrics", "iroh/metrics"]
-rpc = ["dep:quinn", "irpc/rpc", "iroh-blobs/rpc"]
+rpc = ["dep:noq", "irpc/rpc", "iroh-blobs/rpc"]
 fs-store = ["iroh-blobs/fs-store"]
 
 [package.metadata.docs.rs]
@@ -99,12 +99,3 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(iroh_docsrs)"] }
 
 [build-dependencies]
 cfg_aliases = "0.2.1"
-
-
-[patch.crates-io]
-iroh = { git = "https://github.com/n0-computer/iroh.git", branch = "main" }
-iroh-base = { git = "https://github.com/n0-computer/iroh.git", branch = "main" }
-irpc = { git = "https://github.com/n0-computer/irpc.git", branch = "feat-noq" }
-iroh-tickets = { git = "https://github.com/n0-computer/iroh-tickets.git", branch = "iroh-X" }
-iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs.git", branch = "iroh-X" }
-iroh-gossip = { git = "https://github.com/n0-computer/iroh-gossip.git", branch = "iroh-X" }

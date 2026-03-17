@@ -193,12 +193,12 @@ impl LiveActor {
         inbox: mpsc::Receiver<ToLiveActor>,
         sync_actor_tx: mpsc::Sender<ToLiveActor>,
         metrics: Arc<Metrics>,
-    ) -> Self {
+    ) -> Result<Self> {
         let (replica_events_tx, replica_events_rx) = async_channel::bounded(1024);
         let gossip_state = GossipState::new(gossip, sync.clone(), sync_actor_tx.clone());
         let memory_lookup = MemoryLookup::new();
-        endpoint.address_lookup().add(memory_lookup.clone());
-        Self {
+        endpoint.address_lookup()?.add(memory_lookup.clone());
+        Ok(Self {
             inbox,
             sync,
             replica_events_rx,
@@ -218,7 +218,7 @@ impl LiveActor {
             queued_hashes: Default::default(),
             hash_providers: Default::default(),
             metrics,
-        }
+        })
     }
 
     /// Run the actor loop.

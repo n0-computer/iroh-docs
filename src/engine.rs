@@ -123,7 +123,7 @@ impl Engine {
             to_live_actor_recv,
             live_actor_tx.clone(),
             sync.metrics().clone(),
-        );
+        )?;
         let actor_handle = n0_future::task::spawn(
             async move {
                 if let Err(err) = actor.run().await {
@@ -389,7 +389,10 @@ impl DefaultAuthorStorage {
                         )
                     })?;
                     if docs_store.export_author(author_id).await?.is_none() {
-                        bail!("The default author is missing from the docs store. To recover, delete the file `{}`. Then iroh will create a new default author.", path.to_string_lossy())
+                        bail!(
+                            "The default author is missing from the docs store. To recover, delete the file `{}`. Then iroh will create a new default author.",
+                            path.to_string_lossy()
+                        )
                     }
                     Ok(author_id)
                 } else {
@@ -503,13 +506,17 @@ impl ProtectCallbackSender {
             Box::pin(async move {
                 let (tx, rx) = oneshot::channel();
                 if let Err(_err) = start_tx.send(tx).await {
-                    tracing::warn!("Failed to get protected hashes from docs: ProtectCallback receiver dropped");
+                    tracing::warn!(
+                        "Failed to get protected hashes from docs: ProtectCallback receiver dropped"
+                    );
                     return ProtectOutcome::Abort;
                 }
                 let mut rx = match rx.await {
                     Ok(rx) => rx,
                     Err(_err) => {
-                        tracing::warn!("Failed to get protected hashes from docs: ProtectCallback sender dropped");
+                        tracing::warn!(
+                            "Failed to get protected hashes from docs: ProtectCallback sender dropped"
+                        );
                         return ProtectOutcome::Abort;
                     }
                 };

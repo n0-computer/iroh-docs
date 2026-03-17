@@ -6,7 +6,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use iroh::{address_lookup::IntoAddressLookup, dns::DnsResolver, EndpointId, RelayMode, SecretKey};
+use iroh::{
+    address_lookup::AddressLookupBuilder, dns::DnsResolver, tls::CaRootsConfig, EndpointId,
+    RelayMode, SecretKey,
+};
 use iroh_blobs::store::GcConfig;
 use iroh_docs::{engine::ProtectCallbackHandler, protocol::Docs};
 use iroh_gossip::net::Gossip;
@@ -158,7 +161,7 @@ impl Builder {
         self
     }
 
-    pub fn node_address_lookup(mut self, value: impl IntoAddressLookup) -> Self {
+    pub fn node_address_lookup(mut self, value: impl AddressLookupBuilder) -> Self {
         self.use_n0_address_lookup = false;
         self.endpoint = self.endpoint.address_lookup(value);
         self
@@ -175,7 +178,13 @@ impl Builder {
     }
 
     pub fn insecure_skip_relay_cert_verify(mut self, value: bool) -> Self {
-        self.endpoint = self.endpoint.insecure_skip_relay_cert_verify(value);
+        if value {
+            self.endpoint = self
+                .endpoint
+                .ca_roots_config(CaRootsConfig::insecure_skip_verify());
+        } else {
+            self.endpoint = self.endpoint.ca_roots_config(CaRootsConfig::default());
+        }
         self
     }
 
@@ -186,7 +195,7 @@ impl Builder {
 
     fn new(storage: Storage) -> Self {
         Self {
-            endpoint: iroh::Endpoint::empty_builder(RelayMode::Disabled),
+            endpoint: iroh::Endpoint::empty_builder(),
             use_n0_address_lookup: true,
             storage,
             gc_interval: None,
