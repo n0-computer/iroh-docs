@@ -2,6 +2,17 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.97.0](https://github.com/n0-computer/iroh-docs/compare/v0.96.0..0.97.0) - 2026-03-17
+
+### ⛰️  Features
+
+- Build on wasm ([#75](https://github.com/n0-computer/iroh-docs/issues/75)) - ([bf1fc32](https://github.com/n0-computer/iroh-docs/commit/bf1fc3285c9f8c4b3678d8b5e39ee7b7d1ea78c0))
+- Update to iroh@main ([#85](https://github.com/n0-computer/iroh-docs/issues/85)) - ([b81c4f1](https://github.com/n0-computer/iroh-docs/commit/b81c4f14a2da39ed30ddcdd0548ccbbd5a1be6ed))
+
+### 🐛 Bug Fixes
+
+- Configure git identity in cleanup workflow ([#83](https://github.com/n0-computer/iroh-docs/issues/83)) - ([ec49201](https://github.com/n0-computer/iroh-docs/commit/ec492017c2e46025508cde85914199cfca843170))
+
 ## [0.96.0](https://github.com/n0-computer/iroh-docs/compare/v0.95.0..0.96.0) - 2026-01-29
 
 ### ⚙️ Miscellaneous Tasks
