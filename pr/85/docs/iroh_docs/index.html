@@ -30,7 +30,7 @@ the whole store with all replicas to a single file.</p>
 <p><code>Docs</code> is a “meta protocol” that relies on the <a href="https://docs.rs/iroh-blobs"><code>iroh-blobs</code></a> and <a href="https://docs.rs/iroh-gossip"><code>iroh-gossip</code></a> protocols. Setting up <code>Docs</code> will require setting up <code>Blobs</code> and <code>Gossip</code> as well.</p>
 <p>Here is a basic example of how to set up <code>iroh-docs</code> with <code>iroh</code>:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>iroh::{protocol::Router, Endpoint};
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>iroh::{endpoint::presets, protocol::Router, Endpoint};
 <span class="kw">use </span>iroh_blobs::{BlobsProtocol, store::mem::MemStore, ALPN <span class="kw">as </span>BLOBS_ALPN};
 <span class="kw">use </span>iroh_docs::{protocol::Docs, ALPN <span class="kw">as </span>DOCS_ALPN};
 <span class="kw">use </span>iroh_gossip::{net::Gossip, ALPN <span class="kw">as </span>GOSSIP_ALPN};
@@ -39,7 +39,7 @@ the whole store with all replicas to a single file.</p>
 </span><span class="kw">async fn </span>main() -&gt; anyhow::Result&lt;()&gt; {
     <span class="comment">// create an iroh endpoint that includes the standard discovery mechanisms
     // we've built at number0
-    </span><span class="kw">let </span>endpoint = Endpoint::builder().bind().<span class="kw">await</span><span class="question-mark">?</span>;
+    </span><span class="kw">let </span>endpoint = Endpoint::bind(presets::N0).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// build the blobs protocol
     </span><span class="kw">let </span>blobs = MemStore::default();
