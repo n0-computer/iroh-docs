@@ -7,12 +7,11 @@ use testresult::TestResult;
 use tokio::io::AsyncWriteExt;
 use tracing_test::traced_test;
 
-use crate::util::empty_endpoint;
-
 use self::util::{
     path::{key_to_path, path_to_key},
     Node,
 };
+use crate::util::empty_endpoint;
 
 mod util;
 
