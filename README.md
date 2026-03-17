@@ -42,7 +42,7 @@ Iroh provides a [`Router`](https://docs.rs/iroh/latest/iroh/protocol/struct.Rout
 Here is a basic example of how to set up `iroh-docs` with `iroh`:
 
 ```rust
-use iroh::{protocol::Router, Endpoint};
+use iroh::{endpoint::presets, protocol::Router, Endpoint};
 use iroh_blobs::{BlobsProtocol, store::mem::MemStore, ALPN as BLOBS_ALPN};
 use iroh_docs::{protocol::Docs, ALPN as DOCS_ALPN};
 use iroh_gossip::{net::Gossip, ALPN as GOSSIP_ALPN};
@@ -51,7 +51,7 @@ use iroh_gossip::{net::Gossip, ALPN as GOSSIP_ALPN};
 async fn main() -> anyhow::Result<()> {
     // create an iroh endpoint that includes the standard discovery mechanisms
     // we've built at number0
-    let endpoint = Endpoint::builder().bind().await?;
+    let endpoint = Endpoint::bind(presets::N0).await?;
 
     // build the blobs protocol
     let blobs = MemStore::default();

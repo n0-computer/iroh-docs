@@ -1,35 +1,46 @@
 #![allow(unused)]
 
 use std::{
-    net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6},
     ops::Deref,
     path::{Path, PathBuf},
 };
 
-use iroh::{address_lookup::IntoAddressLookup, dns::DnsResolver, EndpointId, RelayMode, SecretKey};
+use iroh::{
+    endpoint::BindError, test_utils::DnsPkarrServer, tls::CaRootsConfig, Endpoint, EndpointId,
+    RelayMap, RelayMode, SecretKey,
+};
 use iroh_blobs::store::GcConfig;
 use iroh_docs::{engine::ProtectCallbackHandler, protocol::Docs};
 use iroh_gossip::net::Gossip;
+use n0_error::Result;
 
-/// Default bind address for the node.
-/// 11204 is "iroh" in leetspeak <https://simple.wikipedia.org/wiki/Leet>
-pub const DEFAULT_BIND_PORT: u16 = 11204;
+pub async fn empty_endpoint() -> Result<Endpoint, BindError> {
+    Endpoint::empty_builder().bind().await
+}
 
-/// The default bind address for the iroh IPv4 socket.
-pub const DEFAULT_BIND_ADDR_V4: SocketAddrV4 =
-    SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, DEFAULT_BIND_PORT);
+pub async fn endpoint(
+    secret_key: SecretKey,
+    relay_map: RelayMap,
+    dns_pkarr_server: Option<&DnsPkarrServer>,
+) -> Result<Endpoint, BindError> {
+    let mut builder = Endpoint::empty_builder();
+    if let Some(dns_pkarr_server) = dns_pkarr_server {
+        builder = builder.preset(dns_pkarr_server.preset());
+    }
 
-/// The default bind address for the iroh IPv6 socket.
-pub const DEFAULT_BIND_ADDR_V6: SocketAddrV6 =
-    SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, DEFAULT_BIND_PORT + 1, 0, 0);
+    builder
+        .secret_key(secret_key)
+        .relay_mode(RelayMode::Custom(relay_map))
+        .ca_roots_config(CaRootsConfig::insecure_skip_verify())
+        .bind()
+        .await
+}
 
 /// An iroh node that just has the blobs transport
 #[derive(Debug)]
 pub struct Node {
     router: iroh::protocol::Router,
     client: Client,
-    // store: iroh_blobs::api::Store,
-    // rpc_task: AbortOnDropHandle<()>,
 }
 
 impl Deref for Node {
@@ -63,13 +74,11 @@ impl Client {
 /// An iroh node builder
 #[derive(derive_more::Debug)]
 pub struct Builder {
-    endpoint: iroh::endpoint::Builder,
-    use_n0_address_lookup: bool,
+    endpoint: iroh::Endpoint,
     storage: Storage,
     gc_interval: Option<n0_future::time::Duration>,
     #[debug(skip)]
     register_gc_done_cb: Option<Box<dyn Fn() + Send + 'static>>,
-    bind_random_port: bool,
 }
 
 impl Builder {
@@ -79,24 +88,8 @@ impl Builder {
         blobs: iroh_blobs::api::Store,
         protect_cb: Option<ProtectCallbackHandler>,
     ) -> anyhow::Result<Node> {
-        let mut addr_v4 = DEFAULT_BIND_ADDR_V4;
-        let mut addr_v6 = DEFAULT_BIND_ADDR_V6;
-        if self.bind_random_port {
-            addr_v4.set_port(0);
-            addr_v6.set_port(0);
-        }
-        let mut builder = self.endpoint.bind_addr(addr_v4)?.bind_addr(addr_v6)?;
-        if self.use_n0_address_lookup {
-            builder = builder.address_lookup(iroh::address_lookup::pkarr::PkarrPublisher::n0_dns());
-            // Resolve using HTTPS requests to our DNS server's /pkarr path in browsers
-            builder = builder.address_lookup(iroh::address_lookup::pkarr::PkarrResolver::n0_dns());
-            // Resolve using DNS queries outside browsers.
-            builder = builder.address_lookup(iroh::address_lookup::dns::DnsAddressLookup::n0_dns());
-        }
-
-        let endpoint = builder.bind().await?;
-        let mut router = iroh::protocol::Router::builder(endpoint.clone());
-        let gossip = Gossip::builder().spawn(endpoint.clone());
+        let mut router = iroh::protocol::Router::builder(self.endpoint.clone());
+        let gossip = Gossip::builder().spawn(self.endpoint.clone());
         let mut docs_builder = match self.storage {
             Storage::Memory => Docs::memory(),
             #[cfg(feature = "fs-store")]
@@ -106,7 +99,7 @@ impl Builder {
             docs_builder = docs_builder.protect_handler(protect_cb);
         }
         let docs = match docs_builder
-            .spawn(endpoint.clone(), blobs.clone(), gossip.clone())
+            .spawn(self.endpoint.clone(), blobs.clone(), gossip.clone())
             .await
         {
             Ok(docs) => docs,
@@ -125,43 +118,8 @@ impl Builder {
         // Build the router
         let router = router.spawn();
 
-        // TODO: Make this work again.
-        // if let Some(period) = self.gc_interval {
-        //     blobs.add_protected(docs.protect_cb())?;
-        //     blobs.start_gc(GcConfig {
-        //         period,
-        //         done_callback: self.register_gc_done_cb,
-        //     })?;
-        // }
-
         let client = Client::new(blobs.clone(), docs.api().clone());
-        Ok(Node {
-            router,
-            client,
-            // store: blobs,
-            // rpc_task: AbortOnDropHandle::new(rpc_task),
-        })
-    }
-
-    pub fn secret_key(mut self, value: SecretKey) -> Self {
-        self.endpoint = self.endpoint.secret_key(value);
-        self
-    }
-
-    pub fn relay_mode(mut self, value: RelayMode) -> Self {
-        self.endpoint = self.endpoint.relay_mode(value);
-        self
-    }
-
-    pub fn dns_resolver(mut self, value: DnsResolver) -> Self {
-        self.endpoint = self.endpoint.dns_resolver(value);
-        self
-    }
-
-    pub fn node_address_lookup(mut self, value: impl IntoAddressLookup) -> Self {
-        self.use_n0_address_lookup = false;
-        self.endpoint = self.endpoint.address_lookup(value);
-        self
+        Ok(Node { router, client })
     }
 
     pub fn gc_interval(mut self, value: Option<n0_future::time::Duration>) -> Self {
@@ -174,26 +132,12 @@ impl Builder {
         self
     }
 
-    pub fn insecure_skip_relay_cert_verify(mut self, value: bool) -> Self {
-        self.endpoint = self.endpoint.insecure_skip_relay_cert_verify(value);
-        self
-    }
-
-    pub fn bind_random_port(mut self, bind_random_port: bool) -> Self {
-        self.bind_random_port = bind_random_port;
-        self
-    }
-
-    fn new(storage: Storage) -> Self {
+    fn new(storage: Storage, endpoint: Endpoint) -> Self {
         Self {
-            endpoint: iroh::Endpoint::empty_builder(RelayMode::Disabled),
-            use_n0_address_lookup: true,
+            endpoint,
             storage,
             gc_interval: None,
-            bind_random_port: true,
-            // node_address_lookup: None,
             register_gc_done_cb: None,
-            // _p: PhantomData,
         }
     }
 }
@@ -207,14 +151,14 @@ enum Storage {
 
 impl Node {
     /// Creates a new node with memory storage
-    pub fn memory() -> Builder {
-        Builder::new(Storage::Memory)
+    pub fn memory(endpoint: Endpoint) -> Builder {
+        Builder::new(Storage::Memory, endpoint)
     }
 
     /// Creates a new node with persistent storage
     #[cfg(feature = "fs-store")]
-    pub fn persistent(path: impl AsRef<Path>) -> Builder {
-        Builder::new(Storage::Persistent(path.as_ref().to_owned()))
+    pub fn persistent(path: impl AsRef<Path>, endpoint: Endpoint) -> Builder {
+        Builder::new(Storage::Persistent(path.as_ref().to_owned()), endpoint)
     }
 }
 
@@ -254,11 +198,6 @@ impl Node {
         self.router.endpoint().id()
     }
 
-    // /// Returns the blob store
-    // pub fn blob_store(&self) -> &S {
-    //     &self.store
-    // }
-
     /// Ensure the node is "online", aka, is connected to a relay and
     /// has a direct addresses
     pub async fn online(&self) {
@@ -268,7 +207,6 @@ impl Node {
     /// Shuts down the node
     pub async fn shutdown(self) -> anyhow::Result<()> {
         self.router.shutdown().await?;
-        // self.rpc_task.abort();
         Ok(())
     }
 

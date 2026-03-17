@@ -11,6 +11,7 @@ use self::util::{
     path::{key_to_path, path_to_key},
     Node,
 };
+use crate::util::empty_endpoint;
 
 mod util;
 
@@ -18,7 +19,7 @@ mod util;
 #[tokio::test]
 #[traced_test]
 async fn test_doc_close() -> Result<()> {
-    let node = Node::memory().spawn().await?;
+    let node = Node::memory(empty_endpoint().await?).spawn().await?;
     // let author = node.authors().default().await?;
     let author = node.docs().author_default().await?;
     // open doc two times
@@ -41,7 +42,7 @@ async fn test_doc_close() -> Result<()> {
 #[tokio::test]
 #[traced_test]
 async fn test_doc_import_export() -> TestResult<()> {
-    let node = Node::memory().spawn().await?;
+    let node = Node::memory(empty_endpoint().await?).spawn().await?;
 
     // create temp file
     let temp_dir = tempfile::tempdir().context("tempdir")?;
@@ -122,7 +123,7 @@ async fn test_doc_import_export() -> TestResult<()> {
 
 #[tokio::test]
 async fn test_authors() -> Result<()> {
-    let node = Node::memory().spawn().await?;
+    let node = Node::memory(empty_endpoint().await?).spawn().await?;
 
     // default author always exists
     let authors: Vec<_> = node.docs().author_list().await?.try_collect().await?;
@@ -158,7 +159,7 @@ async fn test_authors() -> Result<()> {
 
 #[tokio::test]
 async fn test_default_author_memory() -> Result<()> {
-    let iroh = Node::memory().spawn().await?;
+    let iroh = Node::memory(empty_endpoint().await?).spawn().await?;
     let author = iroh.docs().author_default().await?;
     assert!(iroh.docs().author_export(author).await?.is_some());
     assert!(iroh.docs().author_delete(author).await.is_err());
@@ -174,7 +175,9 @@ async fn test_default_author_persist() -> TestResult<()> {
 
     // check that the default author exists and cannot be deleted.
     let default_author = {
-        let iroh = Node::persistent(iroh_root).spawn().await?;
+        let iroh = Node::persistent(iroh_root, empty_endpoint().await?)
+            .spawn()
+            .await?;
         let author = iroh.docs().author_default().await?;
         assert!(iroh.docs().author_export(author).await?.is_some());
         assert!(iroh.docs().author_delete(author).await.is_err());
@@ -184,7 +187,9 @@ async fn test_default_author_persist() -> TestResult<()> {
 
     // check that the default author is persisted across restarts.
     {
-        let iroh = Node::persistent(iroh_root).spawn().await?;
+        let iroh = Node::persistent(iroh_root, empty_endpoint().await?)
+            .spawn()
+            .await?;
         let author = iroh.docs().author_default().await?;
         assert_eq!(author, default_author);
         assert!(iroh.docs().author_export(author).await?.is_some());
@@ -196,7 +201,9 @@ async fn test_default_author_persist() -> TestResult<()> {
     // manually.
     let default_author = {
         tokio::fs::remove_file(iroh_root.join("default-author")).await?;
-        let iroh = Node::persistent(iroh_root).spawn().await?;
+        let iroh = Node::persistent(iroh_root, empty_endpoint().await?)
+            .spawn()
+            .await?;
         let author = iroh.docs().author_default().await?;
         assert!(author != default_author);
         assert!(iroh.docs().author_export(author).await?.is_some());
@@ -211,7 +218,9 @@ async fn test_default_author_persist() -> TestResult<()> {
         docs_store.delete_author(default_author)?;
         docs_store.flush()?;
         drop(docs_store);
-        let iroh = Node::persistent(iroh_root).spawn().await;
+        let iroh = Node::persistent(iroh_root, empty_endpoint().await?)
+            .spawn()
+            .await;
         assert!(iroh.is_err());
 
         // somehow the blob store is not shutdown correctly (yet?) on macos.
@@ -221,7 +230,9 @@ async fn test_default_author_persist() -> TestResult<()> {
 
         tokio::fs::remove_file(iroh_root.join("default-author")).await?;
         drop(iroh);
-        let iroh = Node::persistent(iroh_root).spawn().await;
+        let iroh = Node::persistent(iroh_root, empty_endpoint().await?)
+            .spawn()
+            .await;
         if let Err(cause) = iroh.as_ref() {
             panic!("failed to start node: {cause:?}");
         }
@@ -230,7 +241,9 @@ async fn test_default_author_persist() -> TestResult<()> {
 
     // check that the default author can be set manually and is persisted.
     let default_author = {
-        let iroh = Node::persistent(iroh_root).spawn().await?;
+        let iroh = Node::persistent(iroh_root, empty_endpoint().await?)
+            .spawn()
+            .await?;
         let author = iroh.docs().author_create().await?;
         iroh.docs().author_set_default(author).await?;
         assert_eq!(iroh.docs().author_default().await?, author);
@@ -238,7 +251,9 @@ async fn test_default_author_persist() -> TestResult<()> {
         author
     };
     {
-        let iroh = Node::persistent(iroh_root).spawn().await?;
+        let iroh = Node::persistent(iroh_root, empty_endpoint().await?)
+            .spawn()
+            .await?;
         assert_eq!(iroh.docs().author_default().await?, default_author);
         iroh.shutdown().await?;
     }

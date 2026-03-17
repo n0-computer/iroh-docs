@@ -63,9 +63,9 @@ impl DocsApi {
 
     /// Connect to a remote docs service
     #[cfg(feature = "rpc")]
-    pub fn connect(endpoint: quinn::Endpoint, addr: std::net::SocketAddr) -> Result<DocsApi> {
+    pub fn connect(endpoint: noq::Endpoint, addr: std::net::SocketAddr) -> Result<DocsApi> {
         Ok(DocsApi {
-            inner: Client::quinn(endpoint, addr),
+            inner: Client::noq(endpoint, addr),
         })
     }
 
@@ -73,7 +73,7 @@ impl DocsApi {
     #[cfg(feature = "rpc")]
     pub fn listen(
         &self,
-        endpoint: quinn::Endpoint,
+        endpoint: noq::Endpoint,
     ) -> Result<n0_future::task::AbortOnDropHandle<()>> {
         use anyhow::Context;
         let local = self
@@ -677,7 +677,7 @@ impl Future for ImportFileProgress {
                 Poll::Ready(None) => {
                     return Poll::Ready(Err(anyhow::anyhow!(
                         "ImportFileProgress polled after completion"
-                    )))
+                    )));
                 }
                 Poll::Pending => return Poll::Pending,
             }
