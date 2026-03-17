@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use bytes::Bytes;
 use futures_lite::Stream;
 use futures_util::{FutureExt, StreamExt, TryStreamExt};
-use iroh::{PublicKey, RelayMode, SecretKey};
+use iroh::{Endpoint, PublicKey, SecretKey};
 use iroh_blobs::Hash;
 use iroh_docs::{
     api::{
@@ -24,12 +24,16 @@ use tracing_test::traced_test;
 mod util;
 use util::{Builder, Node};
 
+use crate::util::empty_endpoint;
+
 const TIMEOUT: Duration = Duration::from_secs(60);
 
-fn test_node(secret_key: SecretKey) -> Builder {
-    Node::memory()
+async fn test_node(secret_key: SecretKey) -> Result<Builder> {
+    let ep = Endpoint::empty_builder()
         .secret_key(secret_key)
-        .relay_mode(RelayMode::Disabled)
+        .bind()
+        .await?;
+    Ok(Node::memory(ep))
 }
 
 // The function is not `async fn` so that we can take a `&mut` borrow on the `rng` without
@@ -41,7 +45,7 @@ fn spawn_node(
 ) -> impl Future<Output = anyhow::Result<Node>> + 'static {
     let secret_key = SecretKey::generate(rng);
     async move {
-        let node = test_node(secret_key);
+        let node = test_node(secret_key).await?;
         let node = node.spawn().await?;
         info!(?i, me = %node.id().fmt_short(), "node spawned");
         Ok(node)
@@ -487,17 +491,23 @@ async fn sync_subscribe_stop_close() -> Result<()> {
 async fn test_sync_via_relay() -> Result<()> {
     let (relay_map, _relay_url, _guard) = iroh::test_utils::run_relay_server().await?;
 
-    let node1 = Node::memory()
-        .relay_mode(RelayMode::Custom(relay_map.clone()))
-        .insecure_skip_relay_cert_verify(true)
-        .spawn()
-        .await?;
+    use crate::util::endpoint;
+
+    let ep1 = endpoint(
+        SecretKey::generate(&mut rand::rng()),
+        relay_map.clone(),
+        None,
+    )
+    .await?;
+    let node1 = Node::memory(ep1).spawn().await?;
     let node1_id = node1.id();
-    let node2 = Node::memory()
-        .relay_mode(RelayMode::Custom(relay_map.clone()))
-        .insecure_skip_relay_cert_verify(true)
-        .spawn()
-        .await?;
+    let ep2 = endpoint(
+        SecretKey::generate(&mut rand::rng()),
+        relay_map.clone(),
+        None,
+    )
+    .await?;
+    let node2 = Node::memory(ep2).spawn().await?;
 
     node1.online().await;
     node2.online().await;
@@ -587,6 +597,8 @@ async fn test_sync_via_relay() -> Result<()> {
 #[ignore = "flaky"]
 #[cfg(feature = "fs-store")]
 async fn sync_restart_node() -> Result<()> {
+    use crate::util::endpoint;
+
     let mut rng = test_rng(b"sync_restart_node");
     let (relay_map, _relay_url, _guard) = iroh::test_utils::run_relay_server().await?;
 
@@ -595,14 +607,13 @@ async fn sync_restart_node() -> Result<()> {
     let node1_dir = tempfile::TempDir::with_prefix("test-sync_restart_node-node1")?;
     let secret_key_1 = SecretKey::generate(&mut rng);
 
-    let node1 = Node::persistent(&node1_dir)
-        .secret_key(secret_key_1.clone())
-        .insecure_skip_relay_cert_verify(true)
-        .relay_mode(RelayMode::Custom(relay_map.clone()))
-        .dns_resolver(lookup_server.dns_resolver())
-        .node_address_lookup(lookup_server.address_lookup(secret_key_1.clone()))
-        .spawn()
-        .await?;
+    let ep = endpoint(
+        secret_key_1.clone(),
+        relay_map.clone(),
+        Some(&lookup_server),
+    )
+    .await?;
+    let node1 = Node::persistent(&node1_dir, ep).spawn().await?;
     let id1 = node1.id();
 
     // create doc & ticket on node1
@@ -615,14 +626,8 @@ async fn sync_restart_node() -> Result<()> {
 
     // create node2
     let secret_key_2 = SecretKey::generate(&mut rng);
-    let node2 = Node::memory()
-        .secret_key(secret_key_2.clone())
-        .relay_mode(RelayMode::Custom(relay_map.clone()))
-        .insecure_skip_relay_cert_verify(true)
-        .dns_resolver(lookup_server.dns_resolver())
-        .node_address_lookup(lookup_server.address_lookup(secret_key_2.clone()))
-        .spawn()
-        .await?;
+    let ep = endpoint(secret_key_2, relay_map.clone(), Some(&lookup_server)).await?;
+    let node2 = Node::memory(ep).spawn().await?;
     let id2 = node2.id();
     let author2 = node2.docs().author_create().await?;
     let doc2 = node2.docs().import(ticket.clone()).await?;
@@ -661,14 +666,13 @@ async fn sync_restart_node() -> Result<()> {
     let hash_b = doc2.set_bytes(author2, "n2/b", "b").await?;
 
     info!(me = %id1.fmt_short(), "node1 respawn");
-    let node1 = Node::persistent(&node1_dir)
-        .secret_key(secret_key_1.clone())
-        .insecure_skip_relay_cert_verify(true)
-        .relay_mode(RelayMode::Custom(relay_map.clone()))
-        .dns_resolver(lookup_server.dns_resolver())
-        .node_address_lookup(lookup_server.address_lookup(secret_key_1.clone()))
-        .spawn()
-        .await?;
+    let ep = endpoint(
+        secret_key_1.clone(),
+        relay_map.clone(),
+        Some(&lookup_server),
+    )
+    .await?;
+    let node1 = Node::persistent(&node1_dir, ep).spawn().await?;
     assert_eq!(id1, node1.id());
 
     let doc1 = node1.docs().open(doc1.id()).await?.expect("doc to exist");
@@ -985,10 +989,7 @@ async fn sync_big() -> Result<()> {
 #[tokio::test]
 #[traced_test]
 async fn test_list_docs_stream() -> testresult::TestResult<()> {
-    let node = Node::memory()
-        .relay_mode(RelayMode::Disabled)
-        .spawn()
-        .await?;
+    let node = Node::memory(empty_endpoint().await?).spawn().await?;
     let count = 200;
 
     // create docs
@@ -1163,7 +1164,8 @@ async fn doc_delete() -> Result<()> {
     let tempdir = tempdir()?;
     // TODO(Frando): iroh-blobs has gc only for fs store atm, change test to test both
     // mem and persistent once this changes.
-    let node = Node::persistent(tempdir.path())
+    let ep = empty_endpoint().await?;
+    let node = Node::persistent(tempdir.path(), ep)
         .gc_interval(Some(Duration::from_millis(100)))
         .spawn()
         .await?;

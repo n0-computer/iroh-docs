@@ -27,7 +27,8 @@ async fn persistent_node(
     gc_period: Duration,
 ) -> (Node, async_channel::Receiver<()>) {
     let (gc_send, gc_recv) = async_channel::unbounded();
-    let node = Node::persistent(path)
+    let ep = iroh::Endpoint::empty_builder().bind().await.unwrap();
+    let node = Node::persistent(path, ep)
         .gc_interval(Some(gc_period))
         .register_gc_done_cb(Box::new(move || {
             gc_send.send_blocking(()).ok();
