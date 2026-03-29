@@ -33,6 +33,21 @@ use crate::{
     AuthorId, Entry, NamespaceId, SignedEntry,
 };
 
+// On native targets we require `Send` on the live stream; on `wasm32-unknown-unknown`,
+// `n0_future::boxed::BoxFuture` is `!Send` (see that crate's `boxed` module), matching
+// `Engine::subscribe`'s merged stream.
+mod live_stream_bound {
+    #[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
+    pub trait SendUnlessWasmBrowser: Send {}
+    #[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
+    impl<T: Send + ?Sized> SendUnlessWasmBrowser for T {}
+
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
+    pub trait SendUnlessWasmBrowser {}
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
+    impl<T: ?Sized> SendUnlessWasmBrowser for T {}
+}
+
 /// Blob reads used by [`subscribe_resolved_with`] so tests can inject faults without a full store.
 #[async_trait]
 pub(crate) trait ResolveBlobs: Send + Sync {
@@ -144,6 +159,9 @@ const FORWARD_CAP: usize = 2048;
 ///
 /// `scope` must be built with [`Query::single_latest_per_key`]. Live events are forwarded on a
 /// separate task so slow resolution does not fill the bounded replica subscribe channel.
+///
+/// The live stream must be [`Send`] on native targets; on `wasm32-unknown-unknown` it may be
+/// `!Send` (local boxed futures from blob status checks in the subscribe pipeline).
 pub fn subscribe_resolved_with<LS>(
     live_stream: LS,
     fetcher: ResolvedFetcher,
@@ -152,7 +170,9 @@ pub fn subscribe_resolved_with<LS>(
     opts: ResolvedSubscribeOpts,
 ) -> anyhow::Result<ReceiverStream<anyhow::Result<ResolvedKeyValue>>>
 where
-    LS: Stream<Item = anyhow::Result<LiveEvent>> + Send + 'static,
+    LS: Stream<Item = anyhow::Result<LiveEvent>>
+        + live_stream_bound::SendUnlessWasmBrowser
+        + 'static,
 {
     subscribe_resolved_spawn(
         live_stream,
@@ -171,7 +191,9 @@ fn subscribe_resolved_spawn<LS>(
     opts: ResolvedSubscribeOpts,
 ) -> anyhow::Result<ReceiverStream<anyhow::Result<ResolvedKeyValue>>>
 where
-    LS: Stream<Item = anyhow::Result<LiveEvent>> + Send + 'static,
+    LS: Stream<Item = anyhow::Result<LiveEvent>>
+        + live_stream_bound::SendUnlessWasmBrowser
+        + 'static,
 {
     if !scope.is_single_latest_per_key() {
         anyhow::bail!("subscribe_resolved requires Query::single_latest_per_key()");
