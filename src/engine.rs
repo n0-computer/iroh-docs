@@ -237,6 +237,36 @@ impl Engine {
         Ok(a.or(b))
     }
 
+    /// Subscribe to updates for the latest entry for each key matching `scope` (per
+    /// [`crate::store::Query::single_latest_per_key`]), emitting only when that entry’s blob is
+    /// complete locally (or the record is empty).
+    ///
+    /// `scope` must be built with [`crate::store::Query::single_latest_per_key`]. See
+    /// [`crate::subscribe_resolved`] for details.
+    pub async fn subscribe_resolved(
+        &self,
+        namespace: NamespaceId,
+        scope: crate::store::Query,
+        opts: crate::subscribe_resolved::ResolvedSubscribeOpts,
+    ) -> anyhow::Result<
+        tokio_stream::wrappers::ReceiverStream<
+            anyhow::Result<crate::subscribe_resolved::ResolvedKeyValue>,
+        >,
+    > {
+        let live = self.subscribe(namespace).await?;
+        let fetcher = crate::subscribe_resolved::ResolvedFetcher::for_sync_engine(
+            self.sync.clone(),
+            namespace,
+        );
+        crate::subscribe_resolved::subscribe_resolved_with(
+            live,
+            fetcher,
+            self.blob_store().clone(),
+            scope,
+            opts,
+        )
+    }
+
     /// Handle an incoming iroh-docs connection.
     pub async fn handle_connection(&self, conn: iroh::endpoint::Connection) -> anyhow::Result<()> {
         self.to_live_actor

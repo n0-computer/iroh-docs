@@ -1989,6 +1989,7 @@ version = "0.97.0"
 dependencies = [
  "anyhow",
  "async-channel",
+ "async-trait",
  "blake3",
  "bytes",
  "cfg_aliases",
