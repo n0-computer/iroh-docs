@@ -6,6 +6,15 @@
 //!
 //! Live [`crate::engine::LiveEvent`] values are forwarded on a dedicated task so slow resolution
 //! work does not fill the bounded replica subscribe channel (see [`Engine::subscribe`](crate::engine::Engine::subscribe)).
+//!
+//! ## WebAssembly
+//!
+//! This module is intended to work on `wasm32-unknown-unknown` under the same **Tokio-based**
+//! runtime as the rest of iroh (for example via `wasm-bindgen-futures` driving the executor).
+//! Internal work is scheduled with [`n0_future::task::spawn`]; timers use [`n0_future::time`], not
+//! Tokio-only clocks. The merged [`Engine::subscribe`] stream may be `!Send` in the browser; the
+//! [`subscribe_resolved_with`] bounds reflect that via [`SendUnlessWasmBrowser`]. Custom
+//! [`ResolvedFetcher`] closures still use `Send` futures on all targets (see [`FetchLatestBox`]).
 
 use std::{
     collections::{HashMap, HashSet},
@@ -33,18 +42,18 @@ use crate::{
     AuthorId, Entry, NamespaceId, SignedEntry,
 };
 
-// On native targets we require `Send` on the live stream; on `wasm32-unknown-unknown`,
-// `n0_future::boxed::BoxFuture` is `!Send` (see that crate's `boxed` module), matching
-// `Engine::subscribe`'s merged stream.
+// On native targets we require `Send` on the live stream; on `wasm32-unknown-unknown` (see
+// `wasm_browser` in `build.rs`), `n0_future::boxed::BoxFuture` is `!Send` (see that crate's
+// `boxed` module), matching `Engine::subscribe`'s merged stream.
 mod live_stream_bound {
-    #[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
+    #[cfg(not(wasm_browser))]
     pub trait SendUnlessWasmBrowser: Send {}
-    #[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
+    #[cfg(not(wasm_browser))]
     impl<T: Send + ?Sized> SendUnlessWasmBrowser for T {}
 
-    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
+    #[cfg(wasm_browser)]
     pub trait SendUnlessWasmBrowser {}
-    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
+    #[cfg(wasm_browser)]
     impl<T: ?Sized> SendUnlessWasmBrowser for T {}
 }
 
@@ -160,8 +169,8 @@ const FORWARD_CAP: usize = 2048;
 /// `scope` must be built with [`Query::single_latest_per_key`]. Live events are forwarded on a
 /// separate task so slow resolution does not fill the bounded replica subscribe channel.
 ///
-/// The live stream must be [`Send`] on native targets; on `wasm32-unknown-unknown` it may be
-/// `!Send` (local boxed futures from blob status checks in the subscribe pipeline).
+/// The live stream must be [`Send`] on native targets; when building for the browser Wasm target
+/// (`wasm_browser`), it may be `!Send` (local boxed futures from blob status checks in the subscribe pipeline).
 pub fn subscribe_resolved_with<LS>(
     live_stream: LS,
     fetcher: ResolvedFetcher,
@@ -313,7 +322,7 @@ async fn run_resolver(
             .await?;
         }
         if let Some(d) = opts.resolution_delay {
-            tokio::time::sleep(d).await;
+            n0_future::time::sleep(d).await;
         }
     }
 
@@ -425,7 +434,7 @@ async fn flush_dirty(
     }
 
     if let Some(d) = opts.resolution_delay {
-        tokio::time::sleep(d).await;
+        n0_future::time::sleep(d).await;
     }
     Ok(())
 }
@@ -662,7 +671,7 @@ mod tests {
                 match step {
                     0 => Some((Ok(LiveEvent::InsertLocal { entry }), 1u8)),
                     1 => {
-                        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                        n0_future::time::sleep(std::time::Duration::from_millis(50)).await;
                         Some((Ok(LiveEvent::ContentReady { hash }), 2u8))
                     }
                     _ => None,
