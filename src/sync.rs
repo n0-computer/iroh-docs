@@ -1013,13 +1013,29 @@ fn system_time_now() -> u64 {
         .as_micros() as u64
 }
 
+/// Maximum key size for a record identifier (4 KiB).
+///
+/// Prevents unbounded memory allocation from entries with arbitrarily large keys,
+/// whether from local misuse or malicious peers during sync.
+pub const MAX_KEY_SIZE: usize = 4096;
+
 impl RecordIdentifier {
     /// Create a new [`RecordIdentifier`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `key` exceeds [`MAX_KEY_SIZE`] bytes.
     pub fn new(
         namespace: impl Into<NamespaceId>,
         author: impl Into<AuthorId>,
         key: impl AsRef<[u8]>,
     ) -> Self {
+        assert!(
+            key.as_ref().len() <= MAX_KEY_SIZE,
+            "key size {} exceeds maximum of {} bytes",
+            key.as_ref().len(),
+            MAX_KEY_SIZE,
+        );
         let mut bytes = BytesMut::with_capacity(32 + 32 + key.as_ref().len());
         bytes.extend_from_slice(namespace.into().as_bytes());
         bytes.extend_from_slice(author.into().as_bytes());

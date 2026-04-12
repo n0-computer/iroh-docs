@@ -51,8 +51,12 @@ impl PublicKeyStore for () {
     }
 }
 
-/// In-memory key storage
-// TODO: Make max number of keys stored configurable.
+/// Maximum number of cached public keys.
+///
+/// Limits memory growth from entries with many distinct author/namespace IDs.
+const MAX_CACHED_KEYS: usize = 10_000;
+
+/// In-memory key storage with bounded cache.
 #[derive(Debug, Clone, Default)]
 pub struct MemPublicKeyStore {
     keys: Arc<RwLock<HashMap<[u8; 32], VerifyingKey>>>,
@@ -60,11 +64,25 @@ pub struct MemPublicKeyStore {
 
 impl PublicKeyStore for MemPublicKeyStore {
     fn public_key(&self, bytes: &[u8; 32]) -> Result<VerifyingKey, SignatureError> {
-        if let Some(id) = self.keys.read().unwrap().get(bytes) {
+        if let Some(id) = self
+            .keys
+            .read()
+            .expect("MemPublicKeyStore read lock poisoned")
+            .get(bytes)
+        {
             return Ok(*id);
         }
         let id = VerifyingKey::from_bytes(bytes)?;
-        self.keys.write().unwrap().insert(*bytes, id);
+        let mut guard = self
+            .keys
+            .write()
+            .expect("MemPublicKeyStore write lock poisoned");
+        // Evict the entire cache if it exceeds the limit. A simple strategy
+        // that avoids the complexity of LRU while bounding memory usage.
+        if guard.len() >= MAX_CACHED_KEYS {
+            guard.clear();
+        }
+        guard.insert(*bytes, id);
         Ok(id)
     }
 }
