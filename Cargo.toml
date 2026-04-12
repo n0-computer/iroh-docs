@@ -37,6 +37,7 @@ iroh-blobs = { version = "0.100", default-features = false }
 iroh-gossip = { version = "0.98", features = ["net"], default-features = false }
 iroh-metrics = { version = "0.38", default-features = false }
 irpc = { version = "0.14", default-features = false }
+lru = "0.16"
 n0-error = "0.1.0"
 n0-future = { version = "0.3.1", features = ["serde"] }
 num_enum = "0.7"
