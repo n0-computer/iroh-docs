@@ -648,7 +648,13 @@ impl Stream for ImportFileProgress {
                         }
                         item => Poll::Ready(Some(ImportFileProgressItem::Blobs(item))),
                     },
-                    None => todo!(),
+                    None => {
+                        // Blob import stream ended without emitting Done.
+                        *this = Self(ImportInner::Done);
+                        Poll::Ready(Some(ImportFileProgressItem::Error(anyhow::anyhow!(
+                            "blob import stream ended prematurely"
+                        ))))
+                    }
                 }
             }
             ImportInner::Entry(ref mut fut) => {

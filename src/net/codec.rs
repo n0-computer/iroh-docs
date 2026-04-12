@@ -19,7 +19,12 @@ use crate::{
 #[derive(Debug, Default)]
 struct SyncCodec;
 
-const MAX_MESSAGE_SIZE: usize = 1024 * 1024 * 1024; // This is likely too large, but lets have some restrictions
+/// Maximum sync message size: 64 MiB.
+///
+/// Reduced from the original 1 GiB to prevent trivial memory exhaustion attacks
+/// where a malicious peer sends oversized messages. 64 MiB is generous for
+/// range-based set reconciliation messages.
+const MAX_MESSAGE_SIZE: usize = 64 * 1024 * 1024;
 
 impl Decoder for SyncCodec {
     type Item = Message;
