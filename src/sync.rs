@@ -107,20 +107,35 @@ pub struct SyncOutcome {
     pub num_sent: usize,
 }
 
-fn get_as_ptr<T>(value: &T) -> Option<usize> {
-    use std::mem;
-    if mem::size_of::<T>() == std::mem::size_of::<usize>()
-        && mem::align_of::<T>() == mem::align_of::<usize>()
-    {
-        // Safe only if size and alignment requirements are met
-        unsafe { Some(mem::transmute_copy(value)) }
-    } else {
-        None
-    }
-}
-
+/// Compare two `async_channel::Sender`s for channel identity.
+///
+/// `async_channel::Sender<T>` wraps a single `Arc<Channel<T>>` field.
+/// We extract the Arc's pointer value via `transmute_copy` to compare
+/// identity. The size/alignment checks ensure this is valid for the
+/// specific `async_channel` version in use.
+///
+/// # Safety
+/// This relies on `Sender<T>` being layout-compatible with a single pointer,
+/// which is verified at runtime via size and alignment checks. If the check
+/// fails, we fall back to returning `false` (never matching), which is safe
+/// but may leave stale entries that get cleaned up on next send.
 fn same_channel<T>(a: &async_channel::Sender<T>, b: &async_channel::Sender<T>) -> bool {
-    get_as_ptr(a).unwrap() == get_as_ptr(b).unwrap()
+    use std::mem;
+    if mem::size_of::<async_channel::Sender<T>>() == mem::size_of::<usize>()
+        && mem::align_of::<async_channel::Sender<T>>() == mem::align_of::<usize>()
+    {
+        // SAFETY: We verified that Sender<T> has the same size and alignment as
+        // a pointer. Sender<T> contains a single Arc<Channel<T>> field, so
+        // transmute_copy extracts the Arc's raw pointer value for comparison.
+        let ptr_a: usize = unsafe { mem::transmute_copy(a) };
+        let ptr_b: usize = unsafe { mem::transmute_copy(b) };
+        ptr_a == ptr_b
+    } else {
+        // Layout doesn't match our assumption — fall back to never matching.
+        // Stale senders will be cleaned up when their receiver is dropped and
+        // the next `send()` call fails.
+        false
+    }
 }
 
 #[derive(Debug, Default)]

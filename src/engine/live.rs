@@ -757,7 +757,7 @@ impl LiveActor {
         self.hash_providers
             .0
             .lock()
-            .expect("poisoned")
+            .expect("ProviderNodes lock poisoned in start_download()")
             .entry(hash)
             .or_default()
             .insert(node);
@@ -904,7 +904,7 @@ impl ContentDiscovery for ProviderNodes {
         let nodes = self
             .0
             .lock()
-            .expect("poisoned")
+            .expect("ProviderNodes lock poisoned in find_providers()")
             .get(&hash.hash)
             .into_iter()
             .flatten()

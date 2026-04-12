@@ -454,7 +454,10 @@ impl DefaultAuthor {
 
     /// Get the current default author.
     pub fn get(&self) -> AuthorId {
-        *self.value.read().unwrap()
+        *self
+            .value
+            .read()
+            .expect("DefaultAuthor lock poisoned in get()")
     }
 
     /// Set the default author.
@@ -463,7 +466,10 @@ impl DefaultAuthor {
             bail!("The author does not exist");
         }
         self.storage.persist(author_id).await?;
-        *self.value.write().unwrap() = author_id;
+        *self
+            .value
+            .write()
+            .expect("DefaultAuthor lock poisoned in set()") = author_id;
         Ok(())
     }
 }
