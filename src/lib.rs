@@ -45,6 +45,7 @@ pub mod engine;
 pub mod actor;
 pub mod api;
 pub mod store;
+pub mod subscribe_resolved;
 pub mod sync;
 
 mod heads;

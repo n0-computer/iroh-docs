@@ -81,6 +81,14 @@ async fn main() -> anyhow::Result<()> {
 }
 ```
 
+The snippet above is **minimal wiring** only (ALPN + router). For an end-to-end sample of the high-level [`Doc`](https://docs.rs/iroh-docs/latest/iroh_docs/api/struct.Doc.html) API—including [`subscribe_resolved`](https://docs.rs/iroh-docs/latest/iroh_docs/api/struct.Doc.html#method.subscribe_resolved) with a key prefix, blob bytes, and `initial_snapshot`—run:
+
+```sh
+cargo run --example subscribe_resolved
+```
+
+See [`examples/subscribe_resolved.rs`](examples/subscribe_resolved.rs) for the full walkthrough.
+
 # License
 
 This project is licensed under either of

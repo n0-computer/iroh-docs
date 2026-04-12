@@ -14,6 +14,7 @@ rust-version = "1.89"
 [dependencies]
 anyhow = "1"
 async-channel = "2.3.1"
+async-trait = "0.1"
 blake3 = "1.8"
 bytes = { version = "1.7", features = ["serde"] }
 derive_more = { version = "2.0.1", features = [
@@ -95,7 +96,7 @@ missing_debug_implementations = "warn"
 # require a feature enabled when using `--cfg docsrs` which we can not
 # do.  To enable for a crate set `#![cfg_attr(iroh_docsrs,
 # feature(doc_cfg))]` in the crate.
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(iroh_docsrs)"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(iroh_docsrs)", "cfg(wasm_browser)"] }
 
 [build-dependencies]
 cfg_aliases = "0.2.1"

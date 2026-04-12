@@ -13,6 +13,7 @@ use iroh_docs::{
     },
     engine::LiveEvent,
     store::{DownloadPolicy, FilterKind, Query},
+    subscribe_resolved::ResolvedSubscribeOpts,
     AuthorId, ContentStatus, Entry,
 };
 use n0_future::time::{Duration, Instant};
@@ -1372,6 +1373,59 @@ async fn assert_next_unordered_with_optionals<T: std::fmt::Debug + Clone>(
         panic!("Failed to receive or match all events: {err:?}");
     }
     events
+}
+
+#[tokio::test]
+#[traced_test]
+async fn subscribe_resolved_single_latest_after_sync_and_blob() -> Result<()> {
+    let mut rng = test_rng(b"subscribe_resolved_sync_blob");
+    let nodes = spawn_nodes(2, &mut rng).await?;
+    let clients: Vec<_> = nodes.iter().map(|n| n.client()).collect();
+
+    let author0 = clients[0].docs().author_create().await?;
+    let doc0 = clients[0].docs().create().await?;
+    let blobs0 = clients[0].blobs();
+
+    let ticket = doc0
+        .share(ShareMode::Write, AddrInfoOptions::RelayAndAddresses)
+        .await?;
+
+    let author1 = clients[1].docs().author_create().await?;
+    let doc1 = clients[1].docs().import(ticket).await?;
+
+    let mut sub0 = doc0
+        .subscribe_resolved(
+            blobs0,
+            Query::single_latest_per_key().key_exact(b"shared").build(),
+            ResolvedSubscribeOpts {
+                include_content: true,
+                initial_snapshot: false,
+                resolution_delay: None,
+            },
+        )
+        .await?;
+
+    doc0.set_bytes(author0, b"shared".to_vec(), b"from0".to_vec())
+        .await?;
+    tokio::time::timeout(TIMEOUT, sub0.next())
+        .await?
+        .expect("stream ended")
+        .expect("outer err");
+
+    doc1.set_bytes(author1, b"shared".to_vec(), b"from1".to_vec())
+        .await?;
+
+    let remote_winner = tokio::time::timeout(TIMEOUT, sub0.next())
+        .await?
+        .expect("stream ended")
+        .expect("outer err");
+    assert_eq!(remote_winner.content.as_deref(), Some(&b"from1"[..]));
+    assert_eq!(remote_winner.entry.author(), author1);
+
+    for node in nodes {
+        node.shutdown().await?;
+    }
+    Ok(())
 }
 
 /// Asserts that the event is a [`LiveEvent::SyncFinished`] and that the contained [`SyncEvent`]

@@ -38,6 +38,10 @@ use crate::{
     actor::OpenState,
     engine::{Engine, LiveEvent},
     store::{DownloadPolicy, Query},
+    subscribe_resolved::{
+        subscribe_resolved_with, FetchAllBox, FetchLatestBox, ResolvedFetcher, ResolvedKeyValue,
+        ResolvedSubscribeOpts,
+    },
     Author, AuthorId, Capability, CapabilityKind, DocTicket, Entry, NamespaceId, PeerIdBytes,
 };
 
@@ -475,6 +479,42 @@ impl Doc {
             Ok(Err(err)) => Err(err.into()),
             Ok(Ok(res)) => Ok(res.event),
         })))
+    }
+
+    /// Like [`Engine::subscribe_resolved`](crate::engine::Engine::subscribe_resolved): the latest
+    /// entry per key for `scope`, emitted only when blobs are complete locally. Requires the same
+    /// [`iroh_blobs::api::Store`] used by this node for reads.
+    pub async fn subscribe_resolved(
+        &self,
+        blobs: &iroh_blobs::api::Store,
+        scope: impl Into<Query>,
+        opts: ResolvedSubscribeOpts,
+    ) -> Result<tokio_stream::wrappers::ReceiverStream<anyhow::Result<ResolvedKeyValue>>> {
+        self.ensure_open()?;
+        let scope = scope.into();
+        let doc_latest = self.clone();
+        let latest: std::sync::Arc<dyn Fn(Query) -> FetchLatestBox + Send + Sync> =
+            std::sync::Arc::new(move |q: Query| {
+                let doc = doc_latest.clone();
+                Box::pin(async move {
+                    use futures_util::StreamExt as FutStreamExt;
+                    let mut s = FutStreamExt::boxed(doc.get_many(q).await?);
+                    futures_util::TryStreamExt::try_next(&mut s).await
+                }) as FetchLatestBox
+            });
+        let doc_all = self.clone();
+        let all: std::sync::Arc<dyn Fn(Query) -> FetchAllBox + Send + Sync> =
+            std::sync::Arc::new(move |q: Query| {
+                let doc = doc_all.clone();
+                Box::pin(async move {
+                    use futures_util::StreamExt as FutStreamExt;
+                    let mut s = FutStreamExt::boxed(doc.get_many(q).await?);
+                    futures_util::TryStreamExt::try_collect(&mut s).await
+                }) as FetchAllBox
+            });
+        let fetcher = ResolvedFetcher::new(latest, all);
+        let live = self.subscribe().await?;
+        subscribe_resolved_with(live, fetcher, blobs.clone(), scope, opts)
     }
 
     /// Returns status info for this document
