@@ -39,8 +39,9 @@ pub type ProtocolMessage = crate::ranger::Message<SignedEntry>;
 pub type PeerIdBytes = [u8; 32];
 
 /// Max time in the future from our wall clock time that we accept entries for.
-/// Value is 10 minutes.
-pub const MAX_TIMESTAMP_FUTURE_SHIFT: u64 = 10 * 60 * Duration::from_secs(1).as_millis() as u64;
+/// Value is 5 minutes. Reduced from the original 10 minutes to limit the window
+/// for timestamp manipulation by malicious peers.
+pub const MAX_TIMESTAMP_FUTURE_SHIFT: u64 = 5 * 60 * Duration::from_secs(1).as_millis() as u64;
 
 /// Callback that may be set on a replica to determine the availability status for a content hash.
 pub type ContentStatusCallback =

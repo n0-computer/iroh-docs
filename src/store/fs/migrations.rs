@@ -50,6 +50,8 @@ fn migration_001_populate_latest_table(tx: &WriteTransaction) -> Result<MigrateO
         return Ok(MigrateOutcome::Skip);
     }
 
+    // The HashMap is bounded by the number of distinct (namespace, author) pairs,
+    // not the total number of records, since we only keep the latest entry per author.
     #[allow(clippy::type_complexity)]
     let mut heads: HashMap<([u8; 32], [u8; 32]), (u64, Vec<u8>)> = HashMap::new();
     let iter = records_table.iter()?;
