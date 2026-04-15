@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use iroh_blobs::api::blobs::{ExportMode, ImportMode};
 use iroh_docs::store::Query;
 use n0_future::StreamExt;
-use rand::RngCore;
+use rand::Rng;
 use testresult::TestResult;
 use tokio::io::AsyncWriteExt;
 use tracing_test::traced_test;

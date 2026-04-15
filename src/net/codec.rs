@@ -296,7 +296,7 @@ mod tests {
     use anyhow::Result;
     use iroh::SecretKey;
     use iroh_blobs::Hash;
-    use rand::{CryptoRng, SeedableRng};
+    use rand::{CryptoRng, RngExt, SeedableRng};
     use tracing_test::traced_test;
 
     use super::*;
@@ -497,8 +497,8 @@ mod tests {
                     "bob & alice each using {num_authors} authors and inserting {num_messages} messages per author"
                 );
 
-                let alice_node_pubkey = SecretKey::generate(&mut rng).public();
-                let bob_node_pubkey = SecretKey::generate(&mut rng).public();
+                let alice_node_pubkey = SecretKey::from_bytes(&rng.random()).public();
+                let bob_node_pubkey = SecretKey::from_bytes(&rng.random()).public();
                 let namespace = NamespaceSecret::new(&mut rng);
 
                 let mut all_messages = vec![];
@@ -640,8 +640,8 @@ mod tests {
 
     async fn test_sync_timestamps(mut alice_store: Store, mut bob_store: Store) -> Result<()> {
         let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(99);
-        let alice_node_pubkey = SecretKey::generate(&mut rng).public();
-        let bob_node_pubkey = SecretKey::generate(&mut rng).public();
+        let alice_node_pubkey = SecretKey::from_bytes(&rng.random()).public();
+        let bob_node_pubkey = SecretKey::from_bytes(&rng.random()).public();
         let namespace = NamespaceSecret::new(&mut rng);
 
         let author = alice_store.new_author(&mut rng)?;

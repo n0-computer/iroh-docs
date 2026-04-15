@@ -7,7 +7,7 @@ use bytes::Bytes;
 use futures_lite::StreamExt;
 use iroh_blobs::api::blobs::ImportMode;
 use n0_future::time::Duration;
-use rand::RngCore;
+use rand::Rng;
 use testdir::testdir;
 use util::Node;
 
@@ -26,8 +26,10 @@ async fn persistent_node(
     path: PathBuf,
     gc_period: Duration,
 ) -> (Node, async_channel::Receiver<()>) {
+    use iroh::endpoint::presets;
+
     let (gc_send, gc_recv) = async_channel::unbounded();
-    let ep = iroh::Endpoint::empty_builder().bind().await.unwrap();
+    let ep = iroh::Endpoint::bind(presets::Minimal).await.unwrap();
     let node = Node::persistent(path, ep)
         .gc_interval(Some(gc_period))
         .register_gc_done_cb(Box::new(move || {
