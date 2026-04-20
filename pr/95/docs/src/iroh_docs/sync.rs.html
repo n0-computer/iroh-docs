@@ -1550,7 +1550,7 @@
 <a href=#1550 id=1550 data-nosnippet>1550</a>    }
 <a href=#1551 id=1551 data-nosnippet>1551</a>
 <a href=#1552 id=1552 data-nosnippet>1552</a>    <span class="kw">async fn </span>test_timestamps(<span class="kw-2">mut </span>store: Store) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#1553 id=1553 data-nosnippet>1553</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand_chacha::ChaCha12Rng::seed_from_u64(<span class="number">1</span>);
+<a href=#1553 id=1553 data-nosnippet>1553</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rngs::ChaCha12Rng::seed_from_u64(<span class="number">1</span>);
 <a href=#1554 id=1554 data-nosnippet>1554</a>        <span class="kw">let </span>namespace = NamespaceSecret::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#1555 id=1555 data-nosnippet>1555</a>        <span class="kw">let </span>_replica = store.new_replica(namespace.clone())<span class="question-mark">?</span>;
 <a href=#1556 id=1556 data-nosnippet>1556</a>        <span class="kw">let </span>author = store.new_author(<span class="kw-2">&amp;mut </span>rng)<span class="question-mark">?</span>;
@@ -2133,7 +2133,7 @@
 <a href=#2133 id=2133 data-nosnippet>2133</a>
 <a href=#2134 id=2134 data-nosnippet>2134</a>    <span class="attr">#[allow(clippy::redundant_pattern_matching)]
 <a href=#2135 id=2135 data-nosnippet>2135</a>    </span><span class="kw">async fn </span>test_replica_capability(<span class="kw-2">mut </span>store: Store) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#2136 id=2136 data-nosnippet>2136</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand_chacha::ChaCha12Rng::seed_from_u64(<span class="number">1</span>);
+<a href=#2136 id=2136 data-nosnippet>2136</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rngs::ChaCha12Rng::seed_from_u64(<span class="number">1</span>);
 <a href=#2137 id=2137 data-nosnippet>2137</a>        <span class="kw">let </span>author = store.new_author(<span class="kw-2">&amp;mut </span>rng)<span class="question-mark">?</span>;
 <a href=#2138 id=2138 data-nosnippet>2138</a>        <span class="kw">let </span>namespace = NamespaceSecret::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#2139 id=2139 data-nosnippet>2139</a>
@@ -2182,7 +2182,7 @@
 <a href=#2182 id=2182 data-nosnippet>2182</a>
 <a href=#2183 id=2183 data-nosnippet>2183</a>    <span class="kw">async fn </span>test_actor_capability(store: Store) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 <a href=#2184 id=2184 data-nosnippet>2184</a>        <span class="comment">// test with actor
-<a href=#2185 id=2185 data-nosnippet>2185</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>rng = rand_chacha::ChaCha12Rng::seed_from_u64(<span class="number">1</span>);
+<a href=#2185 id=2185 data-nosnippet>2185</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rngs::ChaCha12Rng::seed_from_u64(<span class="number">1</span>);
 <a href=#2186 id=2186 data-nosnippet>2186</a>        <span class="kw">let </span>author = Author::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#2187 id=2187 data-nosnippet>2187</a>        <span class="kw">let </span>handle = SyncHandle::spawn(store, <span class="prelude-val">None</span>, <span class="string">"test"</span>.into());
 <a href=#2188 id=2188 data-nosnippet>2188</a>        <span class="kw">let </span>author = handle.import_author(author).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -2232,7 +2232,7 @@
 <a href=#2232 id=2232 data-nosnippet>2232</a>    /// (too old) by the time they are actually inserted in the store.
 <a href=#2233 id=2233 data-nosnippet>2233</a>    </span><span class="attr">#[tokio::test]
 <a href=#2234 id=2234 data-nosnippet>2234</a>    </span><span class="kw">async fn </span>test_replica_no_wrong_remote_insert_events() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#2235 id=2235 data-nosnippet>2235</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand_chacha::ChaCha12Rng::seed_from_u64(<span class="number">1</span>);
+<a href=#2235 id=2235 data-nosnippet>2235</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rngs::ChaCha12Rng::seed_from_u64(<span class="number">1</span>);
 <a href=#2236 id=2236 data-nosnippet>2236</a>        <span class="kw">let </span><span class="kw-2">mut </span>store1 = store::Store::memory();
 <a href=#2237 id=2237 data-nosnippet>2237</a>        <span class="kw">let </span><span class="kw-2">mut </span>store2 = store::Store::memory();
 <a href=#2238 id=2238 data-nosnippet>2238</a>        <span class="kw">let </span>peer1 = [<span class="number">1u8</span>; <span class="number">32</span>];
@@ -2307,7 +2307,7 @@
 <a href=#2307 id=2307 data-nosnippet>2307</a>    }
 <a href=#2308 id=2308 data-nosnippet>2308</a>
 <a href=#2309 id=2309 data-nosnippet>2309</a>    <span class="kw">async fn </span>test_replica_queries(<span class="kw-2">mut </span>store: Store) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#2310 id=2310 data-nosnippet>2310</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand_chacha::ChaCha12Rng::seed_from_u64(<span class="number">1</span>);
+<a href=#2310 id=2310 data-nosnippet>2310</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rngs::ChaCha12Rng::seed_from_u64(<span class="number">1</span>);
 <a href=#2311 id=2311 data-nosnippet>2311</a>        <span class="kw">let </span>namespace = NamespaceSecret::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#2312 id=2312 data-nosnippet>2312</a>        <span class="kw">let </span>namespace_id = namespace.id();
 <a href=#2313 id=2313 data-nosnippet>2313</a>
@@ -2494,7 +2494,7 @@
 <a href=#2494 id=2494 data-nosnippet>2494</a>    }
 <a href=#2495 id=2495 data-nosnippet>2495</a>
 <a href=#2496 id=2496 data-nosnippet>2496</a>    <span class="kw">fn </span>test_dl_policies(store: <span class="kw-2">&amp;mut </span>Store) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#2497 id=2497 data-nosnippet>2497</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand_chacha::ChaCha12Rng::seed_from_u64(<span class="number">1</span>);
+<a href=#2497 id=2497 data-nosnippet>2497</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rngs::ChaCha12Rng::seed_from_u64(<span class="number">1</span>);
 <a href=#2498 id=2498 data-nosnippet>2498</a>        <span class="kw">let </span>namespace = NamespaceSecret::new(<span class="kw-2">&amp;mut </span>rng);
 <a href=#2499 id=2499 data-nosnippet>2499</a>        <span class="kw">let </span>id = namespace.id();
 <a href=#2500 id=2500 data-nosnippet>2500</a>
