@@ -16,7 +16,7 @@ use iroh_docs::{
     AuthorId, ContentStatus, Entry,
 };
 use n0_future::time::{Duration, Instant};
-use rand::{CryptoRng, Rng, RngExt, SeedableRng};
+use rand::{CryptoRng, RngExt, SeedableRng};
 #[cfg(feature = "fs-store")]
 use tempfile::tempdir;
 use tracing::{debug, error_span, info, Instrument};
@@ -41,7 +41,7 @@ async fn test_node(secret_key: SecretKey) -> Result<Builder> {
 // still collecting the futures before awaiting them altogether (see [`spawn_nodes`])
 fn spawn_node(
     i: usize,
-    rng: &mut (impl CryptoRng + Rng),
+    rng: &mut impl CryptoRng,
 ) -> impl Future<Output = anyhow::Result<Node>> + 'static {
     let secret_key = SecretKey::from_bytes(&rng.random());
     async move {
@@ -52,7 +52,7 @@ fn spawn_node(
     }
 }
 
-async fn spawn_nodes(n: usize, mut rng: &mut (impl CryptoRng + Rng)) -> anyhow::Result<Vec<Node>> {
+async fn spawn_nodes(n: usize, mut rng: &mut impl CryptoRng) -> anyhow::Result<Vec<Node>> {
     let mut futs = vec![];
     for i in 0..n {
         futs.push(spawn_node(i, &mut rng));
@@ -60,8 +60,8 @@ async fn spawn_nodes(n: usize, mut rng: &mut (impl CryptoRng + Rng)) -> anyhow::
     futures_buffered::join_all(futs).await.into_iter().collect()
 }
 
-pub fn test_rng(seed: &[u8]) -> rand_chacha::ChaCha12Rng {
-    rand_chacha::ChaCha12Rng::from_seed(*Hash::new(seed).as_bytes())
+pub fn test_rng(seed: &[u8]) -> rand::rngs::ChaCha12Rng {
+    rand::rngs::ChaCha12Rng::from_seed(*Hash::new(seed).as_bytes())
 }
 
 macro_rules! match_event {

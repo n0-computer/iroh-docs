@@ -1550,7 +1550,7 @@ mod tests {
     }
 
     async fn test_timestamps(mut store: Store) -> Result<()> {
-        let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(1);
+        let mut rng = rand::rngs::ChaCha12Rng::seed_from_u64(1);
         let namespace = NamespaceSecret::new(&mut rng);
         let _replica = store.new_replica(namespace.clone())?;
         let author = store.new_author(&mut rng)?;
@@ -2133,7 +2133,7 @@ mod tests {
 
     #[allow(clippy::redundant_pattern_matching)]
     async fn test_replica_capability(mut store: Store) -> Result<()> {
-        let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(1);
+        let mut rng = rand::rngs::ChaCha12Rng::seed_from_u64(1);
         let author = store.new_author(&mut rng)?;
         let namespace = NamespaceSecret::new(&mut rng);
 
@@ -2182,7 +2182,7 @@ mod tests {
 
     async fn test_actor_capability(store: Store) -> Result<()> {
         // test with actor
-        let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(1);
+        let mut rng = rand::rngs::ChaCha12Rng::seed_from_u64(1);
         let author = Author::new(&mut rng);
         let handle = SyncHandle::spawn(store, None, "test".into());
         let author = handle.import_author(author).await?;
@@ -2232,7 +2232,7 @@ mod tests {
     /// (too old) by the time they are actually inserted in the store.
     #[tokio::test]
     async fn test_replica_no_wrong_remote_insert_events() -> Result<()> {
-        let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(1);
+        let mut rng = rand::rngs::ChaCha12Rng::seed_from_u64(1);
         let mut store1 = store::Store::memory();
         let mut store2 = store::Store::memory();
         let peer1 = [1u8; 32];
@@ -2307,7 +2307,7 @@ mod tests {
     }
 
     async fn test_replica_queries(mut store: Store) -> Result<()> {
-        let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(1);
+        let mut rng = rand::rngs::ChaCha12Rng::seed_from_u64(1);
         let namespace = NamespaceSecret::new(&mut rng);
         let namespace_id = namespace.id();
 
@@ -2494,7 +2494,7 @@ mod tests {
     }
 
     fn test_dl_policies(store: &mut Store) -> Result<()> {
-        let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(1);
+        let mut rng = rand::rngs::ChaCha12Rng::seed_from_u64(1);
         let namespace = NamespaceSecret::new(&mut rng);
         let id = namespace.id();
 
