@@ -251,13 +251,13 @@ impl BobState {
                         .await
                 }
                 (Message::Init { .. }, Some(_)) => {
-                    return Err(self.fail(anyhow!("double init message")))
+                    return Err(self.fail(anyhow!("double init message")));
                 }
                 (Message::Sync(_), None) => {
-                    return Err(self.fail(anyhow!("unexpected sync message before init")))
+                    return Err(self.fail(anyhow!("unexpected sync message before init")));
                 }
                 (Message::Abort { .. }, _) => {
-                    return Err(self.fail(anyhow!("unexpected sync abort message")))
+                    return Err(self.fail(anyhow!("unexpected sync abort message")));
                 }
             };
             let (reply, progress) = next.map_err(|e| self.fail(e))?;
@@ -296,7 +296,7 @@ mod tests {
     use anyhow::Result;
     use iroh::SecretKey;
     use iroh_blobs::Hash;
-    use rand::{CryptoRng, SeedableRng};
+    use rand::{CryptoRng, RngExt, SeedableRng};
     use tracing_test::traced_test;
 
     use super::*;
@@ -489,7 +489,7 @@ mod tests {
     async fn test_sync_many_authors(mut alice_store: Store, mut bob_store: Store) -> Result<()> {
         let num_messages = &[1, 2, 5, 10];
         let num_authors = &[2, 3, 4, 5, 10];
-        let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(99);
+        let mut rng = rand::rngs::ChaCha12Rng::seed_from_u64(99);
 
         for num_messages in num_messages {
             for num_authors in num_authors {
@@ -497,8 +497,8 @@ mod tests {
                     "bob & alice each using {num_authors} authors and inserting {num_messages} messages per author"
                 );
 
-                let alice_node_pubkey = SecretKey::generate(&mut rng).public();
-                let bob_node_pubkey = SecretKey::generate(&mut rng).public();
+                let alice_node_pubkey = SecretKey::from_bytes(&rng.random()).public();
+                let bob_node_pubkey = SecretKey::from_bytes(&rng.random()).public();
                 let namespace = NamespaceSecret::new(&mut rng);
 
                 let mut all_messages = vec![];
@@ -639,9 +639,9 @@ mod tests {
     }
 
     async fn test_sync_timestamps(mut alice_store: Store, mut bob_store: Store) -> Result<()> {
-        let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(99);
-        let alice_node_pubkey = SecretKey::generate(&mut rng).public();
-        let bob_node_pubkey = SecretKey::generate(&mut rng).public();
+        let mut rng = rand::rngs::ChaCha12Rng::seed_from_u64(99);
+        let alice_node_pubkey = SecretKey::from_bytes(&rng.random()).public();
+        let bob_node_pubkey = SecretKey::from_bytes(&rng.random()).public();
         let namespace = NamespaceSecret::new(&mut rng);
 
         let author = alice_store.new_author(&mut rng)?;

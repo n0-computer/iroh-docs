@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use bytes::Bytes;
 use futures_lite::Stream;
 use futures_util::{FutureExt, StreamExt, TryStreamExt};
-use iroh::{Endpoint, PublicKey, SecretKey};
+use iroh::{endpoint::presets, Endpoint, PublicKey, SecretKey};
 use iroh_blobs::Hash;
 use iroh_docs::{
     api::{
@@ -16,7 +16,7 @@ use iroh_docs::{
     AuthorId, ContentStatus, Entry,
 };
 use n0_future::time::{Duration, Instant};
-use rand::{CryptoRng, Rng, SeedableRng};
+use rand::{CryptoRng, RngExt, SeedableRng};
 #[cfg(feature = "fs-store")]
 use tempfile::tempdir;
 use tracing::{debug, error_span, info, Instrument};
@@ -29,7 +29,7 @@ use crate::util::empty_endpoint;
 const TIMEOUT: Duration = Duration::from_secs(60);
 
 async fn test_node(secret_key: SecretKey) -> Result<Builder> {
-    let ep = Endpoint::empty_builder()
+    let ep = Endpoint::builder(presets::Minimal)
         .secret_key(secret_key)
         .bind()
         .await?;
@@ -41,9 +41,9 @@ async fn test_node(secret_key: SecretKey) -> Result<Builder> {
 // still collecting the futures before awaiting them altogether (see [`spawn_nodes`])
 fn spawn_node(
     i: usize,
-    rng: &mut (impl CryptoRng + Rng),
+    rng: &mut impl CryptoRng,
 ) -> impl Future<Output = anyhow::Result<Node>> + 'static {
-    let secret_key = SecretKey::generate(rng);
+    let secret_key = SecretKey::from_bytes(&rng.random());
     async move {
         let node = test_node(secret_key).await?;
         let node = node.spawn().await?;
@@ -52,7 +52,7 @@ fn spawn_node(
     }
 }
 
-async fn spawn_nodes(n: usize, mut rng: &mut (impl CryptoRng + Rng)) -> anyhow::Result<Vec<Node>> {
+async fn spawn_nodes(n: usize, mut rng: &mut impl CryptoRng) -> anyhow::Result<Vec<Node>> {
     let mut futs = vec![];
     for i in 0..n {
         futs.push(spawn_node(i, &mut rng));
@@ -60,8 +60,8 @@ async fn spawn_nodes(n: usize, mut rng: &mut (impl CryptoRng + Rng)) -> anyhow::
     futures_buffered::join_all(futs).await.into_iter().collect()
 }
 
-pub fn test_rng(seed: &[u8]) -> rand_chacha::ChaCha12Rng {
-    rand_chacha::ChaCha12Rng::from_seed(*Hash::new(seed).as_bytes())
+pub fn test_rng(seed: &[u8]) -> rand::rngs::ChaCha12Rng {
+    rand::rngs::ChaCha12Rng::from_seed(*Hash::new(seed).as_bytes())
 }
 
 macro_rules! match_event {
@@ -489,12 +489,13 @@ async fn sync_subscribe_stop_close() -> Result<()> {
 #[tokio::test]
 #[traced_test]
 async fn test_sync_via_relay() -> Result<()> {
+    let mut rng = test_rng(b"test_sync_via_relay");
     let (relay_map, _relay_url, _guard) = iroh::test_utils::run_relay_server().await?;
 
     use crate::util::endpoint;
 
     let ep1 = endpoint(
-        SecretKey::generate(&mut rand::rng()),
+        SecretKey::from_bytes(&rng.random()),
         relay_map.clone(),
         None,
     )
@@ -502,7 +503,7 @@ async fn test_sync_via_relay() -> Result<()> {
     let node1 = Node::memory(ep1).spawn().await?;
     let node1_id = node1.id();
     let ep2 = endpoint(
-        SecretKey::generate(&mut rand::rng()),
+        SecretKey::from_bytes(&rng.random()),
         relay_map.clone(),
         None,
     )
@@ -605,7 +606,7 @@ async fn sync_restart_node() -> Result<()> {
     let lookup_server = iroh::test_utils::DnsPkarrServer::run().await?;
 
     let node1_dir = tempfile::TempDir::with_prefix("test-sync_restart_node-node1")?;
-    let secret_key_1 = SecretKey::generate(&mut rng);
+    let secret_key_1 = SecretKey::from_bytes(&rng.random());
 
     let ep = endpoint(
         secret_key_1.clone(),
@@ -625,7 +626,7 @@ async fn sync_restart_node() -> Result<()> {
         .await?;
 
     // create node2
-    let secret_key_2 = SecretKey::generate(&mut rng);
+    let secret_key_2 = SecretKey::from_bytes(&rng.random());
     let ep = endpoint(secret_key_2, relay_map.clone(), Some(&lookup_server)).await?;
     let node2 = Node::memory(ep).spawn().await?;
     let id2 = node2.id();

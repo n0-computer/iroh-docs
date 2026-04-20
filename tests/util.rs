@@ -6,8 +6,10 @@ use std::{
 };
 
 use iroh::{
-    endpoint::BindError, test_utils::DnsPkarrServer, tls::CaRootsConfig, Endpoint, EndpointId,
-    RelayMap, RelayMode, SecretKey,
+    endpoint::{presets, BindError},
+    test_utils::DnsPkarrServer,
+    tls::CaRootsConfig,
+    Endpoint, EndpointId, RelayMap, RelayMode, SecretKey,
 };
 use iroh_blobs::store::GcConfig;
 use iroh_docs::{engine::ProtectCallbackHandler, protocol::Docs};
@@ -15,7 +17,7 @@ use iroh_gossip::net::Gossip;
 use n0_error::Result;
 
 pub async fn empty_endpoint() -> Result<Endpoint, BindError> {
-    Endpoint::empty_builder().bind().await
+    Endpoint::bind(presets::Minimal).await
 }
 
 pub async fn endpoint(
@@ -23,7 +25,7 @@ pub async fn endpoint(
     relay_map: RelayMap,
     dns_pkarr_server: Option<&DnsPkarrServer>,
 ) -> Result<Endpoint, BindError> {
-    let mut builder = Endpoint::empty_builder();
+    let mut builder = Endpoint::builder(presets::Minimal);
     if let Some(dns_pkarr_server) = dns_pkarr_server {
         builder = builder.preset(dns_pkarr_server.preset());
     }
