@@ -2,6 +2,12 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.98.0](https://github.com/n0-computer/iroh-docs/compare/v0.97.0..0.98.0) - 2026-04-20
+
+### ⛰️  Features
+
+- [**breaking**] Update to iroh@0.98n, iroh-gossip@0.98, iroh-blobs@0.100 ([#95](https://github.com/n0-computer/iroh-docs/issues/95)) - ([e03aa6f](https://github.com/n0-computer/iroh-docs/commit/e03aa6fb4aef36d294a94bfa7e80821b245a0184))
+
 ## [0.97.0](https://github.com/n0-computer/iroh-docs/compare/v0.96.0..0.97.0) - 2026-03-17
 
 ### ⛰️  Features
