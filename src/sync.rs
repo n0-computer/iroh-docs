@@ -603,9 +603,19 @@ where
 #[error("Replica allows read access only.")]
 pub struct ReadOnly;
 
+/// Maximum allowed length of an entry key, in bytes.
+///
+/// Entry keys are part of each [`SignedEntry`] and are therefore stored on
+/// every replica that syncs them. Without a bound a sync peer can submit
+/// entries with arbitrarily large keys (up to the codec's `MAX_MESSAGE_SIZE`,
+/// which is 1 GiB), causing memory / disk exhaustion on receivers. 4 KiB is
+/// deliberately generous; legitimate applications use short identifiers.
+pub const MAX_ENTRY_KEY_SIZE: usize = 4096;
+
 /// Validate a [`SignedEntry`] if it's fit to be inserted.
 ///
 /// This validates that
+/// * the entry's key is at most [`MAX_ENTRY_KEY_SIZE`] bytes
 /// * the entry's author and namespace signatures are correct
 /// * the entry's namespace matches the current replica
 /// * the entry's timestamp is not more than 10 minutes in the future of our system time
@@ -617,6 +627,15 @@ fn validate_entry<S: ranger::Store<SignedEntry> + PublicKeyStore>(
     entry: &SignedEntry,
     origin: &InsertOrigin,
 ) -> Result<(), ValidationFailure> {
+    // Check key size before signature verification so that oversized entries
+    // from a peer are rejected cheaply, without spending crypto work.
+    if entry.key().len() > MAX_ENTRY_KEY_SIZE {
+        return Err(ValidationFailure::KeyTooLarge {
+            actual: entry.key().len(),
+            max: MAX_ENTRY_KEY_SIZE,
+        });
+    }
+
     // Verify the namespace
     if entry.namespace() != expected_namespace {
         return Err(ValidationFailure::InvalidNamespace);
@@ -673,6 +692,14 @@ pub enum ValidationFailure {
     /// Entry has length 0 but not the empty hash, or the empty hash but not length 0.
     #[error("Entry has length 0 but not the empty hash, or the empty hash but not length 0")]
     InvalidEmptyEntry,
+    /// Entry key exceeds the maximum allowed length.
+    #[error("Entry key of {actual} bytes exceeds maximum of {max} bytes")]
+    KeyTooLarge {
+        /// The actual key length in bytes.
+        actual: usize,
+        /// The maximum allowed key length in bytes.
+        max: usize,
+    },
 }
 
 /// A signed entry.
@@ -1777,6 +1804,61 @@ mod tests {
             get_entry(&mut store, namespace.id(), author.id(), key)?,
             entry2
         );
+        store.flush()?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_peer_entry_with_oversized_key_rejected() -> Result<()> {
+        // Regression test for unbounded entry key size on the sync-origin
+        // insert path.
+        //
+        // Before the [`MAX_ENTRY_KEY_SIZE`] bound in `validate_entry` a sync
+        // peer could submit a [`SignedEntry`] whose key was bounded only by
+        // the codec's MAX_MESSAGE_SIZE (1 GiB). The entry was then stored in
+        // every replica that synced it, giving a peer-controllable
+        // memory/disk amplifier.
+        //
+        // This test builds a 1 MiB key and feeds the resulting signed entry
+        // through `insert_remote_entry`, asserting that it is now rejected
+        // with [`ValidationFailure::KeyTooLarge`]. It also checks that a
+        // key at exactly the boundary is still accepted.
+        let mut store = store::Store::memory();
+        let mut rng = rand::rng();
+        let alice = Author::new(&mut rng);
+        let namespace = NamespaceSecret::new(&mut rng);
+        let peer_id: [u8; 32] = *alice.id().as_bytes();
+
+        // (1) 1 MiB key — should be rejected post-fix.
+        let huge_key = vec![0u8; 1024 * 1024];
+        let hash = Hash::new(b"payload");
+        let record = Record::new(hash, 7, system_time_now());
+        let entry = SignedEntry::from_parts(&namespace, &alice, &huge_key, record);
+
+        let mut replica = store.new_replica(namespace.clone())?;
+        let result = replica
+            .insert_remote_entry(entry, peer_id, ContentStatus::Missing)
+            .await;
+        assert!(
+            matches!(
+                result,
+                Err(InsertError::Validation(
+                    ValidationFailure::KeyTooLarge { .. }
+                ))
+            ),
+            "expected KeyTooLarge rejection; got {:?}",
+            result
+        );
+
+        // (2) MAX_ENTRY_KEY_SIZE exactly — should be accepted.
+        let boundary_key = vec![b'x'; MAX_ENTRY_KEY_SIZE];
+        let record2 = Record::new(Hash::new(b"payload2"), 8, system_time_now());
+        let entry_ok = SignedEntry::from_parts(&namespace, &alice, &boundary_key, record2);
+        replica
+            .insert_remote_entry(entry_ok, peer_id, ContentStatus::Missing)
+            .await
+            .expect("boundary-sized key should be accepted");
+
         store.flush()?;
         Ok(())
     }
