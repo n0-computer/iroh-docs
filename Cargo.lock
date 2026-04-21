@@ -2101,6 +2101,7 @@ dependencies = [
  "iroh-metrics",
  "iroh-tickets",
  "irpc",
+ "lru",
  "n0-error",
  "n0-future",
  "nested_enum_utils",
