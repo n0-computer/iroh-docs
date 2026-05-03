@@ -12,8 +12,8 @@
 //! This module is intended to work on `wasm32-unknown-unknown` under the same **Tokio-based**
 //! runtime as the rest of iroh (for example via `wasm-bindgen-futures` driving the executor).
 //! Internal work is scheduled with [`n0_future::task::spawn`]; timers use [`n0_future::time`], not
-//! Tokio-only clocks. The merged [`Engine::subscribe`] stream may be `!Send` in the browser; the
-//! [`subscribe_resolved_with`] bounds reflect that via [`SendUnlessWasmBrowser`]. Custom
+//! Tokio-only clocks. The merged [`Engine::subscribe`](crate::engine::Engine::subscribe) stream may be `!Send` in the browser; the
+//! [`subscribe_resolved_with`] bounds reflect that via the internal `SendUnlessWasmBrowser` trait. Custom
 //! [`ResolvedFetcher`] closures still use `Send` futures on all targets (see [`FetchLatestBox`]).
 
 use std::{
