@@ -34,8 +34,8 @@ use crate::{
 /// Can be serialized to bytes with [serde] to transfer between peers.
 pub type ProtocolMessage = crate::ranger::Message<SignedEntry>;
 
-/// Byte representation of a `PeerId` from `iroh-net`.
-// TODO: PeerId is in iroh-net which iroh-docs doesn't depend on. Add iroh-base crate with `PeerId`.
+/// Byte representation of an iroh `EndpointId`.
+// TODO: Consider `iroh::EndpointId` instead of raw bytes (`iroh` re-exports it from `iroh-base`).
 pub type PeerIdBytes = [u8; 32];
 
 /// Max time in the future from our wall clock time that we accept entries for.
@@ -47,7 +47,7 @@ pub type ContentStatusCallback =
     Arc<dyn Fn(Hash) -> n0_future::boxed::BoxFuture<ContentStatus> + Send + Sync + 'static>;
 
 /// Event emitted by sync when entries are added.
-#[derive(Debug, Clone)]
+#[derive(derive_more::Debug, Clone)]
 pub enum Event {
     /// A local entry has been added.
     LocalInsert {
@@ -63,6 +63,8 @@ pub enum Event {
         /// Inserted entry.
         entry: SignedEntry,
         /// Peer that provided the inserted entry.
+        /// Debug matches [`iroh::PublicKey::fmt_short`] (first 5 bytes, lower hex).
+        #[debug("{}", hex::encode(&from[..5]))]
         from: PeerIdBytes,
         /// Whether download policies require the content to be downloaded.
         should_download: bool,
@@ -72,13 +74,15 @@ pub enum Event {
 }
 
 /// Whether an entry was inserted locally or by a remote peer.
-#[derive(Debug, Clone)]
+#[derive(derive_more::Debug, Clone)]
 pub enum InsertOrigin {
     /// The entry was inserted locally.
     Local,
     /// The entry was received from the remote node identified by [`PeerIdBytes`].
     Sync {
         /// The peer from which we received this entry.
+        /// Debug matches [`iroh::PublicKey::fmt_short`] (first 5 bytes, lower hex).
+        #[debug("{}", hex::encode(&from[..5]))]
         from: PeerIdBytes,
         /// Whether the peer claims to have the content blob for this entry.
         remote_content_status: ContentStatus,
