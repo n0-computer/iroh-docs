@@ -2,10 +2,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use irpc::{channel::mpsc, LocalSender, WithChannels};
-use n0_future::{
-    task::{self},
-    StreamExt,
-};
+use n0_future::{task, StreamExt};
 use tokio::sync::mpsc as tokio_mpsc;
 use tracing::error;
 
