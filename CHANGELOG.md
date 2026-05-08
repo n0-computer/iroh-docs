@@ -2,6 +2,18 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.99.0](https://github.com/n0-computer/iroh-docs/compare/v0.98.0..0.99.0) - 2026-05-08
+
+### ⛰️  Features
+
+- *(sync)* Short-hex Debug for peer from ([#98](https://github.com/n0-computer/iroh-docs/issues/98)) - ([1f88013](https://github.com/n0-computer/iroh-docs/commit/1f880135c27e4c95f705f8338d41650af14646ef))
+- [**breaking**] Update to latest 1.0.0-rc.0 deps and redb@4 ([#100](https://github.com/n0-computer/iroh-docs/issues/100)) - ([d4092bf](https://github.com/n0-computer/iroh-docs/commit/d4092bf82a1535ae34e013d89e2670bf4de6ecc3))
+
+### 🐛 Bug Fixes
+
+- *(actor)* Drain Actor::tasks JoinSet in run_async ([#96](https://github.com/n0-computer/iroh-docs/issues/96)) - ([b4f985d](https://github.com/n0-computer/iroh-docs/commit/b4f985d20567be85fead51101520a0320c68b79e))
+- *(sync)* Use microseconds for MAX_TIMESTAMP_FUTURE_SHIFT ([#99](https://github.com/n0-computer/iroh-docs/issues/99)) - ([8e3f2ba](https://github.com/n0-computer/iroh-docs/commit/8e3f2ba4064e0d5aac0d4de3065f889db1211240))
+
 ## [0.98.0](https://github.com/n0-computer/iroh-docs/compare/v0.97.0..0.98.0) - 2026-04-20
 
 ### ⛰️  Features
