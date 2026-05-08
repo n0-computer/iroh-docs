@@ -40,7 +40,7 @@ pub type PeerIdBytes = [u8; 32];
 
 /// Max time in the future from our wall clock time that we accept entries for.
 /// Value is 10 minutes.
-pub const MAX_TIMESTAMP_FUTURE_SHIFT: u64 = 10 * 60 * Duration::from_secs(1).as_millis() as u64;
+pub const MAX_TIMESTAMP_FUTURE_SHIFT: u64 = 10 * 60 * Duration::from_secs(1).as_micros() as u64;
 
 /// Callback that may be set on a replica to determine the availability status for a content hash.
 pub type ContentStatusCallback =
@@ -1780,6 +1780,32 @@ mod tests {
         assert_eq!(
             get_entry(&mut store, namespace.id(), author.id(), key)?,
             entry2
+        );
+        store.flush()?;
+        Ok(())
+    }
+
+    /// Regression: `MAX_TIMESTAMP_FUTURE_SHIFT` must be on the same unit scale as
+    /// `system_time_now()` (Unix epoch **microseconds**). A millisecond-scaled constant
+    /// only allows ~0.6s of future slack and would reject this insert.
+    #[tokio::test]
+    async fn test_future_timestamp_accepts_one_second_skew() -> Result<()> {
+        let mut rng = rand::rng();
+        let mut store = store::Store::memory();
+        let author = Author::new(&mut rng);
+        let namespace = NamespaceSecret::new(&mut rng);
+        let mut replica = store.new_replica(namespace.clone())?;
+        let key = b"skew";
+        let skew_micros: u64 = Duration::from_secs(1).as_micros() as u64;
+        let now = system_time_now();
+        let record = Record::from_data(b"ahead", now + skew_micros);
+        let entry = SignedEntry::from_parts(&namespace, &author, key, record);
+        replica
+            .insert_entry(entry.clone(), InsertOrigin::Local)
+            .await?;
+        assert_eq!(
+            get_entry(&mut store, namespace.id(), author.id(), key)?,
+            entry
         );
         store.flush()?;
         Ok(())
