@@ -8,10 +8,9 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
-use futures_util::FutureExt;
 use iroh_blobs::Hash;
 use irpc::channel::mpsc;
-use n0_future::{task::JoinSet, time::Duration};
+use n0_future::{task::JoinSet, time::Duration, TryFutureExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
 #[cfg(wasm_browser)]
@@ -750,8 +749,9 @@ impl Actor {
                     .store
                     .list_authors()
                     .map(|a| a.map(|a| a.map(|a| AuthorListResponse { author_id: a.id() })));
-                self.tasks
-                    .spawn_local(iter_to_irpc(reply, iter).map(|_| ()));
+                self.tasks.spawn_local(async move {
+                    iter_to_irpc(reply, iter).await.ok();
+                });
                 Ok(())
             }
             Action::ListReplicas { reply } => {
@@ -759,8 +759,9 @@ impl Actor {
                 let iter = iter.map(|inner| {
                     inner.map(|res| res.map(|(id, capability)| ListResponse { id, capability }))
                 });
-                self.tasks
-                    .spawn_local(iter_to_irpc(reply, iter).map(|_| ()));
+                self.tasks.spawn_local(async move {
+                    iter_to_irpc(reply, iter).await.ok();
+                });
                 Ok(())
             }
             Action::ContentHashes { reply } => {
@@ -903,7 +904,7 @@ impl Actor {
                     .ensure_open(&namespace)
                     .and_then(|_| self.store.get_many(namespace, query));
                 self.tasks
-                    .spawn_local(iter_to_irpc(reply, iter).map(|_| ()));
+                    .spawn_local(iter_to_irpc(reply, iter).map_ok_or_else(|_| (), |_| ()));
                 Ok(())
             }
             ReplicaAction::DropReplica { reply } => send_reply_with(reply, self, |this| {

@@ -2,14 +2,15 @@ use std::collections::{hash_map, HashMap};
 
 use anyhow::{Context, Result};
 use bytes::Bytes;
-use futures_lite::StreamExt;
-use futures_util::FutureExt;
 use iroh::EndpointId;
 use iroh_gossip::{
     api::{Event, GossipReceiver, GossipSender, JoinOptions},
     net::Gossip,
 };
-use n0_future::task::{AbortHandle, JoinSet};
+use n0_future::{
+    task::{AbortHandle, JoinSet},
+    StreamExt,
+};
 use tokio::sync::mpsc;
 use tracing::{debug, instrument, warn};
 
@@ -56,15 +57,13 @@ impl GossipState {
                     .await?;
 
                 let (sender, stream) = sub.split();
-                let abort_handle = self.active_tasks.spawn(
-                    receive_loop(
-                        namespace,
-                        stream,
-                        self.to_live_actor.clone(),
-                        self.sync.clone(),
-                    )
-                    .map(move |res| (namespace, res)),
-                );
+                let to_live_actor = self.to_live_actor.clone();
+                let sync = self.sync.clone();
+                let abort_handle = self.active_tasks.spawn(async move {
+                    let res = receive_loop(namespace, stream, to_live_actor, sync).await;
+
+                    (namespace, res)
+                });
                 entry.insert(ActiveState {
                     sender,
                     abort_handle,

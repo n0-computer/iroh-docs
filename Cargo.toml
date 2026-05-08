@@ -28,8 +28,6 @@ derive_more = { version = "2.0.1", features = [
 ] }
 ed25519-dalek = { version = "=3.0.0-pre.7", features = ["serde", "rand_core"] }
 futures-buffered = "0.2.4"
-futures-lite = "2.3.0"
-futures-util = { version = "0.3.25" }
 hex = "0.4"
 iroh = { version = "=1.0.0-rc.0", default-features = false }
 iroh-tickets = { version = "=1.0.0-rc.0" }

@@ -416,7 +416,7 @@ impl Doc {
         self.ensure_open()?;
         let stream = self.get_many(query).await?;
         tokio::pin!(stream);
-        futures_lite::StreamExt::next(&mut stream).await.transpose()
+        n0_future::StreamExt::next(&mut stream).await.transpose()
     }
 
     /// Shares this document with peers over a ticket.

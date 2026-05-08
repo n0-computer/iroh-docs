@@ -2,8 +2,8 @@ use std::future::Future;
 
 use anyhow::{anyhow, ensure};
 use bytes::{Buf, BufMut, BytesMut};
-use futures_util::SinkExt;
 use iroh::PublicKey;
+use n0_future::SinkExt;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_stream::StreamExt;

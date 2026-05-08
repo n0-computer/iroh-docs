@@ -6,7 +6,6 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use futures_lite::FutureExt;
 use iroh::{address_lookup::memory::MemoryLookup, Endpoint, EndpointAddr, EndpointId, PublicKey};
 use iroh_blobs::{
     api::{
@@ -17,7 +16,7 @@ use iroh_blobs::{
     Hash, HashAndFormat,
 };
 use iroh_gossip::net::Gossip;
-use n0_future::{task::JoinSet, time::SystemTime};
+use n0_future::{task::JoinSet, time::SystemTime, FutureExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{self, mpsc, oneshot};
 use tracing::{debug, error, info, instrument, trace, warn, Instrument, Span};
