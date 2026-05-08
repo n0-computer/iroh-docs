@@ -13,7 +13,7 @@ use ed25519_dalek::{SignatureError, VerifyingKey};
 use iroh_blobs::Hash;
 use n0_future::time::SystemTime;
 use rand::CryptoRng;
-use redb::{Database, ReadableMultimapTable, ReadableTable};
+use redb::{Database, ReadableDatabase, ReadableMultimapTable, ReadableTable};
 use tracing::warn;
 
 use super::{
@@ -100,18 +100,15 @@ impl Store {
     /// The file will be created if it does not exist, otherwise it will be opened.
     #[cfg(feature = "fs-store")]
     pub fn persistent(path: impl AsRef<std::path::Path>) -> Result<Self> {
-        let mut db = match Database::create(&path) {
+        let db = match Database::create(&path) {
             Ok(db) => db,
-            Err(redb::DatabaseError::UpgradeRequired(1)) => return Err(
-                anyhow!("Opening the database failed: Upgrading from old format is no longer supported. Use iroh-docs 0.92 to perform the upgrade, then upgrade to the latest release again.")
-            ),
+            Err(redb::DatabaseError::UpgradeRequired(v)) => {
+                return Err(anyhow!(
+                    "Opening the database failed: Upgrading from redb {v} longer supported. Use and older redb version first."
+                ));
+            }
             Err(err) => return Err(err.into()),
         };
-        match db.upgrade() {
-            Ok(true) => tracing::info!("Database was upgraded to redb v3 compatible format"),
-            Ok(false) => {}
-            Err(err) => warn!("Database upgrade to redb v3 compatible format failed: {err:#}"),
-        }
         Self::new_impl(db)
     }
 

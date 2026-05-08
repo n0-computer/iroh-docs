@@ -1,5 +1,13 @@
 # iroh-docs
 
+[![Documentation](https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square)](https://docs.rs/iroh-docs/)
+[![Crates.io](https://img.shields.io/crates/v/iroh-docs.svg?style=flat-square)](https://crates.io/crates/iroh-docs)
+[![downloads](https://img.shields.io/crates/d/iroh-docs.svg?style=flat-square)](https://crates.io/crates/iroh-docs)
+[![Chat](https://img.shields.io/discord/1161119546170687619?logo=discord&style=flat-square)](https://discord.com/invite/DpmJgtU7cW)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE-MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square)](LICENSE-APACHE)
+[![CI](https://img.shields.io/github/actions/workflow/status/n0-computer/iroh-docs/ci.yaml?branch=main&style=flat-square&label=CI)](https://github.com/n0-computer/iroh-docs/actions/workflows/ci.yaml)
+
 Multi-dimensional key-value documents with an efficient synchronization protocol.
 
 The crate operates on *Replicas*. A replica contains an unlimited number of
@@ -82,6 +90,8 @@ async fn main() -> anyhow::Result<()> {
 ```
 
 # License
+
+Copyright 2026 N0, INC.
 
 This project is licensed under either of
 

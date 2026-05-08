@@ -2,8 +2,6 @@ use std::{collections::HashMap, future::Future, sync::Arc};
 
 use anyhow::{anyhow, bail, Context, Result};
 use bytes::Bytes;
-use futures_lite::Stream;
-use futures_util::{FutureExt, StreamExt, TryStreamExt};
 use iroh::{endpoint::presets, Endpoint, PublicKey, SecretKey};
 use iroh_blobs::Hash;
 use iroh_docs::{
@@ -15,7 +13,10 @@ use iroh_docs::{
     store::{DownloadPolicy, FilterKind, Query},
     AuthorId, ContentStatus, Entry,
 };
-use n0_future::time::{Duration, Instant};
+use n0_future::{
+    time::{Duration, Instant},
+    Stream, TryStreamExt,
+};
 use rand::{CryptoRng, RngExt, SeedableRng};
 #[cfg(feature = "fs-store")]
 use tempfile::tempdir;
@@ -142,9 +143,9 @@ async fn sync_subscribe_no_sync() -> Result<()> {
     let mut sub = doc.subscribe().await?;
     let author = client.docs().author_create().await?;
     doc.set_bytes(author, b"k".to_vec(), b"v".to_vec()).await?;
-    let event = n0_future::time::timeout(Duration::from_millis(100), sub.next()).await?;
+    let event = n0_future::time::timeout(Duration::from_millis(100), sub.try_next()).await?;
     assert!(
-        matches!(event, Some(Ok(LiveEvent::InsertLocal { .. }))),
+        matches!(event, Ok(Some(LiveEvent::InsertLocal { .. }))),
         "expected InsertLocal but got {event:?}"
     );
     node.shutdown().await?;
@@ -192,8 +193,8 @@ async fn sync_gossip_bulk() -> Result<()> {
     let mut count = 0;
     doc0.start_sync(vec![]).await?;
     doc1.start_sync(peers).await?;
-    while let Some(event) = events.next().await {
-        let event = event?;
+    while let Ok(event) = events.try_next().await {
+        let event = event.unwrap();
         if matches!(event, LiveEvent::InsertRemote { .. }) {
             count += 1;
         }
@@ -222,8 +223,8 @@ async fn sync_gossip_bulk() -> Result<()> {
         elapsed / n_entries as u32
     );
 
-    while let Some(event) = events.next().await {
-        let event = event?;
+    while let Ok(event) = events.try_next().await {
+        let event = event.unwrap();
         if matches!(event, LiveEvent::InsertRemote { .. }) {
             count += 1;
         }
@@ -805,7 +806,7 @@ async fn test_download_policies() -> Result<()> {
         let mut synced_b = 0usize;
         loop {
             tokio::select! {
-                Some(Ok(ev)) = events_a.next() => {
+                Ok(Some(ev)) = events_a.try_next() => {
                     match ev {
                         InsertRemote { content_status, entry, .. } => {
                             synced_a += 1;
@@ -819,7 +820,7 @@ async fn test_download_policies() -> Result<()> {
                         _ => {}
                     }
                 }
-                Some(Ok(ev)) = events_b.next() => {
+                Ok(Some(ev)) = events_b.try_next() => {
                     match ev {
                         InsertRemote { content_status, entry, .. } => {
                             synced_b += 1;
@@ -969,7 +970,10 @@ async fn sync_big() -> Result<()> {
             }
         }
         .instrument(error_span!("sync-test", %me));
-        let fut = fut.map(move |r| r.with_context(move || format!("node {i} ({me})")));
+        let fut = async move {
+            let r = fut.await;
+            r.with_context(move || format!("node {i} ({me})"))
+        };
         tasks.spawn(fut);
     }
 
@@ -1024,8 +1028,7 @@ async fn test_list_docs_stream() -> testresult::TestResult<()> {
 /// Get all entries of a document.
 async fn get_all(doc: &Doc) -> anyhow::Result<Vec<Entry>> {
     let entries = doc.get_many(Query::all()).await?;
-    let entries = entries.collect::<Vec<_>>().await;
-    entries.into_iter().collect()
+    entries.try_collect::<Vec<_>>().await
 }
 
 /// Get all entries of a document with the blob content.
@@ -1039,9 +1042,7 @@ async fn get_all_with_content(
         let content = blobs.get_bytes(hash).await.map_err(anyhow::Error::from);
         content.map(|c| (entry, c))
     });
-    let entries = entries.collect::<Vec<_>>().await;
-    let entries = entries.into_iter().collect::<Result<Vec<_>>>()?;
-    Ok(entries)
+    entries.try_collect::<Vec<_>>().await
 }
 
 async fn publish(
@@ -1206,8 +1207,8 @@ async fn sync_drop_doc() -> Result<()> {
     let mut sub = doc.subscribe().await?;
     doc.set_bytes(author, b"foo".to_vec(), b"bar".to_vec())
         .await?;
-    let ev = sub.next().await;
-    assert!(matches!(ev, Some(Ok(LiveEvent::InsertLocal { .. }))));
+    let ev = sub.try_next().await;
+    assert!(matches!(ev, Ok(Some(LiveEvent::InsertLocal { .. }))));
 
     client.docs().drop_doc(doc.id()).await?;
     let res = doc.get_exact(author, b"foo".to_vec(), true).await;
@@ -1218,7 +1219,7 @@ async fn sync_drop_doc() -> Result<()> {
     assert!(res.is_err());
     let res = client.docs().open(doc.id()).await;
     assert!(res.is_err());
-    let ev = sub.next().await;
+    let ev = sub.try_next().await?;
     assert!(ev.is_none());
 
     Ok(())
@@ -1238,16 +1239,16 @@ async fn get_latest(
     let stream = doc.get_many(query).await?;
     tokio::pin!(stream);
     let entry = stream
-        .next()
-        .await
-        .ok_or_else(|| anyhow!("entry not found"))??;
+        .try_next()
+        .await?
+        .ok_or_else(|| anyhow!("entry not found"))?;
     let content = blobs.get_bytes(entry.content_hash()).await?;
     Ok(content.to_vec())
 }
 
 async fn next<T: std::fmt::Debug>(mut stream: impl Stream<Item = Result<T>> + Unpin) -> T {
     let event = stream
-        .next()
+        .try_next()
         .await
         .expect("stream ended")
         .expect("stream produced error");
@@ -1280,7 +1281,7 @@ async fn assert_next<T: std::fmt::Debug + Clone>(
         let mut items = vec![];
         for (i, f) in matchers.iter().enumerate() {
             let item = stream
-                .next()
+                .try_next()
                 .await
                 .expect("event stream ended prematurely")
                 .expect("event stream errored");
@@ -1334,7 +1335,7 @@ async fn assert_next_unordered_with_optionals<T: std::fmt::Debug + Clone>(
     // that the mutable borrow terminates when the future completes
     let events = Arc::new(parking_lot::Mutex::new(vec![]));
     let fut = async {
-        while let Some(event) = stream.next().await {
+        while let Ok(event) = stream.try_next().await {
             let event = event.context("failed to read from stream")?;
             let len = {
                 let mut events = events.lock();

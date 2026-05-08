@@ -4,9 +4,8 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use bytes::Bytes;
-use futures_lite::StreamExt;
 use iroh_blobs::api::blobs::ImportMode;
-use n0_future::time::Duration;
+use n0_future::{time::Duration, StreamExt};
 use rand::Rng;
 use testdir::testdir;
 use util::Node;

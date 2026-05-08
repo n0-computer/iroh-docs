@@ -5,7 +5,6 @@
 use std::sync::{Arc, RwLock};
 
 use anyhow::{bail, Result};
-use futures_lite::{Stream, StreamExt};
 use iroh::{Endpoint, EndpointAddr, PublicKey};
 use iroh_blobs::{
     api::{blobs::BlobStatus, downloader::Downloader, Store},
@@ -13,7 +12,7 @@ use iroh_blobs::{
     Hash,
 };
 use iroh_gossip::net::Gossip;
-use n0_future::task::AbortOnDropHandle;
+use n0_future::{task::AbortOnDropHandle, Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, error_span, Instrument};

@@ -8,7 +8,7 @@ use crate::Capability;
 
 /// Contains both a key (either secret or public) to a document, and a list of peers to join.
 #[derive(Serialize, Deserialize, Clone, Debug, derive_more::Display)]
-#[display("{}", Ticket::serialize(self))]
+#[display("{}", Ticket::encode_string(self))]
 pub struct DocTicket {
     /// either a public or private key
     pub capability: Capability,
@@ -29,12 +29,12 @@ enum TicketWireFormat {
 impl Ticket for DocTicket {
     const KIND: &'static str = "doc";
 
-    fn to_bytes(&self) -> Vec<u8> {
+    fn encode_bytes(&self) -> Vec<u8> {
         let data = TicketWireFormat::Variant0(self.clone());
         postcard::to_stdvec(&data).expect("postcard serialization failed")
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
+    fn decode_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let res: TicketWireFormat = postcard::from_bytes(bytes)?;
         let TicketWireFormat::Variant0(res) = res;
         if res.nodes.is_empty() {
@@ -59,7 +59,7 @@ impl DocTicket {
 impl std::str::FromStr for DocTicket {
     type Err = ParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ticket::deserialize(s)
+        Ticket::decode_string(s)
     }
 }
 
