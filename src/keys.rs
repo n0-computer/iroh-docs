@@ -2,7 +2,7 @@
 
 use std::{cmp::Ordering, fmt, str::FromStr};
 
-use ed25519_dalek::{Signature, SignatureError, Signer, SigningKey, VerifyingKey};
+use iroh::{KeyParsingError, PublicKey, SecretKey, Signature, SignatureError};
 use rand::CryptoRng;
 use serde::{Deserialize, Serialize};
 
@@ -10,21 +10,23 @@ use crate::store::PublicKeyStore;
 
 /// Author key to insert entries in a [`crate::Replica`]
 ///
-/// Internally, an author is a [`SigningKey`] which is used to sign entries.
+/// Internally, an author wraps an [`iroh::SecretKey`] used to sign entries.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Author {
-    signing_key: SigningKey,
+    signing_key: SecretKey,
 }
 impl Author {
     /// Create a new [`Author`] with a random key.
     pub fn new<R: CryptoRng>(rng: &mut R) -> Self {
-        let signing_key = SigningKey::generate(rng);
+        let mut bytes = [0u8; 32];
+        rng.fill_bytes(&mut bytes);
+        let signing_key = SecretKey::from_bytes(&bytes);
         Author { signing_key }
     }
 
     /// Create an [`Author`] from a byte array.
     pub fn from_bytes(bytes: &[u8; 32]) -> Self {
-        SigningKey::from_bytes(bytes).into()
+        SecretKey::from_bytes(bytes).into()
     }
 
     /// Returns the [`Author`] byte representation.
@@ -34,7 +36,7 @@ impl Author {
 
     /// Get the [`AuthorPublicKey`] for this author.
     pub fn public_key(&self) -> AuthorPublicKey {
-        AuthorPublicKey(self.signing_key.verifying_key())
+        AuthorPublicKey(self.signing_key.public())
     }
 
     /// Get the [`AuthorId`] for this author.
@@ -49,22 +51,22 @@ impl Author {
 
     /// Strictly verify a signature on a message with this [`Author`]'s public key.
     pub fn verify(&self, msg: &[u8], signature: &Signature) -> Result<(), SignatureError> {
-        self.signing_key.verify_strict(msg, signature)
+        self.signing_key.public().verify(msg, signature)
     }
 }
 
 /// Identifier for an [`Author`]
 ///
-/// This is the corresponding [`VerifyingKey`] for an author. It is used as an identifier, and can
-/// be used to verify [`Signature`]s.
-#[derive(Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash, derive_more::From)]
-pub struct AuthorPublicKey(VerifyingKey);
+/// This is the corresponding [`iroh::PublicKey`] for an author. It is used as an identifier,
+/// and can be used to verify [`Signature`]s.
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash, derive_more::From)]
+pub struct AuthorPublicKey(PublicKey);
 
 impl AuthorPublicKey {
     /// Verify that a signature matches the `msg` bytes and was created with the [`Author`]
     /// that corresponds to this [`AuthorId`].
     pub fn verify(&self, msg: &[u8], signature: &Signature) -> Result<(), SignatureError> {
-        self.0.verify_strict(msg, signature)
+        self.0.verify(msg, signature)
     }
 
     /// Get the byte representation of this [`AuthorId`].
@@ -74,34 +76,35 @@ impl AuthorPublicKey {
 
     /// Create from a slice of bytes.
     ///
-    /// Will return an error if the input bytes do not represent a valid [`ed25519_dalek`]
+    /// Will return an error if the input bytes do not represent a valid ed25519
     /// curve point. Will never fail for a byte array returned from [`Self::as_bytes`].
-    /// See [`VerifyingKey::from_bytes`] for details.
-    pub fn from_bytes(bytes: &[u8; 32]) -> Result<Self, SignatureError> {
-        Ok(AuthorPublicKey(VerifyingKey::from_bytes(bytes)?))
+    /// See [`iroh::PublicKey::from_bytes`] for details.
+    pub fn from_bytes(bytes: &[u8; 32]) -> Result<Self, KeyParsingError> {
+        Ok(AuthorPublicKey(PublicKey::from_bytes(bytes)?))
     }
 }
 
 /// Namespace key of a [`crate::Replica`].
 ///
 /// Holders of this key can insert new entries into a [`crate::Replica`].
-/// Internally, a [`NamespaceSecret`] is a [`SigningKey`] which is used to sign entries.
+/// Internally, a [`NamespaceSecret`] wraps an [`iroh::SecretKey`] used to sign entries.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct NamespaceSecret {
-    signing_key: SigningKey,
+    signing_key: SecretKey,
 }
 
 impl NamespaceSecret {
     /// Create a new [`NamespaceSecret`] with a random key.
     pub fn new<R: CryptoRng>(rng: &mut R) -> Self {
-        let signing_key = SigningKey::generate(rng);
-
+        let mut bytes = [0u8; 32];
+        rng.fill_bytes(&mut bytes);
+        let signing_key = SecretKey::from_bytes(&bytes);
         NamespaceSecret { signing_key }
     }
 
     /// Create a [`NamespaceSecret`] from a byte array.
     pub fn from_bytes(bytes: &[u8; 32]) -> Self {
-        SigningKey::from_bytes(bytes).into()
+        SecretKey::from_bytes(bytes).into()
     }
 
     /// Returns the [`NamespaceSecret`] byte representation.
@@ -111,7 +114,7 @@ impl NamespaceSecret {
 
     /// Get the [`NamespacePublicKey`] for this namespace.
     pub fn public_key(&self) -> NamespacePublicKey {
-        NamespacePublicKey(self.signing_key.verifying_key())
+        NamespacePublicKey(self.signing_key.public())
     }
 
     /// Get the [`NamespaceId`] for this namespace.
@@ -126,20 +129,20 @@ impl NamespaceSecret {
 
     /// Strictly verify a signature on a message with this [`NamespaceSecret`]'s public key.
     pub fn verify(&self, msg: &[u8], signature: &Signature) -> Result<(), SignatureError> {
-        self.signing_key.verify_strict(msg, signature)
+        self.signing_key.public().verify(msg, signature)
     }
 }
 
-/// The corresponding [`VerifyingKey`] for a [`NamespaceSecret`].
+/// The corresponding [`iroh::PublicKey`] for a [`NamespaceSecret`].
 /// It is used as an identifier, and can be used to verify [`Signature`]s.
-#[derive(Default, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Hash, derive_more::From)]
-pub struct NamespacePublicKey(VerifyingKey);
+#[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Hash, derive_more::From)]
+pub struct NamespacePublicKey(PublicKey);
 
 impl NamespacePublicKey {
     /// Verify that a signature matches the `msg` bytes and was created with the [`NamespaceSecret`]
     /// that corresponds to this [`NamespaceId`].
     pub fn verify(&self, msg: &[u8], signature: &Signature) -> Result<(), SignatureError> {
-        self.0.verify_strict(msg, signature)
+        self.0.verify(msg, signature)
     }
 
     /// Get the byte representation of this [`NamespaceId`].
@@ -149,11 +152,11 @@ impl NamespacePublicKey {
 
     /// Create from a slice of bytes.
     ///
-    /// Will return an error if the input bytes do not represent a valid [`ed25519_dalek`]
+    /// Will return an error if the input bytes do not represent a valid ed25519
     /// curve point. Will never fail for a byte array returned from [`Self::as_bytes`].
-    /// See [`VerifyingKey::from_bytes`] for details.
-    pub fn from_bytes(bytes: &[u8; 32]) -> Result<Self, SignatureError> {
-        Ok(NamespacePublicKey(VerifyingKey::from_bytes(bytes)?))
+    /// See [`iroh::PublicKey::from_bytes`] for details.
+    pub fn from_bytes(bytes: &[u8; 32]) -> Result<Self, KeyParsingError> {
+        Ok(NamespacePublicKey(PublicKey::from_bytes(bytes)?))
     }
 }
 
@@ -267,14 +270,14 @@ impl FromStr for NamespacePublicKey {
     }
 }
 
-impl From<SigningKey> for Author {
-    fn from(signing_key: SigningKey) -> Self {
+impl From<SecretKey> for Author {
+    fn from(signing_key: SecretKey) -> Self {
         Self { signing_key }
     }
 }
 
-impl From<SigningKey> for NamespaceSecret {
-    fn from(signing_key: SigningKey) -> Self {
+impl From<SecretKey> for NamespaceSecret {
+    fn from(signing_key: SecretKey) -> Self {
         Self { signing_key }
     }
 }
@@ -376,18 +379,18 @@ impl AuthorId {
 
     /// Convert into [`AuthorPublicKey`] by fetching from a [`PublicKeyStore`].
     ///
-    /// Fails if the bytes of this [`AuthorId`] are not a valid [`ed25519_dalek`] curve point.
+    /// Fails if the bytes of this [`AuthorId`] are not a valid ed25519 curve point.
     pub fn public_key<S: PublicKeyStore>(
         &self,
         store: &S,
-    ) -> Result<AuthorPublicKey, SignatureError> {
+    ) -> Result<AuthorPublicKey, KeyParsingError> {
         store.author_key(self)
     }
 
     /// Convert into [`AuthorPublicKey`].
     ///
-    /// Fails if the bytes of this [`AuthorId`] are not a valid [`ed25519_dalek`] curve point.
-    pub fn into_public_key(&self) -> Result<AuthorPublicKey, SignatureError> {
+    /// Fails if the bytes of this [`AuthorId`] are not a valid ed25519 curve point.
+    pub fn into_public_key(&self) -> Result<AuthorPublicKey, KeyParsingError> {
         AuthorPublicKey::from_bytes(&self.0)
     }
 
@@ -411,18 +414,18 @@ impl NamespaceId {
 
     /// Convert into [`NamespacePublicKey`] by fetching from a [`PublicKeyStore`].
     ///
-    /// Fails if the bytes of this [`NamespaceId`] are not a valid [`ed25519_dalek`] curve point.
+    /// Fails if the bytes of this [`NamespaceId`] are not a valid ed25519 curve point.
     pub fn public_key<S: PublicKeyStore>(
         &self,
         store: &S,
-    ) -> Result<NamespacePublicKey, SignatureError> {
+    ) -> Result<NamespacePublicKey, KeyParsingError> {
         store.namespace_key(self)
     }
 
     /// Convert into [`NamespacePublicKey`].
     ///
-    /// Fails if the bytes of this [`NamespaceId`] are not a valid [`ed25519_dalek`] curve point.
-    pub fn into_public_key(&self) -> Result<NamespacePublicKey, SignatureError> {
+    /// Fails if the bytes of this [`NamespaceId`] are not a valid ed25519 curve point.
+    pub fn into_public_key(&self) -> Result<NamespacePublicKey, KeyParsingError> {
         NamespacePublicKey::from_bytes(&self.0)
     }
 
@@ -491,14 +494,14 @@ impl From<NamespaceSecret> for NamespaceId {
 }
 
 impl TryFrom<NamespaceId> for NamespacePublicKey {
-    type Error = SignatureError;
+    type Error = KeyParsingError;
     fn try_from(value: NamespaceId) -> Result<Self, Self::Error> {
         Self::from_bytes(&value.0)
     }
 }
 
 impl TryFrom<AuthorId> for AuthorPublicKey {
-    type Error = SignatureError;
+    type Error = KeyParsingError;
     fn try_from(value: AuthorId) -> Result<Self, Self::Error> {
         Self::from_bytes(&value.0)
     }
