@@ -14,7 +14,13 @@ use std::{
 };
 
 use bytes::{Bytes, BytesMut};
-use ed25519_dalek::{Signature, SignatureError};
+use ed25519_dalek::SignatureError;
+// `iroh::Signature` is a newtype wrapper around `ed25519_dalek::Signature` with a
+// hand-written, wire-stable `serialize_tuple` serde impl (the same impl every other
+// iroh crate uses for handshake / discovery payloads). Embedding it inside
+// `EntrySignature` — rather than the raw dalek type — keeps the on-wire
+// `SignedEntry` format independent of upstream `ed25519` serde changes.
+use iroh::Signature;
 use iroh_blobs::Hash;
 use n0_future::{
     time::{Duration, SystemTime},
@@ -842,8 +848,8 @@ impl EntrySignature {
         // TODO: this should probably include a namespace prefix
         // namespace in the cryptographic sense.
         let bytes = entry.to_vec();
-        let namespace_signature = namespace.sign(&bytes);
-        let author_signature = author.sign(&bytes);
+        let namespace_signature = Signature::from_bytes(&namespace.sign(&bytes).to_bytes());
+        let author_signature = Signature::from_bytes(&author.sign(&bytes).to_bytes());
 
         EntrySignature {
             author_signature,
@@ -860,8 +866,12 @@ impl EntrySignature {
         author: &AuthorPublicKey,
     ) -> Result<(), SignatureError> {
         let bytes = entry.to_vec();
-        namespace.verify(&bytes, &self.namespace_signature)?;
-        author.verify(&bytes, &self.author_signature)?;
+        let namespace_signature =
+            ed25519_dalek::Signature::from_bytes(&self.namespace_signature.to_bytes());
+        let author_signature =
+            ed25519_dalek::Signature::from_bytes(&self.author_signature.to_bytes());
+        namespace.verify(&bytes, &namespace_signature)?;
+        author.verify(&bytes, &author_signature)?;
 
         Ok(())
     }
@@ -2623,5 +2633,46 @@ mod tests {
             store.get_exact(*namespace, author.id(), el, false)?;
         }
         Ok(())
+    }
+
+    /// Snapshot of the `SignedEntry` postcard wire format used by doc sync.
+    #[test]
+    fn test_signed_entry_postcard_snapshot() {
+        let author = Author::from_bytes(&[0xa1; 32]);
+        let namespace = NamespaceSecret::from_bytes(&[0xb2; 32]);
+        let record = Record::new(Hash::EMPTY, 0, 1_700_000_000_000_000u64);
+        let id = RecordIdentifier::new(namespace.id(), author.id(), b"wire-format-test");
+        let signed = SignedEntry::from_entry(Entry::new(id, record), &namespace, &author);
+
+        let bytes = postcard::to_stdvec(&signed).unwrap();
+        assert_eq!(
+            hex::encode(&bytes),
+            "4b523f1b6d9b00a4779fc9f8f105a9e36f062ceb7d511b632905782042ad30acb6dd07bfced4ecd5f3aa58321e8ace63f48f988ed8461bfdcd8b0e902187a10e228ddc6998329b7faa64875fe80da36406ea8d87e3e57bb048323e9cb66c0b343b60c4e709fb978b878e37d0c362edfc06c8cdc774c8b29d94e48eaa06cca60f5055154f42065ea5a1bea05463826be2684eb92df92c100027aabaae57ca554207bc7cbcb5636375fa1d82434d466724d92377f53b980695dd49d26d0ce12205a5776972652d666f726d61742d7465737400af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f32628080f9c0c1c48203",
+        );
+
+        let decoded: SignedEntry = postcard::from_bytes(&bytes).unwrap();
+        assert_eq!(decoded, signed);
+    }
+
+    /// Snapshot of the `Author` postcard format.
+    #[test]
+    fn test_author_postcard_snapshot() {
+        let author = Author::from_bytes(&[0xa1; 32]);
+        let bytes = postcard::to_stdvec(&author).unwrap();
+        assert_eq!(
+            hex::encode(&bytes),
+            "20a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        );
+    }
+
+    /// Snapshot of the `NamespaceSecret` postcard format.
+    #[test]
+    fn test_namespace_secret_postcard_snapshot() {
+        let namespace = NamespaceSecret::from_bytes(&[0xb2; 32]);
+        let bytes = postcard::to_stdvec(&namespace).unwrap();
+        assert_eq!(
+            hex::encode(&bytes),
+            "20b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+        );
     }
 }
