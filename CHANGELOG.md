@@ -2,6 +2,12 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.99.1](https://github.com/n0-computer/iroh-docs/compare/v0.99.0..0.99.1) - 2026-05-26
+
+### 🐛 Bug Fixes
+
+- *(sync)* Wrap EntrySignature in iroh::Signature and lock wire format ([#101](https://github.com/n0-computer/iroh-docs/issues/101)) - ([466e541](https://github.com/n0-computer/iroh-docs/commit/466e541202ae2580dec9871c1a8c7b9edd8848ce))
+
 ## [0.99.0](https://github.com/n0-computer/iroh-docs/compare/v0.98.0..0.99.0) - 2026-05-08
 
 ### ⛰️  Features
