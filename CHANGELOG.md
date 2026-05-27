@@ -2,6 +2,16 @@
 
 All notable changes to iroh-docs will be documented in this file.
 
+## [0.100.0](https://github.com/n0-computer/iroh-docs/compare/v0.99.1..0.100.0) - 2026-05-27
+
+### ⛰️  Features
+
+- [**breaking**] Update to iroh@1.0.0-rc.1 ([#103](https://github.com/n0-computer/iroh-docs/issues/103)) - ([aa81fba](https://github.com/n0-computer/iroh-docs/commit/aa81fbae0f6722d28379a53c933e0c356a58f4b0))
+
+### 🚜 Refactor
+
+- [**breaking**] Complete ed25519_dalek to iroh-base public API migration ([#102](https://github.com/n0-computer/iroh-docs/issues/102)) - ([14ab6a6](https://github.com/n0-computer/iroh-docs/commit/14ab6a687a950e7ad29bffa17891cbb7c6347d4d))
+
 ## [0.99.1](https://github.com/n0-computer/iroh-docs/compare/v0.99.0..0.99.1) - 2026-05-26
 
 ### 🐛 Bug Fixes
