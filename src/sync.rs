@@ -14,13 +14,12 @@ use std::{
 };
 
 use bytes::{Bytes, BytesMut};
-use ed25519_dalek::SignatureError;
 // `iroh::Signature` is a newtype wrapper around `ed25519_dalek::Signature` with a
 // hand-written, wire-stable `serialize_tuple` serde impl (the same impl every other
 // iroh crate uses for handshake / discovery payloads). Embedding it inside
 // `EntrySignature` — rather than the raw dalek type — keeps the on-wire
 // `SignedEntry` format independent of upstream `ed25519` serde changes.
-use iroh::Signature;
+use iroh::{KeyParsingError, Signature, SignatureError};
 use iroh_blobs::Hash;
 use n0_future::{
     time::{Duration, SystemTime},
@@ -668,6 +667,17 @@ pub enum InsertError {
     Closed,
 }
 
+/// Reason why verifying a [`SignedEntry`] failed.
+#[derive(thiserror::Error, Debug)]
+pub enum SignedEntryVerifyError {
+    /// One of the entry's public key bytes is not a valid ed25519 curve point.
+    #[error(transparent)]
+    KeyParsing(#[from] KeyParsingError),
+    /// One of the entry's signatures failed verification against the recovered key.
+    #[error(transparent)]
+    Signature(#[from] SignatureError),
+}
+
 /// Reason why entry validation failed
 #[derive(thiserror::Error, Debug)]
 pub enum ValidationFailure {
@@ -748,12 +758,16 @@ impl SignedEntry {
     }
 
     /// Verify the signatures on this entry.
-    pub fn verify<S: store::PublicKeyStore>(&self, store: &S) -> Result<(), SignatureError> {
+    pub fn verify<S: store::PublicKeyStore>(
+        &self,
+        store: &S,
+    ) -> Result<(), SignedEntryVerifyError> {
         self.signature.verify(
             &self.entry,
             &self.entry.namespace().public_key(store)?,
             &self.entry.author().public_key(store)?,
-        )
+        )?;
+        Ok(())
     }
 
     /// Get the signature.
@@ -866,12 +880,8 @@ impl EntrySignature {
         author: &AuthorPublicKey,
     ) -> Result<(), SignatureError> {
         let bytes = entry.to_vec();
-        let namespace_signature =
-            ed25519_dalek::Signature::from_bytes(&self.namespace_signature.to_bytes());
-        let author_signature =
-            ed25519_dalek::Signature::from_bytes(&self.author_signature.to_bytes());
-        namespace.verify(&bytes, &namespace_signature)?;
-        author.verify(&bytes, &author_signature)?;
+        namespace.verify(&bytes, &self.namespace_signature)?;
+        author.verify(&bytes, &self.author_signature)?;
 
         Ok(())
     }

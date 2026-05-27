@@ -9,7 +9,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use ed25519_dalek::{SignatureError, VerifyingKey};
+use iroh::{KeyParsingError, PublicKey};
 use iroh_blobs::Hash;
 use n0_future::time::SystemTime;
 use rand::CryptoRng;
@@ -611,7 +611,7 @@ impl Store {
 }
 
 impl PublicKeyStore for Store {
-    fn public_key(&self, id: &[u8; 32]) -> Result<VerifyingKey, SignatureError> {
+    fn public_key(&self, id: &[u8; 32]) -> Result<PublicKey, KeyParsingError> {
         self.pubkeys.public_key(id)
     }
 }
@@ -648,7 +648,7 @@ impl<'a> StoreInstance<'a> {
 }
 
 impl PublicKeyStore for StoreInstance<'_> {
-    fn public_key(&self, id: &[u8; 32]) -> std::result::Result<VerifyingKey, SignatureError> {
+    fn public_key(&self, id: &[u8; 32]) -> std::result::Result<PublicKey, KeyParsingError> {
         self.store.public_key(id)
     }
 }
