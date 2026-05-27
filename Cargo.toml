@@ -43,7 +43,7 @@ postcard = { version = "1", default-features = false, features = [
     "use-std",
     "experimental-derive",
 ] }
-noq = { version = "=1.0.0-rc.0", optional = true }
+noq = { version = "=1.0.0-rc.1", optional = true }
 rand = "0.10"
 redb = { version = "4.1" }
 self_cell = "1.0.3"
@@ -97,3 +97,12 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(iroh_docsrs)"] }
 
 [build-dependencies]
 cfg_aliases = "0.2.1"
+
+
+[patch.crates-io]
+iroh = { git = "https://github.com/n0-computer/iroh", branch = "feat-rc-1" }
+iroh-base = { git = "https://github.com/n0-computer/iroh", branch = "feat-rc-1" }
+irpc = { git = "https://github.com/n0-computer/irpc", branch = "feat-iroh-rc-1" }
+iroh-tickets = { git = "https://github.com/n0-computer/iroh-tickets", branch = "feat-iroh-rc-1" }
+iroh-gossip = { git = "https://github.com/n0-computer/iroh-gossip", branch = "feat-iroh-rc-1" }
+iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs", branch = "feat-iroh-rc-1" }
