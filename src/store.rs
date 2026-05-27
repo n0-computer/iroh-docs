@@ -290,6 +290,30 @@ pub struct Query {
 }
 
 impl Query {
+    /// Returns `true` if this query aggregates with [`SingleLatestPerKeyQuery`].
+    pub fn is_single_latest_per_key(&self) -> bool {
+        matches!(self.kind, QueryKind::SingleLatestPerKey(_))
+    }
+
+    /// Returns a copy of this query with an exact key filter and limit `1`, preserving author
+    /// filter, `include_empty`, and sort direction.
+    ///
+    /// Returns `None` if this query is not [`SingleLatestPerKeyQuery`].
+    pub fn single_latest_for_exact_key(&self, key: impl AsRef<[u8]>) -> Option<Query> {
+        match &self.kind {
+            QueryKind::SingleLatestPerKey(k) => Some(Query {
+                kind: QueryKind::SingleLatestPerKey(k.clone()),
+                filter_author: self.filter_author.clone(),
+                filter_key: KeyFilter::Exact(Bytes::copy_from_slice(key.as_ref())),
+                limit: Some(1),
+                offset: 0,
+                include_empty: self.include_empty,
+                sort_direction: self.sort_direction,
+            }),
+            _ => None,
+        }
+    }
+
     /// Query all records.
     pub fn all() -> QueryBuilder<FlatQuery> {
         Default::default()
@@ -323,6 +347,21 @@ impl Query {
     /// Get the offset for this query (number of entries to skip at the beginning).
     pub fn offset(&self) -> u64 {
         self.offset
+    }
+
+    /// Key filter applied by this query.
+    pub fn filter_key(&self) -> &KeyFilter {
+        &self.filter_key
+    }
+
+    /// Author filter applied by this query.
+    pub fn filter_author(&self) -> &AuthorFilter {
+        &self.filter_author
+    }
+
+    /// Whether empty (tombstone) records are included.
+    pub fn include_empty(&self) -> bool {
+        self.include_empty
     }
 }
 
