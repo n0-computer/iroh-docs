@@ -46,6 +46,7 @@ postcard = { version = "1", default-features = false, features = [
 noq = { version = "=1.0.0-rc.1", optional = true }
 rand = "0.10"
 redb = { version = "4.1" }
+redb_v3 = { package = "redb", version = "3.1", optional = true }
 self_cell = "1.0.3"
 serde = { version = "1.0.164", features = ["derive"] }
 serde-error = "0.1.3"
@@ -73,10 +74,11 @@ tracing-test = "0.2.5"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 
 [features]
-default = ["metrics", "rpc", "fs-store"]
+default = ["metrics", "rpc", "fs-store", "redb-v2-migration"]
 metrics = ["iroh-metrics/metrics", "iroh/metrics"]
 rpc = ["dep:noq", "irpc/rpc", "iroh-blobs/rpc"]
 fs-store = ["iroh-blobs/fs-store"]
+redb-v2-migration = ["dep:redb_v3"]
 
 [package.metadata.docs.rs]
 all-features = true
