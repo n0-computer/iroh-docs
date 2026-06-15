@@ -8,7 +8,7 @@ use std::{
 use iroh::{
     endpoint::{presets, BindError},
     test_utils::DnsPkarrServer,
-    tls::CaRootsConfig,
+    tls::CaTlsConfig,
     Endpoint, EndpointId, RelayMap, RelayMode, SecretKey,
 };
 use iroh_blobs::store::GcConfig;
@@ -33,7 +33,7 @@ pub async fn endpoint(
     builder
         .secret_key(secret_key)
         .relay_mode(RelayMode::Custom(relay_map))
-        .ca_roots_config(CaRootsConfig::insecure_skip_verify())
+        .ca_roots_config(CaTlsConfig::insecure_skip_verify())
         .bind()
         .await
 }
