@@ -30,7 +30,7 @@ futures-buffered = "0.2.4"
 hex = "0.4"
 iroh = { version = "1", default-features = false }
 iroh-tickets = { version = "1" }
-iroh-blobs = { version = "0.102", default-features = false }
+iroh-blobs = { version = "0.103", default-features = false }
 iroh-gossip = { version = "0.101.0", features = ["net"], default-features = false }
 iroh-metrics = { version = "1", default-features = false }
 irpc = { version = "0.17", default-features = false }
@@ -98,6 +98,3 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(iroh_docsrs)"] }
 
 [build-dependencies]
 cfg_aliases = "0.2.1"
-
-[patch.crates-io]
-iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs", branch = "rklaehn/iroh-1-0" }
