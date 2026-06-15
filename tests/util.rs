@@ -33,7 +33,7 @@ pub async fn endpoint(
     builder
         .secret_key(secret_key)
         .relay_mode(RelayMode::Custom(relay_map))
-        .ca_roots_config(CaTlsConfig::insecure_skip_verify())
+        .ca_tls_config(CaTlsConfig::insecure_skip_verify())
         .bind()
         .await
 }
