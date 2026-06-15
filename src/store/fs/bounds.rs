@@ -113,6 +113,10 @@ impl ByKeyBounds {
             }
             KeyFilter::Prefix(ref prefix) => {
                 let start_key = from.unwrap_or(prefix);
+                debug_assert!(
+                    start_key.starts_with(prefix.as_ref()),
+                    "cursor `from` must start with the given prefix"
+                );
                 let start = Bound::Included((ns.to_bytes(), Bytes::copy_from_slice(start_key), [0u8; 32]));
 
                 let mut ns_end = ns.to_bytes();
@@ -291,6 +295,26 @@ mod tests {
         assert_eq!(
             bounds.end_bound(),
             Bound::Included(&(ns.to_bytes(), vec![1u8].into(), [255u8; 32]))
+        );
+    }
+
+    #[test]
+    fn by_key_bounds_prefix_from_cursor() {
+        let ns = NamespaceId::from(&[1u8; 32]);
+
+        let bounds = ByKeyBounds::new(ns, &KeyFilter::Prefix(vec![b'e', b'v', b't', b':'].into()), Some(b"evt:01JABC..."));
+        assert_eq!(
+            bounds.start_bound(),
+            Bound::Included(&(ns.to_bytes(), Bytes::from_static(b"evt:01JABC..."), [0u8; 32])),
+            "lower bound should be the cursor, not the prefix"
+        );
+
+        let mut key_end = b"evt:".to_vec();
+        increment_by_one(&mut key_end);
+        assert_eq!(
+            bounds.end_bound(),
+            Bound::Excluded(&(ns.to_bytes(), Bytes::from(key_end), [0u8; 32])),
+            "upper bound should still be prefix+1"
         );
     }
 }

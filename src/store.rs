@@ -193,7 +193,10 @@ impl<K> QueryBuilder<K> {
     /// Filter by key prefix, starting from a cursor position.
     ///
     /// Only keys at or after `from` will be returned. The seek is performed
-    /// at the B-tree level (O(log n)).
+    /// at the B-tree level (O(log n)). Requires `SortBy::KeyAuthor` ordering
+    /// to use the by-key index, otherwise `from` is ignored.
+    ///
+    /// The `from` value must start with the given prefix for correct results.
     pub fn key_prefix_from(
         mut self,
         prefix: impl AsRef<[u8]>,
