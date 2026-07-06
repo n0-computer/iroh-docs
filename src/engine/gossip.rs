@@ -149,7 +149,17 @@ async fn receive_loop(
                 continue;
             }
             Event::Received(msg) => {
-                let op: Op = postcard::from_bytes(&msg.content)?;
+                let op: Op = match postcard::from_bytes(&msg.content) {
+                    Ok(op) => op,
+                    Err(error) => {
+                        debug!(
+                            len = &msg.content.len(),
+                            %error,
+                            "received invalid gossip message, ignoring"
+                        );
+                        continue;
+                    }
+                };
                 match op {
                     Op::Put(entry) => {
                         debug!(peer = %msg.delivered_from.fmt_short(), namespace = %namespace.fmt_short(), "received entry via gossip");
