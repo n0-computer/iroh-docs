@@ -2,7 +2,10 @@ use std::{collections::HashMap, future::Future, sync::Arc};
 
 use anyhow::{anyhow, bail, Context, Result};
 use bytes::Bytes;
-use iroh::{endpoint::presets, Endpoint, PublicKey, SecretKey};
+use iroh::{
+    address_lookup::memory::MemoryLookup, endpoint::presets, protocol::Router, Endpoint, PublicKey,
+    SecretKey,
+};
 use iroh_blobs::Hash;
 use iroh_docs::{
     api::{
@@ -13,6 +16,7 @@ use iroh_docs::{
     store::{DownloadPolicy, FilterKind, Query},
     AuthorId, ContentStatus, Entry,
 };
+use iroh_gossip::{net::Gossip, proto::TopicId};
 use n0_future::{
     time::{Duration, Instant},
     Stream, TryStreamExt,
@@ -125,6 +129,104 @@ async fn sync_simple() -> Result<()> {
         ],
     )
     .await;
+
+    for node in nodes {
+        node.shutdown().await?;
+    }
+    Ok(())
+}
+
+/// Regression test: a single malformed gossip message must not tear down live sync.
+///
+/// Each node syncing a document runs a per-namespace gossip receive loop that decodes
+/// peer payloads as [`Op`] values. A gossip peer only needs the namespace id, which is
+/// derivable from any doc ticket, to join the namespace topic and broadcast an
+/// arbitrary payload. Before the fix, a decode error was propagated with `?`, which
+/// terminated the receive loop and removed the namespace from live gossip handling, so
+/// the node silently stopped receiving all further live updates. This test asserts that
+/// after such a malformed message the subscriber still receives a subsequent valid
+/// update.
+///
+/// [`Op`]: iroh_docs::engine
+#[tokio::test]
+#[traced_test]
+async fn sync_continues_after_invalid_gossip_message() -> Result<()> {
+    let mut rng = test_rng(b"sync_continues_after_invalid_gossip_message");
+    let nodes = spawn_nodes(2, &mut rng).await?;
+    let clients = nodes.iter().map(|node| node.client()).collect::<Vec<_>>();
+
+    // node0 (writer): create a doc, write k1, and share a write ticket.
+    let author0 = clients[0].docs().author_create().await?;
+    let doc0 = clients[0].docs().create().await?;
+    let hash_k1 = doc0
+        .set_bytes(author0, b"k1".to_vec(), b"v1".to_vec())
+        .await?;
+    let writer_ticket = doc0
+        .share(ShareMode::Write, AddrInfoOptions::RelayAndAddresses)
+        .await?;
+
+    // node1 (subscriber): import the ticket, subscribe, and confirm that live sync
+    // works by receiving k1 over gossip.
+    let doc1 = clients[1].docs().import(writer_ticket.clone()).await?;
+    let mut events1 = doc1.subscribe().await?;
+    let got_k1 = wait_for_event(&mut events1, TIMEOUT, |event| {
+        matches!(event, LiveEvent::InsertRemote { entry, .. } if entry.content_hash() == hash_k1)
+    })
+    .await;
+    assert!(got_k1, "subscriber did not receive k1 over live sync");
+
+    // A ticket shared by the subscriber carries its own address, which the gossip peer
+    // uses as a bootstrap peer to reach it directly.
+    let victim_ticket = doc1
+        .share(ShareMode::Write, AddrInfoOptions::RelayAndAddresses)
+        .await?;
+
+    // Spawn a bare gossip peer that is not a docs node. It derives the topic id from
+    // the namespace id in the ticket, joins the topic bootstrapping off the two docs
+    // nodes, and broadcasts one malformed, non-postcard payload.
+    let namespace = writer_ticket.capability.id();
+    let attacker_endpoint = Endpoint::builder(presets::Minimal).bind().await?;
+    let lookup = MemoryLookup::new();
+    attacker_endpoint.address_lookup()?.add(lookup.clone());
+    let mut bootstrap = Vec::new();
+    for addr in writer_ticket.nodes.iter().chain(victim_ticket.nodes.iter()) {
+        bootstrap.push(addr.id);
+        if !addr.is_empty() {
+            lookup.add_endpoint_info(addr.clone());
+        }
+    }
+    let attacker_gossip = Gossip::builder().spawn(attacker_endpoint.clone());
+    let _attacker_router = Router::builder(attacker_endpoint.clone())
+        .accept(iroh_gossip::ALPN, attacker_gossip.clone())
+        .spawn();
+    let topic = TopicId::from(namespace.to_bytes());
+    let mut topic_handle = attacker_gossip.subscribe(topic, bootstrap).await?;
+    topic_handle.joined().await?;
+    let (attacker_sender, _attacker_recv) = topic_handle.split();
+    attacker_sender
+        .broadcast(Bytes::from_static(b"not-a-valid-postcard-iroh-docs-Op"))
+        .await?;
+
+    // Give the malformed message time to reach the subscriber's receive loop before the
+    // next valid update, so that a regression (loop terminated) is actually exercised.
+    n0_future::time::sleep(Duration::from_secs(2)).await;
+
+    // node0 (writer): write k2.
+    let hash_k2 = doc0
+        .set_bytes(author0, b"k2".to_vec(), b"v2".to_vec())
+        .await?;
+
+    // node1 (subscriber): must still receive k2 over live gossip. Before the fix, the
+    // receive loop had already exited after the decode error and this update never
+    // arrived.
+    let got_k2 = wait_for_event(&mut events1, TIMEOUT, |event| {
+        matches!(event, LiveEvent::InsertRemote { entry, .. } if entry.content_hash() == hash_k2)
+    })
+    .await;
+    assert!(
+        got_k2,
+        "subscriber did not receive k2 after a malformed gossip message"
+    );
 
     for node in nodes {
         node.shutdown().await?;
@@ -1294,6 +1396,28 @@ async fn assert_next<T: std::fmt::Debug + Clone>(
     };
     let res = n0_future::time::timeout(timeout, fut).await;
     res.expect("timeout reached")
+}
+
+/// Polls `stream` until an event matching `pred` arrives or `timeout` elapses.
+///
+/// Any non-matching events received in the meantime are ignored. Returns `true` if a
+/// matching event arrived, or `false` on timeout or if the stream ended.
+async fn wait_for_event<T>(
+    mut stream: impl Stream<Item = Result<T>> + Unpin + Send,
+    timeout: Duration,
+    pred: impl Fn(&T) -> bool,
+) -> bool {
+    let fut = async {
+        while let Ok(Some(event)) = stream.try_next().await {
+            if pred(&event) {
+                return true;
+            }
+        }
+        false
+    };
+    n0_future::time::timeout(timeout, fut)
+        .await
+        .unwrap_or(false)
 }
 
 /// Receive `matchers.len()` elements from a stream and assert that each element matches one of the
