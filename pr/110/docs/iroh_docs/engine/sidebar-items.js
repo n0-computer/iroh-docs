@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DefaultAuthorStorage","LiveEvent","Origin","SyncReason"],"struct":["DefaultAuthor","Engine","ProtectCallbackHandler","SyncEvent"]};
