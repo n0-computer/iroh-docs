@@ -1384,3 +1384,153 @@ fn match_sync_finished(event: &LiveEvent, peer: PublicKey) -> bool {
     };
     e.peer == peer && e.result.is_ok()
 }
+
+/// Receive events from the stream until one matches, discarding the rest.
+/// Panics when the timeout elapses first. For scenarios where gossip emits
+/// a nondeterministic set of surrounding events (neighbor changes, repeated
+/// readiness notifications) and only one specific event is the checkpoint.
+async fn next_event_matching(
+    stream: &mut (impl Stream<Item = Result<LiveEvent>> + Unpin + Send),
+    timeout: Duration,
+    matcher: impl Fn(&LiveEvent) -> bool,
+) -> LiveEvent {
+    let fut = async {
+        loop {
+            let event = stream
+                .try_next()
+                .await
+                .expect("event stream errored")
+                .expect("event stream ended");
+            if matcher(&event) {
+                break event;
+            }
+        }
+    };
+    n0_future::time::timeout(timeout, fut)
+        .await
+        .expect("timeout waiting for matching event")
+}
+
+/// A record can arrive from a peer that does not have the record's content:
+/// the sender is a relay that received the record but never fetched the
+/// bytes. The receiver then has no provider to download from, and the
+/// content hash is parked. Unparking used to depend solely on a
+/// best-effort gossip `ContentReady` broadcast from some neighbor that
+/// downloaded the content; when no such broadcast ever comes — nobody else
+/// downloads, or the message is lost — the content starved forever, even
+/// though the receiver keeps completing sync exchanges with peers that do
+/// have the bytes. Every successful sync now retries the namespace's
+/// parked hashes against the just-synced peer, so the first sync with a
+/// peer that has the content delivers it.
+///
+/// The writer leaves the document while the receiver joins, so the record
+/// can only reach the receiver through the relay — without that, gossip
+/// may connect the receiver to the writer directly and deliver the content
+/// through an ordinary insert, masking the starvation.
+#[tokio::test]
+#[traced_test]
+async fn sync_fetches_parked_content_from_later_sync_peer() -> Result<()> {
+    let mut rng = test_rng(b"sync_fetches_parked_content_from_later_sync_peer");
+
+    // Three nodes on loopback: the test drives every exchange explicitly
+    // and must not depend on the host's external interfaces.
+    let mut nodes = Vec::new();
+    for _ in 0..3 {
+        let secret_key = SecretKey::from_bytes(&rng.random());
+        let ep = Endpoint::builder(presets::Minimal)
+            .secret_key(secret_key)
+            .bind_addr("127.0.0.1:0")?
+            .bind()
+            .await?;
+        nodes.push(Node::memory(ep).spawn().await?);
+    }
+    let (writer, relay, receiver) = (&nodes[0], &nodes[1], &nodes[2]);
+    let writer_id = writer.id();
+    let relay_id = relay.id();
+
+    // The writer holds the only copy of the content.
+    let author = writer.docs().author_create().await?;
+    let doc_writer = writer.docs().create().await?;
+    let hash = doc_writer
+        .set_bytes(author, b"k".to_vec(), b"v".to_vec())
+        .await?;
+    let ticket_writer = doc_writer
+        .share(ShareMode::Read, AddrInfoOptions::RelayAndAddresses)
+        .await?;
+
+    // The relay receives the record but never the content: its download
+    // policy forbids fetching anything, and is set before its first sync so
+    // no download can race it.
+    let doc_relay = relay
+        .docs()
+        .import_namespace(ticket_writer.capability.clone())
+        .await?;
+    doc_relay
+        .set_download_policy(DownloadPolicy::NothingExcept(vec![]))
+        .await?;
+    let mut events_relay = doc_relay.subscribe().await?;
+    doc_relay.start_sync(ticket_writer.nodes.clone()).await?;
+    next_event_matching(
+        &mut events_relay,
+        TIMEOUT,
+        |e| matches!(e, LiveEvent::InsertRemote { from, .. } if *from == writer_id),
+    )
+    .await;
+    assert!(
+        !relay.blobs().has(hash).await?,
+        "the relay's download policy must keep it content-less"
+    );
+
+    // The writer steps away: from here on the record can reach the receiver
+    // only through the relay.
+    doc_writer.leave().await?;
+
+    // The receiver learns the record from the relay — the only live peer —
+    // so the record arrives with the content missing at its sender, and the
+    // content hash parks with no usable provider.
+    let ticket_relay = doc_relay
+        .share(ShareMode::Read, AddrInfoOptions::RelayAndAddresses)
+        .await?;
+    let (doc_receiver, mut events_receiver) = receiver
+        .docs()
+        .import_and_subscribe(ticket_relay.clone())
+        .await?;
+    next_event_matching(&mut events_receiver, TIMEOUT, |e| {
+        matches!(
+            e,
+            LiveEvent::InsertRemote { from, content_status: ContentStatus::Missing, .. }
+                if *from == relay_id
+        )
+    })
+    .await;
+    assert!(
+        !receiver.blobs().has(hash).await?,
+        "the receiver cannot have content its only peer does not hold"
+    );
+
+    // The writer returns, and the receiver completes a sync with it. The
+    // sync exchanges no records — the receiver already has them all — so
+    // before the fix nothing requested the parked content and it never
+    // arrived; now the finished sync retries the parked hash against the
+    // writer, which has the bytes.
+    doc_writer.start_sync(vec![]).await?;
+    doc_receiver.start_sync(ticket_writer.nodes.clone()).await?;
+    next_event_matching(&mut events_receiver, TIMEOUT, |e| {
+        match_sync_finished(e, writer_id)
+    })
+    .await;
+    let deadline = Instant::now() + TIMEOUT;
+    while !receiver.blobs().has(hash).await? {
+        assert!(
+            Instant::now() < deadline,
+            "parked content did not arrive from a later sync peer"
+        );
+        n0_future::time::sleep(Duration::from_millis(100)).await;
+    }
+    assert_latest(receiver.blobs(), &doc_receiver, b"k", b"v").await;
+
+    for node in nodes {
+        node.shutdown().await?;
+    }
+    Ok(())
+}
