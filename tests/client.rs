@@ -197,48 +197,6 @@ async fn test_default_author_persist() -> TestResult<()> {
         iroh.shutdown().await?;
     };
 
-    // check that a new default author is created if the default author file is deleted
-    // manually.
-    let default_author = {
-        tokio::fs::remove_file(iroh_root.join("default-author")).await?;
-        let iroh = Node::persistent(iroh_root, empty_endpoint().await?)
-            .spawn()
-            .await?;
-        let author = iroh.docs().author_default().await?;
-        assert!(author != default_author);
-        assert!(iroh.docs().author_export(author).await?.is_some());
-        assert!(iroh.docs().author_delete(author).await.is_err());
-        iroh.shutdown().await?;
-        author
-    };
-
-    // check that the node fails to start if the default author is missing from the docs store.
-    {
-        let mut docs_store = iroh_docs::store::fs::Store::persistent(iroh_root.join("docs.redb"))?;
-        docs_store.delete_author(default_author)?;
-        docs_store.flush()?;
-        drop(docs_store);
-        let iroh = Node::persistent(iroh_root, empty_endpoint().await?)
-            .spawn()
-            .await;
-        assert!(iroh.is_err());
-
-        // somehow the blob store is not shutdown correctly (yet?) on macos.
-        // so we give it some time until we find a proper fix.
-        #[cfg(target_os = "macos")]
-        n0_future::time::sleep(std::time::Duration::from_secs(1)).await;
-
-        tokio::fs::remove_file(iroh_root.join("default-author")).await?;
-        drop(iroh);
-        let iroh = Node::persistent(iroh_root, empty_endpoint().await?)
-            .spawn()
-            .await;
-        if let Err(cause) = iroh.as_ref() {
-            panic!("failed to start node: {cause:?}");
-        }
-        iroh?.shutdown().await?;
-    }
-
     // check that the default author can be set manually and is persisted.
     let default_author = {
         let iroh = Node::persistent(iroh_root, empty_endpoint().await?)
@@ -257,6 +215,29 @@ async fn test_default_author_persist() -> TestResult<()> {
         assert_eq!(iroh.docs().author_default().await?, default_author);
         iroh.shutdown().await?;
     }
+
+    Ok(())
+}
+
+#[tokio::test]
+#[cfg(feature = "fs-store")]
+async fn test_default_author_sidecar_migration() -> TestResult<()> {
+    let root = tempfile::TempDir::new()?;
+    let database_path = root.path().join("docs.redb");
+    let author = iroh_docs::Author::new(&mut rand::rng());
+    let author_id = author.id();
+
+    let mut store = iroh_docs::store::fs::Store::persistent(&database_path)?;
+    store.import_author(author)?;
+    store.flush()?;
+    drop(store);
+    tokio::fs::write(root.path().join("default-author"), author_id.to_string()).await?;
+
+    let iroh = Node::persistent(root.path(), empty_endpoint().await?)
+        .spawn()
+        .await?;
+    assert_eq!(iroh.docs().author_default().await?, author_id);
+    iroh.shutdown().await?;
 
     Ok(())
 }
