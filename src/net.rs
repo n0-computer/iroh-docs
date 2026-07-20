@@ -139,7 +139,6 @@ where
     }
 
     let namespace = state.namespace();
-    let outcome = state.into_outcome();
 
     send_stream
         .finish()
@@ -155,7 +154,7 @@ where
 
     let t_process = t_start.elapsed() - t_connect;
     span.in_scope(|| match &res {
-        Ok(_res) => {
+        Ok((_, outcome)) => {
             debug!(
                 ?t_connect,
                 ?t_process,
@@ -169,7 +168,7 @@ where
         }
     });
 
-    let namespace = res?;
+    let (namespace, outcome) = res?;
 
     let timings = Timings {
         connect: t_connect,
