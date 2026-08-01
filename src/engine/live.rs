@@ -835,9 +835,9 @@ pub struct SyncEvent {
     pub peer: PublicKey,
     /// Origin of the sync exchange
     pub origin: Origin,
-    /// Timestamp when the sync started
-    pub finished: SystemTime,
     /// Timestamp when the sync finished
+    pub finished: SystemTime,
+    /// Timestamp when the sync started
     pub started: SystemTime,
     /// Result of the sync operation
     pub result: std::result::Result<SyncDetails, String>,
