@@ -805,22 +805,31 @@ impl<'a> crate::ranger::Store<SignedEntry> for StoreInstance<'a> {
             // regular range: iter1 = x <= t < y, iter2 = none
             Ordering::Less => {
                 // iterator for entries from range.x to range.y
+                //
+                // Both endpoints come from the remote peer, so the bounds have to be
+                // clamped to our namespace; otherwise a range naming another namespace
+                // would read that document's entries out of the shared records table.
                 let start = Bound::Included(range.x().to_byte_tuple());
                 let end = Bound::Excluded(range.y().to_byte_tuple());
-                let bounds = RecordsBounds::new(start, end);
+                let bounds = RecordsBounds::new(start, end).clamp_to_namespace(&self.namespace);
                 let iter = RecordsRange::with_bounds(&tables.records, bounds)?;
                 chain_none(iter)
             }
             // split range: iter1 = start <= t < y, iter2 = x <= t <= end
             Ordering::Greater => {
                 // iterator for entries from start to range.y
+                //
+                // `from_start`/`to_end` pin only one side to our namespace, so the
+                // remote-supplied side still needs clamping.
                 let end = Bound::Excluded(range.y().to_byte_tuple());
-                let bounds = RecordsBounds::from_start(&self.namespace, end);
+                let bounds = RecordsBounds::from_start(&self.namespace, end)
+                    .clamp_to_namespace(&self.namespace);
                 let iter = RecordsRange::with_bounds(&tables.records, bounds)?;
 
                 // iterator for entries from range.x to end
                 let start = Bound::Included(range.x().to_byte_tuple());
-                let bounds = RecordsBounds::to_end(&self.namespace, start);
+                let bounds = RecordsBounds::to_end(&self.namespace, start)
+                    .clamp_to_namespace(&self.namespace);
                 let iter2 = RecordsRange::with_bounds(&tables.records, bounds)?;
 
                 iter.chain(Some(iter2).into_iter().flatten())
@@ -1047,6 +1056,57 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![key1, key2]
         );
+        Ok(())
+    }
+
+    /// `get_range` must never return entries outside the namespace it is pinned to.
+    ///
+    /// All namespaces share one records table, keyed `(namespace, author, key)`, so the
+    /// query bounds are the only thing keeping documents apart. The range in a
+    /// `RangeItem` is remote-supplied and unvalidated, and the resulting diff is echoed
+    /// straight back to the peer — so a range naming a foreign namespace must not widen
+    /// what the session can see, in any of the three orderings.
+    #[test]
+    fn get_range_stays_within_its_namespace() -> Result<()> {
+        let dbfile = tempfile::NamedTempFile::new()?;
+        let mut store = Store::persistent(dbfile.path())?;
+        let author = store.new_author(&mut rand::rng())?;
+
+        let ours = NamespaceSecret::new(&mut rand::rng());
+        let theirs = NamespaceSecret::new(&mut rand::rng());
+        store.new_replica(ours.clone())?;
+        store.new_replica(theirs.clone())?;
+        for ns in [&ours, &theirs] {
+            let mut wrapper = StoreInstance::new(ns.id(), &mut store);
+            let id = RecordIdentifier::new(ns.id(), author.id(), b"key");
+            let entry = Entry::new(id, Record::current_from_data(b"value"));
+            wrapper.entry_put(SignedEntry::from_entry(entry, ns, &author))?;
+        }
+
+        // Endpoints spanning the whole table, i.e. naming neither namespace in
+        // particular. `min < max`, so swapping them walks each of the two branches that
+        // build bounds out of remote input.
+        let min = RecordIdentifier::new(NamespaceId::from(&[0u8; 32]), author.id(), b"");
+        let max = RecordIdentifier::new(NamespaceId::from(&[255u8; 32]), author.id(), b"");
+
+        let mut wrapper = StoreInstance::new(ours.id(), &mut store);
+        for (label, range) in [
+            ("less", Range::new(min.clone(), max.clone())),
+            ("greater", Range::new(max.clone(), min.clone())),
+            ("equal", Range::new(min.clone(), min.clone())),
+        ] {
+            let leaked = wrapper
+                .get_range(range)?
+                .map(|entry| entry.map(|e| e.namespace()))
+                .collect::<Result<Vec<_>>>()?
+                .into_iter()
+                .filter(|ns| *ns != ours.id())
+                .collect::<Vec<_>>();
+            assert!(
+                leaked.is_empty(),
+                "{label} range leaked entries from another namespace: {leaked:?}"
+            );
+        }
         Ok(())
     }
 
