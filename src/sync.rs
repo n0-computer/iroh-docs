@@ -25,7 +25,7 @@ use n0_future::{
     time::{Duration, SystemTime},
     IterExt,
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 pub use crate::heads::AuthorHeads;
 use crate::{
@@ -1004,8 +1004,25 @@ const AUTHOR_BYTES: std::ops::Range<usize> = 32..64;
 const KEY_BYTES: std::ops::RangeFrom<usize> = 64..;
 
 /// The identifier of a record.
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+///
+/// Wraps `namespace || author || key`, so the buffer is always at least 64 bytes long. The
+/// accessors slice those ranges without a bounds check and rely on that, which is why
+/// [`Deserialize`] rejects anything shorter.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct RecordIdentifier(Bytes);
+
+impl<'de> Deserialize<'de> for RecordIdentifier {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let bytes = Bytes::deserialize(deserializer)?;
+        if bytes.len() < KEY_BYTES.start {
+            return Err(serde::de::Error::invalid_length(
+                bytes.len(),
+                &"a record identifier of at least 64 bytes",
+            ));
+        }
+        Ok(Self(bytes))
+    }
+}
 
 impl Default for RecordIdentifier {
     fn default() -> Self {
@@ -1464,6 +1481,21 @@ mod tests {
         let actual = store.content_hashes()?.collect::<Result<HashSet<Hash>>>()?;
         assert_eq!(actual, expected);
         Ok(())
+    }
+
+    /// A remote-supplied identifier shorter than 64 bytes must be rejected at decode time,
+    /// before the accessors slice `0..32` and `32..64` and panic the sync actor thread.
+    #[test]
+    fn test_record_identifier_rejects_short_input() {
+        let short = postcard::to_allocvec(&Bytes::from_static(b"\x01\x02")).unwrap();
+        assert!(postcard::from_bytes::<RecordIdentifier>(&short).is_err());
+
+        let id = RecordIdentifier::default();
+        let encoded = postcard::to_allocvec(&id).unwrap();
+        assert_eq!(
+            postcard::from_bytes::<RecordIdentifier>(&encoded).unwrap(),
+            id
+        );
     }
 
     #[test]
