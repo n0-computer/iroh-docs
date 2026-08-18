@@ -53,49 +53,51 @@ impl RecordsBounds {
         Self::new(Self::namespace_start(&ns), Self::namespace_end(&ns))
     }
 
-    pub fn from_start(ns: &NamespaceId, end: Bound<RecordsIdOwned>) -> Self {
-        Self::new(Self::namespace_start(ns), end)
-    }
-
-    pub fn to_end(ns: &NamespaceId, start: Bound<RecordsIdOwned>) -> Self {
-        Self::new(start, Self::namespace_end(ns))
-    }
-
-    /// Intersect these bounds with `ns`.
+    /// Returns bounds for an untrusted `start`..`end`, intersected with the keys of `ns`.
     ///
-    /// Every namespace shares the same records table, so the bounds are the only thing
-    /// keeping documents apart. Sync range endpoints arrive from the remote peer
-    /// unvalidated and may name any namespace, so they have to be intersected with the
-    /// namespace the session is pinned to: a range reaching into another document then
-    /// selects nothing instead of reading it.
-    pub fn clamp_to_namespace(self, ns: &NamespaceId) -> Self {
-        let Self(start, end) = self;
-        // Both `namespace_start` and every caller's start are `Included`; the tighter of
-        // two lower bounds is the greater one. Unexpected shapes fall back to the
-        // namespace bound, which is never wider than what was asked for.
-        let start = match (start, Self::namespace_start(ns)) {
-            (Bound::Included(remote), Bound::Included(ns_start)) => {
-                Bound::Included(remote.max(ns_start))
-            }
-            (_, ns_start) => ns_start,
+    /// Every namespace shares one records table, so the bounds are the only thing keeping
+    /// documents apart. Sync range endpoints arrive from the remote peer unvalidated and
+    /// may name any namespace, so they have to be intersected with the namespace the
+    /// session is pinned to. A range reaching into another document then selects nothing
+    /// instead of reading it.
+    ///
+    /// This is the only constructor that accepts remote input.
+    pub fn untrusted(
+        ns: &NamespaceId,
+        start: Bound<RecordsIdOwned>,
+        end: Bound<RecordsIdOwned>,
+    ) -> Self {
+        // The tighter of two lower bounds is the greater one, and vice versa for upper bounds.
+        let ns_start = (ns.to_bytes(), [0u8; 32], Bytes::new());
+        let start = match start {
+            Bound::Included(start) if start > ns_start => Bound::Included(start),
+            Bound::Excluded(start) if start >= ns_start => Bound::Excluded(start),
+            _ => Bound::Included(ns_start),
         };
-        // `namespace_end` is `Excluded`, or `Unbounded` for the last namespace, in which
-        // case the remote's own end is already within it.
+        // `namespace_end` is `Unbounded` for the last namespace, which no end can exceed.
         let end = match (end, Self::namespace_end(ns)) {
-            (Bound::Excluded(remote), Bound::Excluded(ns_end)) => {
-                Bound::Excluded(remote.min(ns_end))
+            (Bound::Unbounded, ns_end) => ns_end,
+            (end, Bound::Unbounded) => end,
+            (Bound::Included(end), Bound::Excluded(ns_end)) if end < ns_end => Bound::Included(end),
+            (Bound::Excluded(end), Bound::Excluded(ns_end)) if end <= ns_end => {
+                Bound::Excluded(end)
             }
-            (Bound::Excluded(remote), Bound::Unbounded) => Bound::Excluded(remote),
             (_, ns_end) => ns_end,
         };
-        // The intersection is empty whenever the range covers only foreign namespaces.
-        // Normalize that to a range selecting nothing, as inverted bounds are not a
-        // valid query.
-        if let (Bound::Included(s), Bound::Excluded(e)) = (&start, &end) {
-            if s >= e {
-                let empty = (ns.to_bytes(), [0u8; 32], Bytes::new());
-                return Self(Bound::Included(empty.clone()), Bound::Excluded(empty));
-            }
+        // A range naming only foreign namespaces intersects to nothing. Normalize that to an
+        // explicitly empty range: redb tolerates inverted bounds, but `RecordsBounds` is a
+        // `RangeBounds`, and `BTreeMap::range` panics on them.
+        let inverted = match (&start, &end) {
+            (Bound::Included(start), Bound::Included(end)) => start > end,
+            (
+                Bound::Included(start) | Bound::Excluded(start),
+                Bound::Included(end) | Bound::Excluded(end),
+            ) => start >= end,
+            _ => false,
+        };
+        if inverted {
+            let empty = (ns.to_bytes(), [0u8; 32], Bytes::new());
+            return Self(Bound::Included(empty.clone()), Bound::Excluded(empty));
         }
         Self(start, end)
     }
