@@ -100,7 +100,7 @@ pub(super) async fn run_alice<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
     let mut reader = FramedRead::new(reader, SyncCodec);
     let mut writer = FramedWrite::new(writer, SyncCodec);
 
-    let mut progress = Some(SyncOutcome::default());
+    let mut progress = SyncOutcome::default();
 
     // Init message
 
@@ -124,12 +124,11 @@ pub(super) async fn run_alice<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
             }
             Message::Sync(msg) => {
                 trace!("recv process message");
-                let current_progress = progress.take().unwrap();
                 let (reply, next_progress) = handle
-                    .sync_process_message(namespace, msg, peer_bytes, current_progress)
+                    .sync_process_message(namespace, msg, peer_bytes, progress)
                     .await
                     .map_err(ConnectError::sync)?;
-                progress = Some(next_progress);
+                progress = next_progress;
                 if let Some(msg) = reply {
                     trace!("send process message");
                     writer
@@ -147,7 +146,7 @@ pub(super) async fn run_alice<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
     }
 
     trace!("done");
-    Ok(progress.unwrap())
+    Ok(progress)
 }
 
 /// Runs the receiver side of the sync protocol.
@@ -166,15 +165,13 @@ where
     Fut: Future<Output = AcceptOutcome>,
 {
     let mut state = BobState::new(peer);
-    let namespace = state.run(writer, reader, handle, accept_cb).await?;
-    Ok((namespace, state.into_outcome()))
+    state.run(writer, reader, handle, accept_cb).await
 }
 
 /// State for the receiver side of the sync protocol.
 pub struct BobState {
     namespace: Option<NamespaceId>,
     peer: PublicKey,
-    progress: Option<SyncOutcome>,
 }
 
 impl BobState {
@@ -183,7 +180,6 @@ impl BobState {
         Self {
             peer,
             namespace: None,
-            progress: Some(Default::default()),
         }
     }
 
@@ -192,13 +188,16 @@ impl BobState {
     }
 
     /// Handle connection and run to end.
+    ///
+    /// On success, returns the synced namespace and the [`SyncOutcome`] for
+    /// the connection.
     pub async fn run<R, W, F, Fut>(
         &mut self,
         writer: W,
         reader: R,
         sync: SyncHandle,
         accept_cb: F,
-    ) -> Result<NamespaceId, AcceptError>
+    ) -> Result<(NamespaceId, SyncOutcome), AcceptError>
     where
         R: AsyncRead + Unpin,
         W: AsyncWrite + Unpin,
@@ -207,6 +206,7 @@ impl BobState {
     {
         let mut reader = FramedRead::new(reader, SyncCodec);
         let mut writer = FramedWrite::new(writer, SyncCodec);
+        let mut progress = SyncOutcome::default();
         while let Some(msg) = reader.next().await {
             let msg = msg.map_err(|e| self.fail(e))?;
             let next = match (msg, self.namespace.as_ref()) {
@@ -232,22 +232,15 @@ impl BobState {
                             });
                         }
                     }
-                    let last_progress = self.progress.take().unwrap();
                     let next = sync
-                        .sync_process_message(
-                            namespace,
-                            message,
-                            *self.peer.as_bytes(),
-                            last_progress,
-                        )
+                        .sync_process_message(namespace, message, *self.peer.as_bytes(), progress)
                         .await;
                     self.namespace = Some(namespace);
                     next
                 }
                 (Message::Sync(msg), Some(namespace)) => {
                     trace!("recv process message");
-                    let last_progress = self.progress.take().unwrap();
-                    sync.sync_process_message(*namespace, msg, *self.peer.as_bytes(), last_progress)
+                    sync.sync_process_message(*namespace, msg, *self.peer.as_bytes(), progress)
                         .await
                 }
                 (Message::Init { .. }, Some(_)) => {
@@ -260,8 +253,8 @@ impl BobState {
                     return Err(self.fail(anyhow!("unexpected sync abort message")));
                 }
             };
-            let (reply, progress) = next.map_err(|e| self.fail(e))?;
-            self.progress = Some(progress);
+            let (reply, next_progress) = next.map_err(|e| self.fail(e))?;
+            progress = next_progress;
             match reply {
                 Some(msg) => {
                     trace!("send process message");
@@ -276,18 +269,15 @@ impl BobState {
 
         trace!("done");
 
-        self.namespace()
-            .ok_or_else(|| self.fail(anyhow!("Stream closed before init message")))
+        let namespace = self
+            .namespace()
+            .ok_or_else(|| self.fail(anyhow!("Stream closed before init message")))?;
+        Ok((namespace, progress))
     }
 
     /// Get the namespace that is synced, if available.
     pub fn namespace(&self) -> Option<NamespaceId> {
         self.namespace
-    }
-
-    /// Consume self and get the [`SyncOutcome`] for this connection.
-    pub fn into_outcome(self) -> SyncOutcome {
-        self.progress.unwrap()
     }
 }
 
