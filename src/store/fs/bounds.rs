@@ -144,7 +144,7 @@ impl From<(Bound<RecordsIdOwned>, Bound<RecordsIdOwned>)> for RecordsBounds {
 /// Supports bounds by key.
 pub struct ByKeyBounds(Bound<RecordsByKeyIdOwned>, Bound<RecordsByKeyIdOwned>);
 impl ByKeyBounds {
-    pub fn new(ns: NamespaceId, matcher: &KeyFilter) -> Self {
+    pub fn new(ns: NamespaceId, matcher: &KeyFilter, from: Option<&[u8]>) -> Self {
         match matcher {
             KeyFilter::Any => Self::namespace(ns),
             KeyFilter::Exact(key) => {
@@ -153,7 +153,12 @@ impl ByKeyBounds {
                 Self(Bound::Included(start), Bound::Included(end))
             }
             KeyFilter::Prefix(ref prefix) => {
-                let start = Bound::Included((ns.to_bytes(), prefix.clone(), [0u8; 32]));
+                let start_key = from.unwrap_or(prefix);
+                debug_assert!(
+                    start_key.starts_with(prefix.as_ref()),
+                    "cursor `from` must start with the given prefix"
+                );
+                let start = Bound::Included((ns.to_bytes(), Bytes::copy_from_slice(start_key), [0u8; 32]));
 
                 let mut ns_end = ns.to_bytes();
                 let mut key_end = prefix.to_vec();
@@ -286,14 +291,14 @@ mod tests {
         );
         assert_eq!(bounds.end_bound(), Bound::Unbounded);
 
-        let bounds = ByKeyBounds::new(ns, &KeyFilter::Any);
+        let bounds = ByKeyBounds::new(ns, &KeyFilter::Any, None);
         assert_eq!(
             bounds.start_bound(),
             Bound::Included(&(ns.to_bytes(), Bytes::new(), [0u8; 32]))
         );
         assert_eq!(bounds.end_bound(), Bound::Unbounded);
 
-        let bounds = ByKeyBounds::new(ns, &KeyFilter::Prefix(vec![1u8].into()));
+        let bounds = ByKeyBounds::new(ns, &KeyFilter::Prefix(vec![1u8].into()), None);
         assert_eq!(
             bounds.start_bound(),
             Bound::Included(&(ns.to_bytes(), vec![1u8].into(), [0u8; 32]))
@@ -303,7 +308,7 @@ mod tests {
             Bound::Excluded(&(ns.to_bytes(), vec![2u8].into(), [0u8; 32]))
         );
 
-        let bounds = ByKeyBounds::new(ns, &KeyFilter::Prefix(vec![255u8].into()));
+        let bounds = ByKeyBounds::new(ns, &KeyFilter::Prefix(vec![255u8].into()), None);
         assert_eq!(
             bounds.start_bound(),
             Bound::Included(&(ns.to_bytes(), vec![255u8].into(), [0u8; 32]))
@@ -313,7 +318,7 @@ mod tests {
         let ns = NamespaceId::from(&[2u8; 32]);
         let mut ns_end = ns.to_bytes();
         ns_end[31] = 3u8;
-        let bounds = ByKeyBounds::new(ns, &KeyFilter::Prefix(vec![255u8].into()));
+        let bounds = ByKeyBounds::new(ns, &KeyFilter::Prefix(vec![255u8].into()), None);
         assert_eq!(
             bounds.start_bound(),
             Bound::Included(&(ns.to_bytes(), vec![255u8].into(), [0u8; 32]))
@@ -323,7 +328,7 @@ mod tests {
             Bound::Excluded(&(ns_end, Bytes::new(), [0u8; 32]))
         );
 
-        let bounds = ByKeyBounds::new(ns, &KeyFilter::Exact(vec![1u8].into()));
+        let bounds = ByKeyBounds::new(ns, &KeyFilter::Exact(vec![1u8].into()), None);
         assert_eq!(
             bounds.start_bound(),
             Bound::Included(&(ns.to_bytes(), vec![1u8].into(), [0u8; 32]))
@@ -331,6 +336,26 @@ mod tests {
         assert_eq!(
             bounds.end_bound(),
             Bound::Included(&(ns.to_bytes(), vec![1u8].into(), [255u8; 32]))
+        );
+    }
+
+    #[test]
+    fn by_key_bounds_prefix_from_cursor() {
+        let ns = NamespaceId::from(&[1u8; 32]);
+
+        let bounds = ByKeyBounds::new(ns, &KeyFilter::Prefix(vec![b'e', b'v', b't', b':'].into()), Some(b"evt:01JABC..."));
+        assert_eq!(
+            bounds.start_bound(),
+            Bound::Included(&(ns.to_bytes(), Bytes::from_static(b"evt:01JABC..."), [0u8; 32])),
+            "lower bound should be the cursor, not the prefix"
+        );
+
+        let mut key_end = b"evt:".to_vec();
+        increment_by_one(&mut key_end);
+        assert_eq!(
+            bounds.end_bound(),
+            Bound::Excluded(&(ns.to_bytes(), Bytes::from(key_end), [0u8; 32])),
+            "upper bound should still be prefix+1"
         );
     }
 }

@@ -14,6 +14,8 @@ pub enum IndexKind {
         range: KeyFilter,
         author_filter: AuthorFilter,
         latest_per_key: bool,
+        /// When set, the lower bound for the prefix scan.
+        from: Option<bytes::Bytes>,
     },
 }
 
@@ -25,6 +27,7 @@ impl From<&Query> for IndexKind {
                     range: query.filter_key.clone(),
                     author_filter: AuthorFilter::Any,
                     latest_per_key: false,
+                    from: query.from.clone(),
                 },
                 _ => IndexKind::AuthorKey {
                     range: query.filter_author.clone(),
@@ -35,6 +38,7 @@ impl From<&Query> for IndexKind {
                 range: query.filter_key.clone(),
                 author_filter: query.filter_author.clone(),
                 latest_per_key: true,
+                from: query.from.clone(),
             },
         }
     }

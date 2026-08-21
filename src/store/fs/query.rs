@@ -63,8 +63,9 @@ impl QueryIterator {
                 range,
                 author_filter,
                 latest_per_key,
+                from,
             } => {
-                let bounds = ByKeyBounds::new(namespace, &range);
+                let bounds = ByKeyBounds::new(namespace, &range, from.as_deref());
                 let range =
                     RecordsByKeyRange::with_bounds(tables.records_by_key, tables.records, bounds)?;
                 let selector = latest_per_key.then(LatestPerKeySelector::default);

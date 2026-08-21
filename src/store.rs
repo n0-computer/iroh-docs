@@ -171,6 +171,7 @@ pub struct QueryBuilder<K> {
     offset: u64,
     include_empty: bool,
     sort_direction: SortDirection,
+    from: Option<Bytes>,
 }
 
 impl<K> QueryBuilder<K> {
@@ -187,6 +188,22 @@ impl<K> QueryBuilder<K> {
     /// Filter by key prefix.
     pub fn key_prefix(mut self, key: impl AsRef<[u8]>) -> Self {
         self.filter_key = KeyFilter::Prefix(key.as_ref().to_vec().into());
+        self
+    }
+    /// Filter by key prefix, starting from a cursor position.
+    ///
+    /// Only keys at or after `from` will be returned. The seek is performed
+    /// at the B-tree level (O(log n)). Requires `SortBy::KeyAuthor` ordering
+    /// to use the by-key index, otherwise `from` is ignored.
+    ///
+    /// The `from` value must start with the given prefix for correct results.
+    pub fn key_prefix_from(
+        mut self,
+        prefix: impl AsRef<[u8]>,
+        from: impl AsRef<[u8]>,
+    ) -> Self {
+        self.filter_key = KeyFilter::Prefix(prefix.as_ref().to_vec().into());
+        self.from = Some(from.as_ref().to_vec().into());
         self
     }
     /// Filter by author.
@@ -258,6 +275,7 @@ impl From<QueryBuilder<SingleLatestPerKeyQuery>> for Query {
             offset: builder.offset,
             include_empty: builder.include_empty,
             sort_direction: builder.sort_direction,
+            from: builder.from,
         }
     }
 }
@@ -272,6 +290,7 @@ impl From<QueryBuilder<FlatQuery>> for Query {
             offset: builder.offset,
             include_empty: builder.include_empty,
             sort_direction: builder.sort_direction,
+            from: builder.from,
         }
     }
 }
@@ -287,6 +306,10 @@ pub struct Query {
     offset: u64,
     include_empty: bool,
     sort_direction: SortDirection,
+    /// When set together with a `KeyFilter::Prefix`, the cursor position
+    /// from which the prefix scan starts. Keys strictly before this
+    /// position are skipped at the B-tree level (O(log n) seek).
+    pub(crate) from: Option<Bytes>,
 }
 
 impl Query {
