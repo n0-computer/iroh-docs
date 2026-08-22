@@ -885,8 +885,26 @@ impl<'a> crate::ranger::Store<SignedEntry> for StoreInstance<'a> {
 
                 predicate(&record)
             };
-            let iter = tables.records.extract_from_if(bounds.as_ref(), cb)?;
-            let count = iter.count();
+            // Collect the keys to remove first, draining the iterator (which performs the
+            // deletion from `records`) so the `tables.records` borrow is released before we
+            // touch `tables.records_by_key`.
+            let removed: Vec<([u8; 32], [u8; 32], Vec<u8>)> = tables
+                .records
+                .extract_from_if(bounds.as_ref(), cb)?
+                .map(|res| {
+                    res.map(|(k, _v)| {
+                        let (namespace, author, key) = k.value();
+                        (*namespace, *author, key.to_vec())
+                    })
+                })
+                .collect::<Result<_, _>>()?;
+            let count = removed.len();
+            // Keep the by-key index in sync: it is keyed `(namespace, key, author)`.
+            for (namespace, author, key) in &removed {
+                tables
+                    .records_by_key
+                    .remove((namespace, key.as_slice(), author))?;
+            }
             Ok(count)
         })
     }
@@ -1383,6 +1401,116 @@ mod tests {
 
         let _store = Store::persistent(&path)?;
         assert!(!backup.exists());
+        Ok(())
+    }
+
+    /// `remove_prefix_filtered` must keep the `records_by_key` index 1:1 with `records`,
+    /// removing the index rows for every record it deletes and leaving unrelated prefixes alone.
+    #[test]
+    fn test_remove_prefix_filtered_cleans_by_key_index() -> Result<()> {
+        use redb::ReadableTableMetadata;
+
+        let dbfile = tempfile::NamedTempFile::new()?;
+        let mut store = Store::persistent(dbfile.path())?;
+        let author = store.new_author(&mut rand::rng())?;
+        let namespace = NamespaceSecret::new(&mut rand::rng());
+        let _replica = store.new_replica(namespace.clone())?;
+        store.close_replica(namespace.id());
+
+        let mut wrapper = StoreInstance::new(namespace.id(), &mut store);
+        for i in 0..8 {
+            let id = RecordIdentifier::new(namespace.id(), author.id(), format!("events/{i}"));
+            let entry = Entry::new(id, Record::current_from_data(format!("v{i}")));
+            let entry = SignedEntry::from_entry(entry, &namespace, &author);
+            wrapper.entry_put(entry)?;
+        }
+        // An unrelated record under a different prefix that must survive the delete.
+        let id = RecordIdentifier::new(namespace.id(), author.id(), "config/x");
+        let entry = Entry::new(id, Record::current_from_data("keep"));
+        let entry = SignedEntry::from_entry(entry, &namespace, &author);
+        wrapper.entry_put(entry)?;
+
+        // Both tables must hold one row per record before we delete anything.
+        {
+            let tables = wrapper.store.tables()?;
+            assert_eq!(tables.records.len()?, 9);
+            assert_eq!(tables.records_by_key.len()?, 9);
+        }
+
+        // Delete the `events/` prefix through the production path.
+        let prefix = RecordIdentifier::new(namespace.id(), author.id(), "events/");
+        let removed = wrapper.remove_prefix_filtered(&prefix, |_| true)?;
+        assert_eq!(removed, 8);
+
+        let tables = wrapper.store.tables()?;
+        assert_eq!(
+            tables.records.len()?,
+            1,
+            "only the unrelated `config/x` record should remain",
+        );
+        assert_eq!(
+            tables.records_by_key.len()?,
+            tables.records.len()?,
+            "records_by_key index out of sync with records after remove_prefix_filtered",
+        );
+
+        Ok(())
+    }
+
+    /// `Replica::delete_prefix` must keep the `records_by_key` index 1:1 with `records`.
+    #[tokio::test]
+    async fn test_delete_prefix_keeps_by_key_index_in_sync() -> Result<()> {
+        use redb::ReadableTableMetadata;
+
+        let dbfile = tempfile::NamedTempFile::new()?;
+        let mut store = Store::persistent(dbfile.path())?;
+        let author = store.new_author(&mut rand::rng())?;
+        let namespace = NamespaceSecret::new(&mut rand::rng());
+
+        // Insert a batch of records under a common prefix plus one unrelated record.
+        let mut replica = store.new_replica(namespace.clone())?;
+        for i in 0..10 {
+            replica
+                .hash_and_insert(format!("events/{i}"), &author, format!("value-{i}"))
+                .await?;
+        }
+        replica
+            .hash_and_insert("config/keep", &author, b"keep")
+            .await?;
+        drop(replica);
+
+        // Sanity check: index and records are in sync before deleting (11 records).
+        {
+            let tables = store.tables()?;
+            assert_eq!(tables.records.len()?, 11);
+            assert_eq!(tables.records_by_key.len()?, 11);
+        }
+
+        // Bulk-delete the prefix. This routes through `remove_prefix_filtered`.
+        let mut replica = store.new_replica(namespace.clone())?;
+        let deleted = replica.delete_prefix("events/", &author).await?;
+        assert_eq!(deleted, 10, "all 10 prefixed records should be removed");
+        drop(replica);
+
+        // `records` now holds the surviving `config/keep` record plus the empty `events/` delete
+        // marker, and the index must match it exactly.
+        {
+            let tables = store.tables()?;
+            assert_eq!(
+                tables.records_by_key.len()?,
+                tables.records.len()?,
+                "records_by_key index out of sync with records after delete_prefix",
+            );
+            assert_eq!(tables.records.len()?, 2);
+        }
+
+        // The surviving record is still reachable; the empty delete marker is filtered out.
+        let keys: Vec<_> = store
+            .get_many(namespace.id(), Query::all())?
+            .map(|e| e.map(|e| e.key().to_vec()))
+            .collect::<Result<_>>()?;
+        assert_eq!(keys, vec![b"config/keep".to_vec()]);
+
         Ok(())
     }
 }
