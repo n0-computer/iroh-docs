@@ -132,8 +132,7 @@ impl DocsApi {
 
     /// Returns the default document author of this node.
     ///
-    /// On persistent nodes, the author is created on first start and its public key is saved
-    /// in the data directory.
+    /// On persistent nodes, the author is created on first start and saved in the docs database.
     ///
     /// The default author can be set with [`Self::author_set_default`].
     pub async fn author_default(&self) -> Result<AuthorId> {
@@ -145,8 +144,8 @@ impl DocsApi {
     ///
     /// If the author does not exist, an error is returned.
     ///
-    /// On a persistent node, the author id will be saved to a file in the data directory and
-    /// reloaded after a restart.
+    /// On a persistent node, the author id is saved in the docs database and reloaded after a
+    /// restart.
     pub async fn author_set_default(&self, author_id: AuthorId) -> Result<()> {
         self.inner
             .rpc(AuthorSetDefaultRequest { author_id })

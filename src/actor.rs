@@ -55,6 +55,23 @@ enum Action {
         #[debug("reply")]
         reply: oneshot::Sender<Result<()>>,
     },
+    #[display("DefaultAuthor")]
+    DefaultAuthor {
+        #[debug("reply")]
+        reply: oneshot::Sender<Result<Option<AuthorId>>>,
+    },
+    #[display("InitializeDefaultAuthor")]
+    InitializeDefaultAuthor {
+        author: Author,
+        #[debug("reply")]
+        reply: oneshot::Sender<Result<AuthorId>>,
+    },
+    #[display("SetDefaultAuthor")]
+    SetDefaultAuthor {
+        author: AuthorId,
+        #[debug("reply")]
+        reply: oneshot::Sender<Result<()>>,
+    },
     #[display("NewReplica")]
     ImportNamespace {
         capability: Capability,
@@ -555,6 +572,26 @@ impl SyncHandle {
         rx.await?
     }
 
+    pub(crate) async fn default_author(&self) -> Result<Option<AuthorId>> {
+        let (reply, rx) = oneshot::channel();
+        self.send(Action::DefaultAuthor { reply }).await?;
+        rx.await?
+    }
+
+    pub(crate) async fn initialize_default_author(&self, author: Author) -> Result<AuthorId> {
+        let (reply, rx) = oneshot::channel();
+        self.send(Action::InitializeDefaultAuthor { author, reply })
+            .await?;
+        rx.await?
+    }
+
+    pub(crate) async fn set_default_author(&self, author: AuthorId) -> Result<()> {
+        let (reply, rx) = oneshot::channel();
+        self.send(Action::SetDefaultAuthor { author, reply })
+            .await?;
+        rx.await?
+    }
+
     pub async fn import_namespace(&self, capability: Capability) -> Result<NamespaceId> {
         let (reply, rx) = oneshot::channel();
         self.send(Action::ImportNamespace { capability, reply })
@@ -733,6 +770,13 @@ impl Actor {
             }
             Action::DeleteAuthor { author, reply } => {
                 send_reply(reply, self.store.delete_author(author))
+            }
+            Action::DefaultAuthor { reply } => send_reply(reply, self.store.default_author()),
+            Action::InitializeDefaultAuthor { author, reply } => {
+                send_reply(reply, self.store.initialize_default_author(author))
+            }
+            Action::SetDefaultAuthor { author, reply } => {
+                send_reply(reply, self.store.set_default_author(author))
             }
             Action::ImportNamespace { capability, reply } => send_reply_with(reply, self, |this| {
                 let id = capability.id();

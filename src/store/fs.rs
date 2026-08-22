@@ -8,7 +8,7 @@ use std::{
     ops::Bound,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use iroh::{KeyParsingError, PublicKey};
 use iroh_blobs::Hash;
 use n0_future::time::SystemTime;
@@ -46,7 +46,7 @@ use self::{
     ranges::RangeExt,
     tables::{
         LatestPerAuthorKey, LatestPerAuthorValue, ReadOnlyTables, RecordsId, RecordsTable,
-        RecordsValue, Tables, TransactionAndTables,
+        RecordsValue, Tables, TransactionAndTables, DEFAULT_AUTHOR_KEY,
     },
 };
 
@@ -100,6 +100,29 @@ fn open_database(path: &std::path::Path) -> Result<Database> {
 }
 
 #[cfg(feature = "fs-store")]
+fn load_legacy_default_author(path: &std::path::Path) -> Result<Option<AuthorId>> {
+    use std::str::FromStr;
+
+    use anyhow::Context;
+
+    if !path.exists() {
+        return Ok(None);
+    }
+    let data = std::fs::read_to_string(path).with_context(|| {
+        format!(
+            "Failed to read the default author file at `{}`",
+            path.display()
+        )
+    })?;
+    AuthorId::from_str(&data).map(Some).with_context(|| {
+        format!(
+            "Failed to parse the default author from `{}`",
+            path.display()
+        )
+    })
+}
+
+#[cfg(feature = "fs-store")]
 fn is_redb_v2_tuple_mismatch(err: &anyhow::Error) -> bool {
     err.chain().any(|e| {
         matches!(
@@ -117,7 +140,7 @@ impl Store {
 
     fn memory_impl() -> Result<Self> {
         let db = Database::builder().create_with_backend(redb::backends::InMemoryBackend::new())?;
-        Self::new_impl(db)
+        Self::new_impl(db, || Ok(None))
     }
 
     /// Create or open a store from a `path` to a database file.
@@ -126,15 +149,18 @@ impl Store {
     #[cfg(feature = "fs-store")]
     pub fn persistent(path: impl AsRef<std::path::Path>) -> Result<Self> {
         let path = path.as_ref();
+        let legacy_author_path = path.with_file_name("default-author");
         let db = open_database(path)?;
-        match Self::new_impl(db) {
+        match Self::new_impl(db, || load_legacy_default_author(&legacy_author_path)) {
             Ok(store) => Ok(store),
             Err(err) if is_redb_v2_tuple_mismatch(&err) => {
                 #[cfg(feature = "redb-v2-migration")]
                 {
                     info!("redb 2.x tuple format detected, running migration");
                     migrate_redb_v2_tuples::run(path)?;
-                    Self::new_impl(open_database(path)?)
+                    Self::new_impl(open_database(path)?, || {
+                        load_legacy_default_author(&legacy_author_path)
+                    })
                 }
                 #[cfg(not(feature = "redb-v2-migration"))]
                 {
@@ -148,14 +174,17 @@ impl Store {
         }
     }
 
-    fn new_impl(db: redb::Database) -> Result<Self> {
+    fn new_impl(
+        db: redb::Database,
+        legacy_default_author: impl FnOnce() -> Result<Option<AuthorId>>,
+    ) -> Result<Self> {
         // Setup all tables
         let write_tx = db.begin_write()?;
         let _ = Tables::new(&write_tx)?;
         write_tx.commit()?;
 
         // Run database migrations
-        migrations::run_migrations(&db)?;
+        migrations::run_migrations(&db, legacy_default_author)?;
 
         Ok(Store {
             db,
@@ -398,9 +427,58 @@ impl Store {
         })
     }
 
+    pub(crate) fn default_author(&mut self) -> Result<Option<AuthorId>> {
+        let tables = self.tables()?;
+        let Some(value) = tables.config.get(DEFAULT_AUTHOR_KEY)? else {
+            return Ok(None);
+        };
+        let author: AuthorId = (*value.value()).into();
+        if tables.authors.get(author.as_bytes())?.is_none() {
+            bail!("The default author is missing from the docs store");
+        }
+        Ok(Some(author))
+    }
+
+    pub(crate) fn initialize_default_author(&mut self, author: Author) -> Result<AuthorId> {
+        let id = author.id();
+        self.modify(|tables| {
+            if let Some(value) = tables.config.get(DEFAULT_AUTHOR_KEY)? {
+                let existing: AuthorId = (*value.value()).into();
+                if tables.authors.get(existing.as_bytes())?.is_none() {
+                    bail!("The default author is missing from the docs store");
+                }
+                return Ok(existing);
+            }
+            tables.authors.insert(id.as_bytes(), &author.to_bytes())?;
+            tables.config.insert(DEFAULT_AUTHOR_KEY, id.as_bytes())?;
+            Ok(id)
+        })
+    }
+
+    pub(crate) fn set_default_author(&mut self, author: AuthorId) -> Result<()> {
+        self.modify(|tables| {
+            if tables.authors.get(author.as_bytes())?.is_none() {
+                bail!("The author does not exist");
+            }
+            tables
+                .config
+                .insert(DEFAULT_AUTHOR_KEY, author.as_bytes())?;
+            Ok(())
+        })
+    }
+
     /// Delete an author.
+    ///
+    /// Returns an error if the author is the current default author. Set a
+    /// different default author first.
     pub fn delete_author(&mut self, author: AuthorId) -> Result<()> {
         self.modify(|tables| {
+            if let Some(value) = tables.config.get(DEFAULT_AUTHOR_KEY)? {
+                let default: AuthorId = (*value.value()).into();
+                if default == author {
+                    bail!("The author is the default author and cannot be deleted");
+                }
+            }
             tables.authors.remove(author.as_bytes())?;
             Ok(())
         })
@@ -1359,6 +1437,21 @@ mod tests {
             assert_eq!(entries[0].0.value(), (&ns, key, &author));
         }
 
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "fs-store")]
+    fn test_default_author_in_database() -> Result<()> {
+        let dbfile = tempfile::NamedTempFile::new()?;
+        let mut store = Store::persistent(dbfile.path())?;
+        let author = Author::new(&mut rand::rng());
+        let author_id = store.initialize_default_author(author)?;
+        store.flush()?;
+        drop(store);
+
+        let mut store = Store::persistent(dbfile.path())?;
+        assert_eq!(store.default_author()?, Some(author_id));
         Ok(())
     }
 

@@ -4,7 +4,7 @@
 
 use std::sync::{Arc, RwLock};
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use iroh::{Endpoint, EndpointAddr, PublicKey};
 use iroh_blobs::{
     api::{blobs::BlobStatus, downloader::Downloader, Store},
@@ -66,7 +66,6 @@ impl Engine {
         replica_store: crate::store::Store,
         bao_store: iroh_blobs::api::Store,
         downloader: Downloader,
-        default_author_storage: DefaultAuthorStorage,
         protect_cb: Option<ProtectCallbackHandler>,
     ) -> anyhow::Result<Self> {
         let (live_actor_tx, to_live_actor_recv) = mpsc::channel(ACTOR_CHANNEL_CAP);
@@ -132,7 +131,7 @@ impl Engine {
             .instrument(error_span!("sync", %me)),
         );
 
-        let default_author = match DefaultAuthor::load(default_author_storage, &sync).await {
+        let default_author = match DefaultAuthor::load(&sync).await {
             Ok(author) => author,
             Err(err) => {
                 // If loading the default author failed, make sure to shutdown the sync actor before
@@ -338,116 +337,26 @@ impl LiveEvent {
     }
 }
 
-/// Where to persist the default author.
-///
-/// If set to `Mem`, a new author will be created in the docs store before spawning the sync
-/// engine. Changing the default author will not be persisted.
-///
-/// If set to `Persistent`, the default author will be loaded from and persisted to the specified
-/// path (as hex encoded string of the author's public key).
-#[derive(Debug)]
-pub enum DefaultAuthorStorage {
-    /// Memory storage.
-    Mem,
-    /// File based persistent storage.
-    #[cfg(feature = "fs-store")]
-    Persistent(std::path::PathBuf),
-}
-
-impl DefaultAuthorStorage {
-    /// Load the default author from the storage.
-    ///
-    /// Will create and save a new author if the storage is empty.
-    ///
-    /// Returns an error if the author can't be parsed or if the uathor does not exist in the docs
-    /// store.
-    pub async fn load(&self, docs_store: &SyncHandle) -> anyhow::Result<AuthorId> {
-        match self {
-            Self::Mem => {
-                let author = Author::new(&mut rand::rng());
-                let author_id = author.id();
-                docs_store.import_author(author).await?;
-                Ok(author_id)
-            }
-            #[cfg(feature = "fs-store")]
-            Self::Persistent(ref path) => {
-                use std::str::FromStr;
-
-                use anyhow::Context;
-                if path.exists() {
-                    let data = tokio::fs::read_to_string(path).await.with_context(|| {
-                        format!(
-                            "Failed to read the default author file at `{}`",
-                            path.to_string_lossy()
-                        )
-                    })?;
-                    let author_id = AuthorId::from_str(&data).with_context(|| {
-                        format!(
-                            "Failed to parse the default author from `{}`",
-                            path.to_string_lossy()
-                        )
-                    })?;
-                    if docs_store.export_author(author_id).await?.is_none() {
-                        bail!(
-                            "The default author is missing from the docs store. To recover, delete the file `{}`. Then iroh will create a new default author.",
-                            path.to_string_lossy()
-                        )
-                    }
-                    Ok(author_id)
-                } else {
-                    let author = Author::new(&mut rand::rng());
-                    let author_id = author.id();
-                    docs_store.import_author(author).await?;
-                    // Make sure to write the default author to the store
-                    // *before* we write the default author ID file.
-                    // Otherwise the default author ID file is effectively a dangling reference.
-                    docs_store.flush_store().await?;
-                    self.persist(author_id).await?;
-                    Ok(author_id)
-                }
-            }
-        }
-    }
-
-    /// Save a new default author.
-    pub async fn persist(&self, #[allow(unused)] author_id: AuthorId) -> anyhow::Result<()> {
-        match self {
-            Self::Mem => {
-                // persistence is not possible for the mem storage so this is a noop.
-            }
-            #[cfg(feature = "fs-store")]
-            Self::Persistent(ref path) => {
-                use anyhow::Context;
-                tokio::fs::write(path, author_id.to_string())
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "Failed to write the default author to `{}`",
-                            path.to_string_lossy()
-                        )
-                    })?;
-            }
-        }
-        Ok(())
-    }
-}
-
 /// Persistent default author for a docs engine.
 #[derive(Debug)]
 pub struct DefaultAuthor {
     value: RwLock<AuthorId>,
-    storage: DefaultAuthorStorage,
 }
 
 impl DefaultAuthor {
     /// Load the default author from storage.
     ///
     /// If the storage is empty creates a new author and persists it.
-    pub async fn load(storage: DefaultAuthorStorage, docs_store: &SyncHandle) -> Result<Self> {
-        let value = storage.load(docs_store).await?;
+    pub async fn load(docs_store: &SyncHandle) -> Result<Self> {
+        let value = match docs_store.default_author().await? {
+            Some(author) => author,
+            None => {
+                let author = Author::new(&mut rand::rng());
+                docs_store.initialize_default_author(author).await?
+            }
+        };
         Ok(Self {
             value: RwLock::new(value),
-            storage,
         })
     }
 
@@ -458,10 +367,7 @@ impl DefaultAuthor {
 
     /// Set the default author.
     pub async fn set(&self, author_id: AuthorId, docs_store: &SyncHandle) -> Result<()> {
-        if docs_store.export_author(author_id).await?.is_none() {
-            bail!("The author does not exist");
-        }
-        self.storage.persist(author_id).await?;
+        docs_store.set_default_author(author_id).await?;
         *self.value.write().unwrap() = author_id;
         Ok(())
     }

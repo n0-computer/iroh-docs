@@ -15,6 +15,11 @@ use crate::PeerIdBytes;
 /// Value: `[u8; 32]` # Author
 pub const AUTHORS_TABLE: TableDefinition<&[u8; 32], &[u8; 32]> = TableDefinition::new("authors-1");
 
+pub const CONFIG_TABLE: TableDefinition<&str, &[u8; 32]> = TableDefinition::new("config-1");
+
+/// Key in [`CONFIG_TABLE`] holding the id of the default author.
+pub const DEFAULT_AUTHOR_KEY: &str = "default-author";
+
 /// Table: Namespaces v1 (replaced by Namespaces v2 in migration )
 /// Key:   `[u8; 32]` # NamespaceId
 /// Value: `[u8; 32]` # NamespaceSecret
@@ -121,6 +126,7 @@ pub struct Tables<'tx> {
     pub namespace_peers: MultimapTable<'tx, &'static [u8; 32], (Nanos, &'static PeerIdBytes)>,
     pub download_policy: Table<'tx, &'static [u8; 32], &'static [u8]>,
     pub authors: Table<'tx, &'static [u8; 32], &'static [u8; 32]>,
+    pub config: Table<'tx, &'static str, &'static [u8; 32]>,
 }
 
 impl<'tx> Tables<'tx> {
@@ -132,6 +138,7 @@ impl<'tx> Tables<'tx> {
         let namespace_peers = tx.open_multimap_table(NAMESPACE_PEERS_TABLE)?;
         let download_policy = tx.open_table(DOWNLOAD_POLICY_TABLE)?;
         let authors = tx.open_table(AUTHORS_TABLE)?;
+        let config = tx.open_table(CONFIG_TABLE)?;
         Ok(Self {
             records,
             records_by_key,
@@ -140,6 +147,7 @@ impl<'tx> Tables<'tx> {
             namespace_peers,
             download_policy,
             authors,
+            config,
         })
     }
 }
@@ -154,6 +162,7 @@ pub struct ReadOnlyTables {
     pub namespace_peers: ReadOnlyMultimapTable<&'static [u8; 32], (Nanos, &'static PeerIdBytes)>,
     pub download_policy: ReadOnlyTable<&'static [u8; 32], &'static [u8]>,
     pub authors: ReadOnlyTable<&'static [u8; 32], &'static [u8; 32]>,
+    pub config: ReadOnlyTable<&'static str, &'static [u8; 32]>,
     tx: ReadTransaction,
 }
 
@@ -166,6 +175,7 @@ impl ReadOnlyTables {
         let namespace_peers = tx.open_multimap_table(NAMESPACE_PEERS_TABLE)?;
         let download_policy = tx.open_table(DOWNLOAD_POLICY_TABLE)?;
         let authors = tx.open_table(AUTHORS_TABLE)?;
+        let config = tx.open_table(CONFIG_TABLE)?;
         Ok(Self {
             records,
             records_by_key,
@@ -174,6 +184,7 @@ impl ReadOnlyTables {
             namespace_peers,
             download_policy,
             authors,
+            config,
             tx,
         })
     }
