@@ -497,6 +497,11 @@ impl LiveActor {
         match result {
             Err(ConnectError::RemoteAbort(AbortReason::AlreadySyncing)) => {
                 debug!(?reason, "remote abort, already syncing");
+                // The remote refused our dial because it sees an exchange with us already
+                // running. Nothing else will finish the dial recorded in our state, so clear
+                // it — otherwise this (namespace, peer) pair stays `Running` forever and every
+                // later sync trigger for it is silently dropped.
+                self.state.abort_connect(&namespace, peer, reason);
             }
             res => {
                 self.on_sync_finished(
