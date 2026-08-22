@@ -166,8 +166,15 @@ pub struct LiveActor {
     running_sync_accept: JoinSet<SyncAcceptRes>,
     /// Running download futures.
     download_tasks: JoinSet<DownloadRes>,
-    /// Content hashes which are wanted but not yet queued because no provider was found.
-    missing_hashes: HashSet<Hash>,
+    /// Content hashes which are wanted but not yet queued because no provider was found,
+    /// keyed by the namespace whose entry wants them (the namespace drives retries on
+    /// sync-finished and keeps `PendingContentReady` attribution correct).
+    missing_hashes: HashSet<(NamespaceId, Hash)>,
+    /// Queued content whose running download should be retried once if it fails: a fresh
+    /// provider was registered (through a finished sync) after the running download had
+    /// already snapshotted its provider set, so the provider is only reachable by a new
+    /// download attempt.
+    retry_after_failure: HashSet<(NamespaceId, Hash)>,
     /// Content hashes queued in downloader.
     queued_hashes: QueuedHashes,
     /// Nodes known to have a hash
@@ -214,6 +221,7 @@ impl LiveActor {
             download_tasks: Default::default(),
             state: Default::default(),
             missing_hashes: Default::default(),
+            retry_after_failure: Default::default(),
             queued_hashes: Default::default(),
             hash_providers: Default::default(),
             metrics,
@@ -566,6 +574,38 @@ impl LiveActor {
                     debug!(%e, "failed to register peer for document")
                 }
 
+                // Retry content that is still missing for this namespace: the peer we
+                // just synced with is a fresh provider candidate. Entries whose records
+                // arrive ahead of their content are parked in `missing_hashes` and are
+                // otherwise unparked only by a best-effort gossip `ContentReady`
+                // broadcast — if that one message is lost, the content would starve
+                // until an unrelated insert. `start_download` skips content that
+                // arrived in the meantime and dedupes in-flight downloads. Content
+                // already being downloaded gets the peer registered as a provider,
+                // and the download is retried once if it fails: the running attempt
+                // snapshotted its provider set before this peer joined it.
+                let queued: Vec<Hash> = self
+                    .queued_hashes
+                    .by_namespace
+                    .get(&namespace)
+                    .map(|hashes| hashes.iter().copied().collect())
+                    .unwrap_or_default();
+                let parked: Vec<Hash> = self
+                    .missing_hashes
+                    .iter()
+                    .filter(|(ns, _)| *ns == namespace)
+                    .map(|(_, hash)| *hash)
+                    .collect();
+                for hash in parked {
+                    debug!(peer=%peer.fmt_short(), %hash, "retrying parked content");
+                    self.start_download(namespace, hash, peer, true).await;
+                }
+                for hash in queued {
+                    debug!(peer=%peer.fmt_short(), %hash, "registering sync peer for queued content");
+                    self.retry_after_failure.insert((namespace, hash));
+                    self.start_download(namespace, hash, peer, true).await;
+                }
+
                 // broadcast a sync report to our neighbors, but only if we received new entries.
                 if details.outcome.num_recv > 0 {
                     info!("broadcast sync report to neighbors");
@@ -651,6 +691,7 @@ impl LiveActor {
         let completed_namespaces = self.queued_hashes.remove_hash(&hash);
         debug!(namespace=%namespace.fmt_short(), success=res.is_ok(), completed_namespaces=completed_namespaces.len(), "download ready");
         if res.is_ok() {
+            self.retry_after_failure.retain(|(_, h)| *h != hash);
             self.subscribers
                 .send(&namespace, Event::ContentReady { hash })
                 .await;
@@ -658,7 +699,14 @@ impl LiveActor {
             self.broadcast_neighbors(namespace, &Op::ContentReady(hash))
                 .await;
         } else {
-            self.missing_hashes.insert(hash);
+            self.missing_hashes.insert((namespace, hash));
+            if self.retry_after_failure.remove(&(namespace, hash)) {
+                // A provider was registered while the failed download was already
+                // running with an older provider snapshot: retry once with the
+                // enriched set.
+                debug!(%hash, "retrying failed download with providers registered meanwhile");
+                self.queue_download(namespace, hash, true).await;
+            }
         }
         for namespace in completed_namespaces.iter() {
             if let Some(true) = self.state.may_emit_ready(namespace) {
@@ -732,7 +780,7 @@ impl LiveActor {
                         let node_id = PublicKey::from_bytes(&from)?;
                         self.start_download(namespace, hash, node_id, false).await;
                     } else {
-                        self.missing_hashes.insert(hash);
+                        self.missing_hashes.insert((namespace, hash));
                     }
                 }
             }
@@ -748,11 +796,6 @@ impl LiveActor {
         node: PublicKey,
         only_if_missing: bool,
     ) {
-        let entry_status = self.bao_store.blobs().status(hash).await;
-        if matches!(entry_status, Ok(BlobStatus::Complete { .. })) {
-            self.missing_hashes.remove(&hash);
-            return;
-        }
         self.hash_providers
             .0
             .lock()
@@ -760,9 +803,20 @@ impl LiveActor {
             .entry(hash)
             .or_default()
             .insert(node);
+        self.queue_download(namespace, hash, only_if_missing).await;
+    }
+
+    /// Queue a download for `hash` from the providers registered so far, unless the
+    /// content is already complete or a download is already running.
+    async fn queue_download(&mut self, namespace: NamespaceId, hash: Hash, only_if_missing: bool) {
+        let entry_status = self.bao_store.blobs().status(hash).await;
+        if matches!(entry_status, Ok(BlobStatus::Complete { .. })) {
+            self.missing_hashes.remove(&(namespace, hash));
+            return;
+        }
         if self.queued_hashes.contains_hash(&hash) {
             self.queued_hashes.insert(hash, namespace);
-        } else if !only_if_missing || self.missing_hashes.contains(&hash) {
+        } else if !only_if_missing || self.missing_hashes.contains(&(namespace, hash)) {
             let req = DownloadRequest::new(
                 HashAndFormat::raw(hash),
                 self.hash_providers.clone(),
@@ -771,7 +825,7 @@ impl LiveActor {
             let handle = self.downloader.download_with_opts(req);
 
             self.queued_hashes.insert(hash, namespace);
-            self.missing_hashes.remove(&hash);
+            self.missing_hashes.remove(&(namespace, hash));
             self.download_tasks.spawn(async move {
                 (
                     namespace,
