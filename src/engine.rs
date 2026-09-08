@@ -60,6 +60,7 @@ impl Engine {
     ///
     /// This will spawn two tokio tasks for the live sync coordination and gossip actors, and a
     /// thread for the actor interacting with doc storage.
+    #[allow(clippy::too_many_arguments)]
     pub async fn spawn(
         endpoint: Endpoint,
         gossip: Gossip,
@@ -68,6 +69,7 @@ impl Engine {
         downloader: Downloader,
         default_author_storage: DefaultAuthorStorage,
         protect_cb: Option<ProtectCallbackHandler>,
+        incomplete_blob_check_interval: Option<std::time::Duration>,
     ) -> anyhow::Result<Self> {
         let (live_actor_tx, to_live_actor_recv) = mpsc::channel(ACTOR_CHANNEL_CAP);
         let me = endpoint.id().fmt_short().to_string();
@@ -122,6 +124,7 @@ impl Engine {
             to_live_actor_recv,
             live_actor_tx.clone(),
             sync.metrics().clone(),
+            incomplete_blob_check_interval,
         )?;
         let actor_handle = n0_future::task::spawn(
             async move {

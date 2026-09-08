@@ -100,6 +100,8 @@ impl Builder {
         if let Some(protect_cb) = protect_cb {
             docs_builder = docs_builder.protect_handler(protect_cb);
         }
+        // Scan on every sync in tests (deterministic); production debounces.
+        docs_builder = docs_builder.incomplete_blob_check_interval(std::time::Duration::ZERO);
         let docs = match docs_builder
             .spawn(self.endpoint.clone(), blobs.clone(), gossip.clone())
             .await

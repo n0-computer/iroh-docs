@@ -31,6 +31,7 @@ use crate::{
         connect_and_sync, handle_connection, AbortReason, AcceptError, AcceptOutcome, ConnectError,
         SyncFinished,
     },
+    store::Query,
     AuthorHeads, ContentStatus, NamespaceId, SignedEntry,
 };
 
@@ -168,10 +169,20 @@ pub struct LiveActor {
     download_tasks: JoinSet<DownloadRes>,
     /// Content hashes which are wanted but not yet queued because no provider was found.
     missing_hashes: HashSet<Hash>,
+    /// Hashes for which a provider was signalled while a download for them was already
+    /// running. The running download does not see providers added after it started, so a
+    /// failure of that download is retried once with the providers known by then.
+    retry_after_failure: HashSet<Hash>,
     /// Content hashes queued in downloader.
     queued_hashes: QueuedHashes,
     /// Nodes known to have a hash
     hash_providers: ProviderNodes,
+    /// Per-blob backoff so a blob with no provider isn't re-requested on every re-scan.
+    blob_recheck_backoff: HashMap<Hash, BlobRecheckBackoff>,
+    /// Last incomplete-blob scan time per (namespace, peer), to debounce the scan.
+    last_incomplete_check: HashMap<(NamespaceId, PublicKey), n0_future::time::Instant>,
+    /// Minimum interval between incomplete-blob scans per (namespace, peer); zero scans every sync.
+    incomplete_blob_check_interval: std::time::Duration,
 
     /// Subscribers to actor events
     subscribers: SubscribersMap,
@@ -192,6 +203,7 @@ impl LiveActor {
         inbox: mpsc::Receiver<ToLiveActor>,
         sync_actor_tx: mpsc::Sender<ToLiveActor>,
         metrics: Arc<Metrics>,
+        incomplete_blob_check_interval: Option<std::time::Duration>,
     ) -> Result<Self> {
         let (replica_events_tx, replica_events_rx) = async_channel::bounded(1024);
         let gossip_state = GossipState::new(gossip, sync.clone(), sync_actor_tx.clone());
@@ -214,8 +226,13 @@ impl LiveActor {
             download_tasks: Default::default(),
             state: Default::default(),
             missing_hashes: Default::default(),
+            retry_after_failure: Default::default(),
             queued_hashes: Default::default(),
             hash_providers: Default::default(),
+            blob_recheck_backoff: Default::default(),
+            last_incomplete_check: Default::default(),
+            incomplete_blob_check_interval: incomplete_blob_check_interval
+                .unwrap_or(DEFAULT_INCOMPLETE_BLOB_CHECK_DEBOUNCE),
             metrics,
         })
     }
@@ -582,6 +599,9 @@ impl LiveActor {
                         }
                     }
                 }
+
+                // Queue downloads for entries with incomplete blobs.
+                self.check_incomplete_blobs(namespace, peer).await;
             }
         };
 
@@ -649,8 +669,10 @@ impl LiveActor {
         res: Result<(), anyhow::Error>,
     ) {
         let completed_namespaces = self.queued_hashes.remove_hash(&hash);
-        debug!(namespace=%namespace.fmt_short(), success=res.is_ok(), completed_namespaces=completed_namespaces.len(), "download ready");
+        debug!(namespace=%namespace.fmt_short(), hash=%hash.fmt_short(), success=res.is_ok(), error=?res.as_ref().err(), completed_namespaces=completed_namespaces.len(), "download ready");
         if res.is_ok() {
+            // Recovered: drop the re-request backoff.
+            self.blob_recheck_backoff.remove(&hash);
             self.subscribers
                 .send(&namespace, Event::ContentReady { hash })
                 .await;
@@ -659,6 +681,17 @@ impl LiveActor {
                 .await;
         } else {
             self.missing_hashes.insert(hash);
+            // The downloader snapshots its provider list when a download starts. If a
+            // provider was signalled while this download was running (for example the
+            // author's direct copy or a `ContentReady` arriving while the after-sync re-scan
+            // was already trying a peer without the content), that provider was never asked.
+            // Retry once with the providers known now; a further retry needs a further signal.
+            if self.retry_after_failure.remove(&hash) {
+                if let Some(provider) = self.hash_providers.any_provider(&hash) {
+                    debug!(namespace=%namespace.fmt_short(), hash=%hash.fmt_short(), "retrying failed download with providers signalled meanwhile");
+                    self.start_download(namespace, hash, provider, false).await;
+                }
+            }
         }
         for namespace in completed_namespaces.iter() {
             if let Some(true) = self.state.may_emit_ready(namespace) {
@@ -741,6 +774,82 @@ impl LiveActor {
         Ok(())
     }
 
+    /// Scan a namespace for entries whose blobs are not yet complete and queue downloads.
+    ///
+    /// This is called after a successful sync so that blobs that were missed on earlier
+    /// syncs (e.g. because the first peer lacked the content, or due to a restart losing
+    /// the in-memory `missing_hashes` set) get another download attempt with `peer` as a
+    /// candidate provider.
+    async fn check_incomplete_blobs(&mut self, namespace: NamespaceId, peer: PublicKey) {
+        // Debounce per (namespace, peer): a newly-synced peer scans promptly, repeated syncs with
+        // the same peer collapse.
+        let debounce_key = (namespace, peer);
+        if let Some(last) = self.last_incomplete_check.get(&debounce_key) {
+            if last.elapsed() < self.incomplete_blob_check_interval {
+                return;
+            }
+        }
+        self.last_incomplete_check
+            .insert(debounce_key, n0_future::time::Instant::now());
+
+        let policy = match self.sync.get_download_policy(namespace).await {
+            Ok(policy) => policy,
+            Err(e) => {
+                warn!(%e, "failed to get download policy for incomplete blob check");
+                return;
+            }
+        };
+
+        let (tx, mut rx) = irpc::channel::mpsc::channel::<crate::api::RpcResult<SignedEntry>>(64);
+        if let Err(e) = self
+            .sync
+            .get_many(namespace, Query::all().build(), tx)
+            .await
+        {
+            warn!(%e, "failed to get entries for incomplete blob check");
+            return;
+        }
+
+        let mut queued = 0u64;
+        while let Ok(Some(entry_result)) = rx.recv().await {
+            let entry = match entry_result {
+                Ok(entry) => entry,
+                Err(_) => continue,
+            };
+            if !policy.matches(entry.entry()) {
+                continue;
+            }
+            if entry.content_len() == 0 {
+                continue;
+            }
+            let hash = entry.content_hash();
+            // Already complete: drop any stale backoff.
+            if matches!(
+                self.bao_store.blobs().status(hash).await,
+                Ok(BlobStatus::Complete { .. })
+            ) {
+                self.blob_recheck_backoff.remove(&hash);
+                continue;
+            }
+            // Always try a peer not yet offered for this hash ("retry from second peer"); only
+            // back off re-requests to peers already tried.
+            let untried_peer = !self.hash_providers.contains(&hash, &peer);
+            if untried_peer
+                || self
+                    .blob_recheck_backoff
+                    .entry(hash)
+                    .or_default()
+                    .should_request(MAX_BLOB_RECHECK_BACKOFF)
+            {
+                self.start_download(namespace, hash, peer, false).await;
+                queued += 1;
+            }
+        }
+        if queued > 0 {
+            debug!(namespace=%namespace.fmt_short(), %queued, "queued incomplete blob downloads after sync");
+        }
+    }
+
     async fn start_download(
         &mut self,
         namespace: NamespaceId,
@@ -753,15 +862,14 @@ impl LiveActor {
             self.missing_hashes.remove(&hash);
             return;
         }
-        self.hash_providers
-            .0
-            .lock()
-            .expect("poisoned")
-            .entry(hash)
-            .or_default()
-            .insert(node);
-        if self.queued_hashes.contains_hash(&hash) {
+        self.hash_providers.insert(hash, node);
+        let queued = self.queued_hashes.contains_hash(&hash);
+        debug!(namespace=%namespace.fmt_short(), hash=%hash.fmt_short(), node=%node.fmt_short(), only_if_missing, queued, missing=self.missing_hashes.contains(&hash), "start download");
+        if queued {
             self.queued_hashes.insert(hash, namespace);
+            // Any provider signal for a running download, even from a provider we already
+            // knew, means the running attempt may be stale: arm a retry on failure.
+            self.retry_after_failure.insert(hash);
         } else if !only_if_missing || self.missing_hashes.contains(&hash) {
             let req = DownloadRequest::new(
                 HashAndFormat::raw(hash),
@@ -895,8 +1003,68 @@ struct QueuedHashes {
     by_namespace: HashMap<NamespaceId, HashSet<Hash>>,
 }
 
+/// Default interval for the after-sync incomplete-blob scan when the builder does not override it.
+const DEFAULT_INCOMPLETE_BLOB_CHECK_DEBOUNCE: std::time::Duration =
+    std::time::Duration::from_secs(30);
+
+/// Cap, in re-scan passes, on the per-blob re-request backoff window.
+const MAX_BLOB_RECHECK_BACKOFF: u32 = 64;
+
+/// Per-blob exponential backoff for the incomplete-blob re-scan: request, then skip a doubling
+/// number of passes (capped at [`MAX_BLOB_RECHECK_BACKOFF`]) before the next request.
+#[derive(Debug, Default)]
+struct BlobRecheckBackoff {
+    /// Remaining re-scan passes to skip before the next re-request.
+    skip: u32,
+    /// Current backoff window in passes; doubles after each re-request up to the cap.
+    window: u32,
+}
+
+impl BlobRecheckBackoff {
+    /// Advance one re-scan pass; return whether the blob should be re-requested now.
+    fn should_request(&mut self, max_window: u32) -> bool {
+        if self.skip > 0 {
+            self.skip -= 1;
+            return false;
+        }
+        self.window = self.window.saturating_mul(2).clamp(1, max_window);
+        self.skip = self.window;
+        true
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 struct ProviderNodes(Arc<std::sync::Mutex<HashMap<Hash, HashSet<EndpointId>>>>);
+
+impl ProviderNodes {
+    /// Record `node` as a candidate provider for `hash`.
+    fn insert(&self, hash: Hash, node: EndpointId) {
+        self.0
+            .lock()
+            .expect("poisoned")
+            .entry(hash)
+            .or_default()
+            .insert(node);
+    }
+
+    /// Any node recorded as a candidate provider for `hash`, if there is one.
+    fn any_provider(&self, hash: &Hash) -> Option<EndpointId> {
+        self.0
+            .lock()
+            .expect("poisoned")
+            .get(hash)
+            .and_then(|nodes| nodes.iter().next().copied())
+    }
+
+    /// Whether `node` has already been recorded as a candidate provider for `hash`.
+    fn contains(&self, hash: &Hash, node: &EndpointId) -> bool {
+        self.0
+            .lock()
+            .expect("poisoned")
+            .get(hash)
+            .is_some_and(|nodes| nodes.contains(node))
+    }
+}
 
 impl ContentDiscovery for ProviderNodes {
     fn find_providers(&self, hash: HashAndFormat) -> n0_future::stream::Boxed<EndpointId> {
@@ -1002,5 +1170,87 @@ mod tests {
         drop(a_rx);
         drop(b_rx);
         subscribers.send(Event::NeighborUp(pk)).await;
+    }
+
+    /// Build a `LiveActor` without running its loop, so `start_download` /
+    /// `on_download_ready` can be driven directly and deterministically.
+    async fn test_actor() -> Result<LiveActor> {
+        let sync = SyncHandle::spawn(crate::store::Store::memory(), None, "test".into());
+        let endpoint = Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .bind()
+            .await?;
+        let gossip = Gossip::builder().spawn(endpoint.clone());
+        let bao_store: Store = iroh_blobs::store::mem::MemStore::new().into();
+        let downloader = bao_store.downloader(&endpoint);
+        let (tx, rx) = mpsc::channel(8);
+        LiveActor::new(
+            sync.clone(),
+            endpoint,
+            gossip,
+            bao_store,
+            downloader,
+            rx,
+            tx,
+            sync.metrics().clone(),
+            None,
+        )
+    }
+
+    /// A provider signalled while a download is already running is not seen by that download
+    /// (the downloader snapshots its provider list). A failure must then be retried once with
+    /// the providers known by then, and a failure without any new signal must park the hash.
+    #[tokio::test]
+    async fn failed_download_is_retried_with_providers_signalled_meanwhile() -> Result<()> {
+        let mut actor = test_actor().await?;
+        let namespace = crate::NamespaceSecret::new(&mut rand::rng()).id();
+        let hash = Hash::new(b"content that nobody serves");
+        let peer_a = iroh::SecretKey::from_bytes(&[1; 32]).public();
+        let peer_b = iroh::SecretKey::from_bytes(&[2; 32]).public();
+
+        // Parked hash, first signal: one download starts, nothing armed.
+        actor.missing_hashes.insert(hash);
+        actor.start_download(namespace, hash, peer_a, true).await;
+        assert_eq!(actor.download_tasks.len(), 1);
+        assert!(!actor.retry_after_failure.contains(&hash));
+
+        // Same provider signalled again while running: arms the retry (the running attempt
+        // may already have given up on it).
+        actor.start_download(namespace, hash, peer_a, true).await;
+        assert_eq!(actor.download_tasks.len(), 1);
+        assert!(actor.retry_after_failure.contains(&hash));
+        // A second provider while running.
+        actor.start_download(namespace, hash, peer_b, true).await;
+        assert!(actor.hash_providers.contains(&hash, &peer_b));
+
+        // The running download fails: retried once, flag consumed, hash still queued.
+        actor
+            .on_download_ready(namespace, hash, Err(anyhow::anyhow!("unable to download")))
+            .await;
+        assert_eq!(actor.download_tasks.len(), 2, "failure must be retried");
+        assert!(!actor.retry_after_failure.contains(&hash));
+        assert!(actor.queued_hashes.contains_hash(&hash));
+        assert!(!actor.missing_hashes.contains(&hash));
+
+        // The retry fails without any signal in between: parked, no third attempt.
+        actor
+            .on_download_ready(namespace, hash, Err(anyhow::anyhow!("unable to download")))
+            .await;
+        assert_eq!(
+            actor.download_tasks.len(),
+            2,
+            "no retry without a new signal"
+        );
+        assert!(actor.missing_hashes.contains(&hash));
+        assert!(!actor.queued_hashes.contains_hash(&hash));
+        Ok(())
+    }
+
+    #[test]
+    fn blob_recheck_backoff_is_exponential_and_capped() {
+        let max = 8;
+        let mut b = BlobRecheckBackoff::default();
+        let requested: Vec<u32> = (0..30).filter(|_| b.should_request(max)).collect();
+        // First pass requests, then gaps double (1, 2, 4, 8) and stay capped at 8.
+        assert_eq!(requested, vec![0, 2, 5, 10, 19, 28]);
     }
 }
