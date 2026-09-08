@@ -169,6 +169,10 @@ pub struct LiveActor {
     download_tasks: JoinSet<DownloadRes>,
     /// Content hashes which are wanted but not yet queued because no provider was found.
     missing_hashes: HashSet<Hash>,
+    /// Hashes for which a provider was signalled while a download for them was already
+    /// running. The running download does not see providers added after it started, so a
+    /// failure of that download is retried once with the providers known by then.
+    retry_after_failure: HashSet<Hash>,
     /// Content hashes queued in downloader.
     queued_hashes: QueuedHashes,
     /// Nodes known to have a hash
@@ -222,6 +226,7 @@ impl LiveActor {
             download_tasks: Default::default(),
             state: Default::default(),
             missing_hashes: Default::default(),
+            retry_after_failure: Default::default(),
             queued_hashes: Default::default(),
             hash_providers: Default::default(),
             blob_recheck_backoff: Default::default(),
@@ -664,7 +669,7 @@ impl LiveActor {
         res: Result<(), anyhow::Error>,
     ) {
         let completed_namespaces = self.queued_hashes.remove_hash(&hash);
-        debug!(namespace=%namespace.fmt_short(), success=res.is_ok(), completed_namespaces=completed_namespaces.len(), "download ready");
+        debug!(namespace=%namespace.fmt_short(), hash=%hash.fmt_short(), success=res.is_ok(), error=?res.as_ref().err(), completed_namespaces=completed_namespaces.len(), "download ready");
         if res.is_ok() {
             // Recovered: drop the re-request backoff.
             self.blob_recheck_backoff.remove(&hash);
@@ -676,6 +681,17 @@ impl LiveActor {
                 .await;
         } else {
             self.missing_hashes.insert(hash);
+            // The downloader snapshots its provider list when a download starts. If a
+            // provider was signalled while this download was running (for example the
+            // author's direct copy or a `ContentReady` arriving while the after-sync re-scan
+            // was already trying a peer without the content), that provider was never asked.
+            // Retry once with the providers known now; a further retry needs a further signal.
+            if self.retry_after_failure.remove(&hash) {
+                if let Some(provider) = self.hash_providers.any_provider(&hash) {
+                    debug!(namespace=%namespace.fmt_short(), hash=%hash.fmt_short(), "retrying failed download with providers signalled meanwhile");
+                    self.start_download(namespace, hash, provider, false).await;
+                }
+            }
         }
         for namespace in completed_namespaces.iter() {
             if let Some(true) = self.state.may_emit_ready(namespace) {
@@ -846,15 +862,14 @@ impl LiveActor {
             self.missing_hashes.remove(&hash);
             return;
         }
-        self.hash_providers
-            .0
-            .lock()
-            .expect("poisoned")
-            .entry(hash)
-            .or_default()
-            .insert(node);
-        if self.queued_hashes.contains_hash(&hash) {
+        self.hash_providers.insert(hash, node);
+        let queued = self.queued_hashes.contains_hash(&hash);
+        debug!(namespace=%namespace.fmt_short(), hash=%hash.fmt_short(), node=%node.fmt_short(), only_if_missing, queued, missing=self.missing_hashes.contains(&hash), "start download");
+        if queued {
             self.queued_hashes.insert(hash, namespace);
+            // Any provider signal for a running download, even from a provider we already
+            // knew, means the running attempt may be stale: arm a retry on failure.
+            self.retry_after_failure.insert(hash);
         } else if !only_if_missing || self.missing_hashes.contains(&hash) {
             let req = DownloadRequest::new(
                 HashAndFormat::raw(hash),
@@ -1022,6 +1037,25 @@ impl BlobRecheckBackoff {
 struct ProviderNodes(Arc<std::sync::Mutex<HashMap<Hash, HashSet<EndpointId>>>>);
 
 impl ProviderNodes {
+    /// Record `node` as a candidate provider for `hash`.
+    fn insert(&self, hash: Hash, node: EndpointId) {
+        self.0
+            .lock()
+            .expect("poisoned")
+            .entry(hash)
+            .or_default()
+            .insert(node);
+    }
+
+    /// Any node recorded as a candidate provider for `hash`, if there is one.
+    fn any_provider(&self, hash: &Hash) -> Option<EndpointId> {
+        self.0
+            .lock()
+            .expect("poisoned")
+            .get(hash)
+            .and_then(|nodes| nodes.iter().next().copied())
+    }
+
     /// Whether `node` has already been recorded as a candidate provider for `hash`.
     fn contains(&self, hash: &Hash, node: &EndpointId) -> bool {
         self.0
@@ -1136,6 +1170,79 @@ mod tests {
         drop(a_rx);
         drop(b_rx);
         subscribers.send(Event::NeighborUp(pk)).await;
+    }
+
+    /// Build a `LiveActor` without running its loop, so `start_download` /
+    /// `on_download_ready` can be driven directly and deterministically.
+    async fn test_actor() -> Result<LiveActor> {
+        let sync = SyncHandle::spawn(crate::store::Store::memory(), None, "test".into());
+        let endpoint = Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .bind()
+            .await?;
+        let gossip = Gossip::builder().spawn(endpoint.clone());
+        let bao_store: Store = iroh_blobs::store::mem::MemStore::new().into();
+        let downloader = bao_store.downloader(&endpoint);
+        let (tx, rx) = mpsc::channel(8);
+        LiveActor::new(
+            sync.clone(),
+            endpoint,
+            gossip,
+            bao_store,
+            downloader,
+            rx,
+            tx,
+            sync.metrics().clone(),
+            None,
+        )
+    }
+
+    /// A provider signalled while a download is already running is not seen by that download
+    /// (the downloader snapshots its provider list). A failure must then be retried once with
+    /// the providers known by then, and a failure without any new signal must park the hash.
+    #[tokio::test]
+    async fn failed_download_is_retried_with_providers_signalled_meanwhile() -> Result<()> {
+        let mut actor = test_actor().await?;
+        let namespace = crate::NamespaceSecret::new(&mut rand::rng()).id();
+        let hash = Hash::new(b"content that nobody serves");
+        let peer_a = iroh::SecretKey::from_bytes(&[1; 32]).public();
+        let peer_b = iroh::SecretKey::from_bytes(&[2; 32]).public();
+
+        // Parked hash, first signal: one download starts, nothing armed.
+        actor.missing_hashes.insert(hash);
+        actor.start_download(namespace, hash, peer_a, true).await;
+        assert_eq!(actor.download_tasks.len(), 1);
+        assert!(!actor.retry_after_failure.contains(&hash));
+
+        // Same provider signalled again while running: arms the retry (the running attempt
+        // may already have given up on it).
+        actor.start_download(namespace, hash, peer_a, true).await;
+        assert_eq!(actor.download_tasks.len(), 1);
+        assert!(actor.retry_after_failure.contains(&hash));
+        // A second provider while running.
+        actor.start_download(namespace, hash, peer_b, true).await;
+        assert!(actor.hash_providers.contains(&hash, &peer_b));
+
+        // The running download fails: retried once, flag consumed, hash still queued.
+        actor
+            .on_download_ready(namespace, hash, Err(anyhow::anyhow!("unable to download")))
+            .await;
+        assert_eq!(actor.download_tasks.len(), 2, "failure must be retried");
+        assert!(!actor.retry_after_failure.contains(&hash));
+        assert!(actor.queued_hashes.contains_hash(&hash));
+        assert!(!actor.missing_hashes.contains(&hash));
+
+        // The retry fails without any signal in between: parked, no third attempt.
+        actor
+            .on_download_ready(namespace, hash, Err(anyhow::anyhow!("unable to download")))
+            .await;
+        assert_eq!(
+            actor.download_tasks.len(),
+            2,
+            "no retry without a new signal"
+        );
+        assert!(actor.missing_hashes.contains(&hash));
+        assert!(!actor.queued_hashes.contains_hash(&hash));
+        Ok(())
     }
 
     #[test]
