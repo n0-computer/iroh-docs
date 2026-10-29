@@ -40,7 +40,7 @@ impl Docs {
     pub fn persistent(path: std::path::PathBuf) -> Builder {
         Builder {
             storage: Storage::Persistent(path),
-            protect_cb: None,
+            ..Default::default()
         }
     }
 
@@ -86,9 +86,19 @@ impl ProtocolHandler for Docs {
 pub struct Builder {
     storage: Storage,
     protect_cb: Option<ProtectCallbackHandler>,
+    incomplete_blob_check_interval: Option<std::time::Duration>,
 }
 
 impl Builder {
+    /// Minimum interval between the after-sync incomplete-blob scans of a namespace, per sync peer.
+    ///
+    /// If unset, a default debounce is used; pass [`Duration::ZERO`](std::time::Duration::ZERO) to
+    /// scan after every sync.
+    pub fn incomplete_blob_check_interval(mut self, interval: std::time::Duration) -> Self {
+        self.incomplete_blob_check_interval = Some(interval);
+        self
+    }
+
     /// Set the garbage collection protection handler for blobs.
     ///
     /// See [`ProtectCallbackHandler::new`] for details.
@@ -125,6 +135,7 @@ impl Builder {
             downloader,
             author_store,
             self.protect_cb,
+            self.incomplete_blob_check_interval,
         )
         .await?;
         Ok(Docs::new(engine))
