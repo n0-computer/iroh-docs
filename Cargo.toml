@@ -30,7 +30,7 @@ futures-buffered = "0.2.4"
 hex = "0.4"
 iroh = { version = "1", default-features = false }
 iroh-tickets = { version = "1" }
-iroh-blobs = { version = "0.103", default-features = false }
+iroh-blobs = { version = "0.104", default-features = false }
 iroh-gossip = { version = "0.101.0", features = ["net"], default-features = false }
 iroh-metrics = { version = "1", default-features = false }
 irpc = { version = "0.17", default-features = false }
